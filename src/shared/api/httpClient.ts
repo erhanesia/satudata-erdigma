@@ -93,7 +93,7 @@ instance.interceptors.response.use(
         return Promise.reject(
           new ApiError(
             'forbidden',
-            'Akun Anda berhasil diautentikasi, tetapi tidak terdaftar sebagai karyawan aktif di direktori Satu Data.',
+            'Server menolak akun Anda, kemungkinan besar karena belum terdaftar sebagai karyawan aktif di Satu Data. Hubungi administrator bila menurut Anda ini keliru.',
             apiError.status,
             apiError.detail,
           ),

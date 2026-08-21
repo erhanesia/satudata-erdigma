@@ -45,15 +45,34 @@ if (lanjutkanRender) {
   // selalu membaca "/" — persis gejala di temuan awal: kandidat mendarat di
   // Beranda meski tujuannya /datasets. Jangan "dirapikan" balik jadi import
   // statis tanpa mengulang analisis ini.
-  const { router } = await import('@/app/router/router')
+  //
+  // Konsekuensinya, import ini bisa gagal sendiri terlepas dari chunk entri —
+  // gejala klasik: index.html basi masih menunjuk hash chunk router yang sudah
+  // hilang sesudah redeploy. AppErrorBoundary belum terpasang di titik ini,
+  // jadi kegagalan ditangani manual: muat ulang sekali (index.html yang segar
+  // membawa hash yang benar), dicek lewat Navigation Timing API supaya tidak
+  // berulang kalau muat ulang pun tetap gagal.
+  try {
+    const { router } = await import('@/app/router/router')
 
-  createRoot(wadah).render(
-    <StrictMode>
-      <AppErrorBoundary>
-        <QueryProvider>
-          <RouterProvider router={router} />
-        </QueryProvider>
-      </AppErrorBoundary>
-    </StrictMode>,
-  )
+    createRoot(wadah).render(
+      <StrictMode>
+        <AppErrorBoundary>
+          <QueryProvider>
+            <RouterProvider router={router} />
+          </QueryProvider>
+        </AppErrorBoundary>
+      </StrictMode>,
+    )
+  } catch (error) {
+    console.error('Gagal memuat chunk router.', error)
+    const navigasi = performance.getEntriesByType('navigation')[0] as
+      | PerformanceNavigationTiming
+      | undefined
+    if (navigasi?.type !== 'reload') {
+      window.location.reload()
+    } else {
+      wadah.textContent = 'Gagal memuat aplikasi. Silakan muat ulang halaman.'
+    }
+  }
 }
