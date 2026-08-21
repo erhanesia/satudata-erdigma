@@ -30,9 +30,63 @@ const envSchema = z.object({
 
   /** Mode autentikasi. Lihat features/auth. */
   VITE_AUTH_MODE: z.enum(['dummy', 'cognito']).default('dummy'),
+
+  /**
+   * Domain Hosted UI Cognito, tanpa garis miring di akhir. Sama dengan yang
+   * dipakai hris-web dan Taskfy — satu user pool untuk seluruh perusahaan.
+   */
+  VITE_COGNITO_DOMAIN: z
+    .string()
+    .trim()
+    .default('')
+    .refine((v) => v === '' || /^https:\/\//.test(v), {
+      message: 'harus kosong atau diawali https://',
+    })
+    .transform((v) => v.replace(/\/+$/, '')),
+
+  /**
+   * Client id app client Cognito. Bukan rahasia: nilainya memang muncul di URL
+   * setiap kali pengguna diarahkan ke Hosted UI. Yang menjaga pertukaran kode
+   * adalah PKCE, bukan kerahasiaan nilai ini.
+   */
+  VITE_COGNITO_CLIENT_ID: z.string().trim().default(''),
+
+  /**
+   * Alamat balik setelah masuk. Kosong berarti origin halaman ini, yang benar
+   * untuk semua lingkungan selama origin-nya terdaftar di app client.
+   */
+  VITE_COGNITO_REDIRECT_URI: z
+    .string()
+    .trim()
+    .default('')
+    .transform((v) => v.replace(/\/+$/, '')),
 })
 
-const parsed = envSchema.safeParse(import.meta.env)
+/**
+ * Ketiga nilai Cognito hanya wajib saat mode-nya memang dipakai. Diperiksa di
+ * sini, bukan saat tombol masuk ditekan: konfigurasi yang kurang harus
+ * menggagalkan aplikasi saat start, bukan menyisakan tombol yang tak bereaksi.
+ */
+const skema = envSchema.superRefine((nilai, ctx) => {
+  if (nilai.VITE_AUTH_MODE !== 'cognito') return
+
+  if (!nilai.VITE_COGNITO_DOMAIN) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['VITE_COGNITO_DOMAIN'],
+      message: 'wajib diisi saat VITE_AUTH_MODE=cognito',
+    })
+  }
+  if (!nilai.VITE_COGNITO_CLIENT_ID) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['VITE_COGNITO_CLIENT_ID'],
+      message: 'wajib diisi saat VITE_AUTH_MODE=cognito',
+    })
+  }
+})
+
+const parsed = skema.safeParse(import.meta.env)
 
 if (!parsed.success) {
   const rincian = parsed.error.issues
@@ -64,6 +118,12 @@ export const env = {
   authMode: raw.VITE_AUTH_MODE,
   isDev: import.meta.env.DEV,
   isProd: import.meta.env.PROD,
+  cognito: {
+    domain: raw.VITE_COGNITO_DOMAIN,
+    clientId: raw.VITE_COGNITO_CLIENT_ID,
+    /** Kosong di sini; `cognitoStrategy` menggantinya dengan origin halaman. */
+    redirectUri: raw.VITE_COGNITO_REDIRECT_URI,
+  },
 } as const
 
 export type Env = typeof env
