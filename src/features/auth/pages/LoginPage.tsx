@@ -46,15 +46,17 @@ export default function LoginPage() {
     return <Navigate to={tujuan} replace />
   }
 
-  function mulaiMasuk() {
+  async function mulaiMasuk() {
     if (authStrategy.mode === 'dummy') {
       setPemilihTerbuka(true)
       return
     }
 
     try {
-      // Tidak pernah kembali: pemanggilan ini meninggalkan halaman.
-      authStrategy.signIn()
+      // Ditunggu: panggilannya sendiri kembali segera, pengalihan ke Hosted
+      // UI terjadi satu microtask kemudian — tanpa `await` galat sebelum itu
+      // (crypto.subtle tak ada, sessionStorage penuh) jadi unhandled rejection senyap.
+      await authStrategy.signIn()
     } catch (galat) {
       toast.show(galat instanceof Error ? galat.message : 'Gagal memulai proses masuk.')
     }

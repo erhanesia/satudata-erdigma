@@ -12,9 +12,11 @@ import { authStrategy } from '../model/authStrategy'
  * Satu jalur untuk dua sebab, jadi tidak ada versi kedua yang bisa berbeda
  * perilakunya.
  *
- * Di mode Cognito `signOut()` meninggalkan halaman menuju endpoint logout
- * Hosted UI, sehingga baris-baris setelah pemanggilan ini tidak dijalankan.
- * Pembersihan cache di bawah tetap ditulis karena mode dummy tidak ke mana-mana.
+ * Di mode Cognito, `signOut()` memanggil `window.location.assign()` ke
+ * endpoint logout Hosted UI. Itu tidak menghentikan eksekusi sinkron —
+ * baris-baris setelahnya, termasuk `queryClient.clear()` di bawah, tetap
+ * berjalan sebelum peramban benar-benar berpindah halaman. Itu memang yang
+ * diinginkan: cache harus bersih sebelum ditinggalkan, bukan sesudahnya.
  */
 export function useSignOut(): () => void {
   const queryClient = useQueryClient()

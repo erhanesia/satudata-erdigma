@@ -31,11 +31,15 @@ export interface AuthStrategy {
    * Bentuknya berbeda jauh antar-mode, dan itu memang inti dari seam ini:
    *  - `dummy`   — `identity` wajib berisi salah satu `cognitoSub` di bawah.
    *                Selesai seketika, tanpa jaringan.
-   *  - `cognito` — `identity` diabaikan. Memanggilnya me-redirect keluar
-   *                halaman ke Hosted UI dan tidak pernah kembali, jadi kode
-   *                setelah pemanggilan tidak dijalankan.
+   *  - `cognito` — `identity` diabaikan. Panggilannya sendiri kembali segera;
+   *                pengalihan ke Hosted UI baru terjadi satu microtask
+   *                kemudian (menunggu PKCE challenge dihitung). Pemanggil
+   *                wajib menunggu (`await`) promise ini untuk menangkap galat
+   *                yang bisa muncul sebelum pengalihan sempat terjadi, mis.
+   *                `crypto.subtle` tidak tersedia di origin non-HTTPS, atau
+   *                `sessionStorage.setItem` dilempar di mode privat Safari.
    */
-  signIn(identity?: string): void
+  signIn(identity?: string): void | Promise<void>
 
   /** Membersihkan sesi. Dipanggil interceptor saat menerima 401. */
   clearSession(): void

@@ -20,7 +20,6 @@ import type { AuthStrategy } from './types'
  */
 let accessToken: string | null = null
 let refreshToken: string | null = null
-let expiresAt: number | null = null
 
 /** Satu penyegaran yang sedang berjalan, dibagi ke semua pemanggil. */
 let refreshInFlight: Promise<boolean> | null = null
@@ -42,7 +41,6 @@ const SCOPE = 'email openid phone aws.cognito.signin.user.admin'
 interface BalasanToken {
   access_token: string
   refresh_token?: string
-  expires_in: number
 }
 
 function alamatBalik(): string {
@@ -52,6 +50,9 @@ function alamatBalik(): string {
 /** Halaman yang harus dibuka setelah kembali dari Hosted UI. */
 function tujuanSaatIni(): string {
   const sekarang = window.location.pathname + window.location.search
+  // Diawali "//" berarti protocol-relative, dan replaceState() menolaknya
+  // (SecurityError, dianggap lintas origin) — diperlakukan sebagai "/".
+  if (sekarang.startsWith('//')) return '/'
   // Mengembalikan orang ke /login setelah berhasil masuk hanya akan
   // memantulkannya lagi. Beranda jauh lebih masuk akal.
   return sekarang.startsWith('/login') ? '/' : sekarang
@@ -89,8 +90,19 @@ async function tukar(params: URLSearchParams): Promise<BalasanToken | null> {
       { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
     )
     return balasan.data
-  } catch {
-    // Sengaja tidak di-console.log: badan galat bisa memuat kode otorisasi.
+  } catch (galat) {
+    // Slug galat ("invalid_grant", "invalid_client", dll) aman dicatat: itu
+    // seluruh isi badan balasan Cognito. Yang TIDAK aman dicatat adalah badan
+    // *permintaan* (`error.config.data`) — kode otorisasi ada di sana. Karena
+    // itu hanya slug ini yang pernah disentuh, tidak pernah `error.config`
+    // maupun `error.response` secara utuh.
+    const slug = axios.isAxiosError(galat) ? galat.response?.data?.error : undefined
+    console.error('Pertukaran token Cognito gagal:', slug ?? 'tidak diketahui')
+    // ponytail: jaringan mati, CORS salah konfigurasi, client_id salah,
+    // redirect_uri tak terdaftar, invalid_grant, jam nge-drift — semuanya
+    // tetap pulang sebagai `null` yang sama ke pemanggil. Kalau diagnosis
+    // konfigurasi saat first deploy masih menyusahkan, naikkan jadi hasil
+    // union (mis. `{ ok: false, slug: string }`) alih-alih `null` polos.
     return null
   }
 }
@@ -100,7 +112,6 @@ function simpan(data: BalasanToken): void {
   // Cognito merotasi refresh token. Yang lama harus ditimpa — menyimpan yang
   // basi adalah cara paling pasti membuat sesi mati mendadak di tengah kerja.
   if (data.refresh_token) refreshToken = data.refresh_token
-  expiresAt = Date.now() + data.expires_in * 1000
   sessionStorage.setItem(KUNCI_PERNAH_MASUK, '1')
   notifySessionChanged()
 }
@@ -108,7 +119,6 @@ function simpan(data: BalasanToken): void {
 function lupakanToken(): void {
   accessToken = null
   refreshToken = null
-  expiresAt = null
   notifySessionChanged()
 }
 
@@ -123,9 +133,10 @@ export function lupakanPernahMasuk(): void {
 /**
  * Berangkat ke Hosted UI.
  *
- * Async karena PKCE challenge dihitung dengan `crypto.subtle`, sedangkan
- * `signIn()` pada antarmuka bersifat sinkron. Selisihnya satu tick sebelum
- * peramban berpindah halaman, dan tidak ada yang menunggu hasilnya.
+ * Async karena PKCE challenge dihitung dengan `crypto.subtle`. Promise-nya
+ * dikembalikan lewat `signIn()` di bawah (bukan didiskon dengan `void`)
+ * supaya pemanggil bisa menunggu dan menangkap galat yang terjadi sebelum
+ * peramban sempat berpindah halaman.
  */
 async function berangkat(): Promise<void> {
   const verifier = acak(64)
@@ -156,16 +167,26 @@ async function berangkat(): Promise<void> {
 /**
  * Menyelesaikan kepulangan dari Hosted UI.
  *
- * Dipanggil sekali dari `bootstrapAuth()` sebelum React dirender. Tanpa `?code`
- * di alamat, tidak melakukan apa-apa.
+ * Dipanggil sekali dari `bootstrapAuth()` sebelum React dirender.
+ *
+ * Gerbangnya bukan sekadar "ada `?code`": banyak alamat biasa juga kebetulan
+ * membawa query bernama itu (mis. `/dataset?code=BPS-3204` di aplikasi
+ * katalog data). Yang menandai ini benar-benar kepulangan dari Hosted UI
+ * adalah *state* yang tersimpan di sessionStorage dari `berangkat()` — tanpa
+ * itu, fungsi ini keluar tanpa menyentuh apa pun, termasuk tidak menulis
+ * ulang alamat. Ini sekalian melindungi mode dummy, tempat
+ * `env.cognito.domain` kosong dan pertukaran kode di bawah akan mengarah ke
+ * origin aplikasi sendiri.
  */
 export async function completeSignIn(): Promise<void> {
   const alamat = new URL(window.location.href)
   const code = alamat.searchParams.get('code')
-  if (!code) return
-
+  const error = alamat.searchParams.get('error')
   const state = alamat.searchParams.get('state')
   const stateTersimpan = sessionStorage.getItem(KUNCI_STATE)
+
+  if (!(code || error) || stateTersimpan === null) return
+
   const verifier = sessionStorage.getItem(KUNCI_VERIFIER)
   const tujuan = sessionStorage.getItem(KUNCI_TUJUAN) ?? '/'
 
@@ -176,11 +197,20 @@ export async function completeSignIn(): Promise<void> {
   sessionStorage.removeItem(KUNCI_VERIFIER)
   sessionStorage.removeItem(KUNCI_TUJUAN)
 
+  if (error) {
+    // `error_description` bisa disetel siapa pun yang menyusun alamat ini —
+    // tidak pernah dirender ke pengguna. Slug `error` sendiri berasal dari
+    // Cognito (mis. "access_denied" saat pengguna membatalkan).
+    console.error('Cognito menolak permintaan masuk:', error)
+    window.history.replaceState(null, '', '/login')
+    return
+  }
+
   // State yang tidak cocok berarti balasan ini bukan milik permintaan kita.
   // Jangan ditukar. hris-web tidak melakukan pemeriksaan ini.
-  const sah = state !== null && stateTersimpan !== null && state === stateTersimpan
+  const sah = state !== null && state === stateTersimpan
 
-  if (sah && verifier) {
+  if (sah && verifier && code) {
     const params = new URLSearchParams()
     params.append('grant_type', 'authorization_code')
     params.append('client_id', env.cognito.clientId)
@@ -247,8 +277,14 @@ export function createCognitoStrategy(): AuthStrategy {
     },
 
     signIn() {
-      // Tidak menunggu: pemanggilan ini berakhir dengan berpindah halaman.
-      void berangkat()
+      // Promise-nya dikembalikan (bukan `void berangkat()`) supaya LoginPage
+      // bisa menunggu dan menangkap galat sebelum pengalihan terjadi.
+      // ponytail: tipe antarmuka (`void | Promise<void>`) tetap mengizinkan
+      // pemanggil mengabaikan promise ini. Kalau nanti muncul pemanggil baru
+      // yang lupa `await`, galatnya kembali senyap — aktifkan
+      // `@typescript-eslint/no-floating-promises` (butuh config
+      // type-checked) kalau itu mulai kejadian.
+      return berangkat()
     },
 
     clearSession() {
@@ -272,14 +308,4 @@ export function createCognitoStrategy(): AuthStrategy {
 
     refresh: segarkan,
   }
-}
-
-/**
- * Kapan token akses kedaluwarsa, dalam epoch milidetik. Belum dipakai:
- * penyegaran saat ini dipicu oleh 401, bukan oleh jam. Disimpan karena
- * nilainya memang datang cuma-cuma bersama balasan token, dan penyegaran
- * proaktif akan membutuhkannya.
- */
-export function kedaluwarsaPada(): number | null {
-  return expiresAt
 }
