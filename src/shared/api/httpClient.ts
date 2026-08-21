@@ -3,7 +3,7 @@ import axios, { type AxiosInstance, type AxiosRequestConfig } from 'axios'
 import { authStrategy } from '@/features/auth/model/authStrategy'
 import { env } from '@/shared/config/env'
 
-import { toApiError } from './errors'
+import { ApiError, toApiError } from './errors'
 
 declare module 'axios' {
   export interface AxiosRequestConfig {
@@ -13,6 +13,13 @@ declare module 'axios' {
      * berbeda tidak boleh saling menghabiskan jatah ulang satu sama lain.
      */
     _sudahDiulang?: boolean
+    /**
+     * Penanda bahwa penyegaran token yang memicu pengulangan di atas benar-benar
+     * BERHASIL (bukan sekadar dicoba). Dipasang tepat sebelum `instance(config)`
+     * dipanggil ulang, sehingga kalau permintaan ulang ini masih dibalas 401,
+     * penanda ini yang membedakannya dari 401 pertama yang refresh-nya gagal.
+     */
+    _penyegaranBerhasil?: boolean
   }
 }
 
@@ -68,8 +75,29 @@ instance.interceptors.response.use(
         if (await authStrategy.refresh()) {
           // Header dipasang ulang oleh interceptor permintaan, yang membaca
           // token terbaru dari seam — bukan dari salinan yang sudah basi.
+          config._penyegaranBerhasil = true
           return instance(config)
         }
+      }
+
+      // 401 ini datang dari permintaan yang BARU SAJA diulang setelah
+      // penyegaran token berhasil. Penyegaran tidak mungkin berhasil dengan
+      // kredensial yang rusak, jadi ini bukan sesi yang tidak sah — ini
+      // back-end yang sengaja menolak identitas ini (mis. akun HRIS
+      // karyawan resign/nonaktif; lihat GerbangIdentitas di ProtectedRoute).
+      // Sesi masih sah: jangan clearSession(), karena itu cuma memicu
+      // ProtectedRoute mengalihkan ke /login, yang lalu memantul balik seketika
+      // lewat re-auth senyap karena cookie sesi Cognito masih hidup — bolak-balik
+      // tanpa penjelasan apa pun ke pengguna.
+      if (config?._penyegaranBerhasil) {
+        return Promise.reject(
+          new ApiError(
+            'forbidden',
+            'Akun Anda berhasil diautentikasi, tetapi tidak terdaftar sebagai karyawan aktif di direktori Satu Data.',
+            apiError.status,
+            apiError.detail,
+          ),
+        )
       }
 
       // Sesi tidak sah dan tidak bisa diselamatkan: bersihkan supaya
