@@ -17,7 +17,25 @@ if (!wadah) throw new Error('Elemen #root tidak ditemukan di index.html')
 // mengembalikan tujuan semula, sedangkan re-auth senyap justru meninggalkan
 // halaman ini sama sekali. Merender lebih dulu berarti pengguna sempat melihat
 // halaman masuk berkedip untuk sesi yang sebenarnya masih hidup.
-if (await bootstrapAuth()) {
+//
+// history.replaceState dan sessionStorage yang dipakai bootstrap bisa
+// melempar (mis. SecurityError, QuotaExceededError di mode privat) sebelum
+// sempat memutuskan render atau tidak. Halaman kosong tanpa jalan keluar
+// lebih buruk daripada diarahkan ke halaman masuk untuk mencoba lagi.
+let lanjutkanRender = true
+try {
+  lanjutkanRender = await bootstrapAuth()
+} catch (error) {
+  console.error('Bootstrap autentikasi gagal, arahkan ke halaman masuk.', error)
+  try {
+    window.history.replaceState(null, '', '/login')
+  } catch {
+    // Diabaikan: gagal dengan sebab yang sama seperti di atas. Tetap render
+    // supaya router masih bisa menangani alamat yang ada sekarang.
+  }
+}
+
+if (lanjutkanRender) {
   createRoot(wadah).render(
     <StrictMode>
       <AppErrorBoundary>
