@@ -11,12 +11,16 @@ import { authStrategy } from '../model/authStrategy'
  * halaman login terjadi lewat jalur yang sama seperti saat sesi kedaluwarsa.
  * Satu jalur untuk dua sebab, jadi tidak ada versi kedua yang bisa berbeda
  * perilakunya.
+ *
+ * Di mode Cognito `signOut()` meninggalkan halaman menuju endpoint logout
+ * Hosted UI, sehingga baris-baris setelah pemanggilan ini tidak dijalankan.
+ * Pembersihan cache di bawah tetap ditulis karena mode dummy tidak ke mana-mana.
  */
 export function useSignOut(): () => void {
   const queryClient = useQueryClient()
 
   return useCallback(() => {
-    authStrategy.clearSession()
+    authStrategy.signOut()
     // Wajib, dan wajib setelah sesi dibersihkan: cache react-query memuat data
     // per-pengguna (API key dan /me). Kalau ditinggalkan, orang berikutnya yang
     // masuk di tab yang sama akan melihat milik pendahulunya selama beberapa

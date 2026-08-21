@@ -39,6 +39,24 @@ export interface AuthStrategy {
 
   /** Membersihkan sesi. Dipanggil interceptor saat menerima 401. */
   clearSession(): void
+
+  /**
+   * Keluar atas kehendak pengguna.
+   *
+   * Berbeda dari `clearSession()`, yang dipanggil interceptor ketika server
+   * menolak sesi: di mode Cognito, `signOut()` juga mematikan sesi Hosted UI.
+   * Tanpa itu, re-auth senyap langsung memasukkan orang itu kembali dan tombol
+   * keluar tampak rusak.
+   */
+  signOut(): void
+
+  /**
+   * Menyegarkan token akses. Mengembalikan `true` bila berhasil.
+   *
+   * Opsional: mode dummy tidak punya token untuk disegarkan, dan cabang
+   * penyegaran di `httpClient` memang tidak pernah aktif di sana.
+   */
+  refresh?(): Promise<boolean>
 }
 
 /**
