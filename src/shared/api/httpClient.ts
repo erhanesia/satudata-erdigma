@@ -5,15 +5,30 @@ import { env } from '@/shared/config/env'
 
 import { toApiError } from './errors'
 
+declare module 'axios' {
+  export interface AxiosRequestConfig {
+    /**
+     * Penanda bahwa permintaan ini sudah pernah diulang setelah penyegaran
+     * token. Ditaruh di config, bukan di variabel modul: dua permintaan
+     * berbeda tidak boleh saling menghabiskan jatah ulang satu sama lain.
+     */
+    _sudahDiulang?: boolean
+  }
+}
+
 /** Ambang waktu tunggu. Permintaan yang menggantung tidak boleh membekukan UI. */
 const TIMEOUT_MS = 20_000
 
 /**
- * Klien HTTP tunggal untuk seluruh aplikasi.
- *
- * Satu-satunya berkas yang tahu soal axios. Lapisan `api/` tiap fitur memanggil
+ * Klien HTTP tunggal untuk API Satu Data. Lapisan `api/` tiap fitur memanggil
  * `apiGet`/`apiPost`/`apiDelete` di bawah, sehingga mengganti pustaka HTTP
  * kelak cukup menyentuh berkas ini.
+ *
+ * Satu pengecualian yang disengaja: `cognitoStrategy.ts` memanggil `axios`
+ * langsung ke endpoint token Cognito. Endpoint itu tidak boleh lewat klien
+ * ini karena dua interceptor di bawah akan ikut bermain — permintaan
+ * meminta token baru justru disisipi header autentikasi lama, dan 401 dari
+ * situ akan memicu penyegaran yang memanggil balik endpoint yang sama.
  */
 const instance: AxiosInstance = axios.create({
   // Kosong saat development: permintaan menjadi relatif ke origin yang sama dan
@@ -38,12 +53,27 @@ instance.interceptors.request.use((config) => {
 
 instance.interceptors.response.use(
   (response) => response,
-  (error: unknown) => {
+  async (error: unknown) => {
     const apiError = toApiError(error)
 
-    // Sesi tidak sah: bersihkan supaya permintaan berikutnya tidak mengulang
-    // kredensial yang sudah jelas ditolak.
     if (apiError.kind === 'unauthorized') {
+      const config = axios.isAxiosError(error) ? error.config : undefined
+
+      // Token akses Cognito berumur satu jam. Tanpa percobaan penyegaran ini,
+      // pengguna terlempar ke halaman masuk sejam sekali di tengah pekerjaan.
+      // Mode dummy tidak punya `refresh`, jadi cabang ini tidak aktif di sana.
+      if (authStrategy.refresh && config && !config._sudahDiulang) {
+        config._sudahDiulang = true
+
+        if (await authStrategy.refresh()) {
+          // Header dipasang ulang oleh interceptor permintaan, yang membaca
+          // token terbaru dari seam — bukan dari salinan yang sudah basi.
+          return instance(config)
+        }
+      }
+
+      // Sesi tidak sah dan tidak bisa diselamatkan: bersihkan supaya
+      // permintaan berikutnya tidak mengulang kredensial yang jelas ditolak.
       authStrategy.clearSession()
     }
 
