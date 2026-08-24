@@ -44,8 +44,10 @@ export interface AuthStrategy {
 /**
  * Identitas dummy untuk pengujian lokal.
  *
- * Daftar ini cocok dengan changeset Liquibase 00010, 00018, dan 00019 —
- * sepuluh orang, kedelapan divisi, kelima tingkat izin HRIS.
+ * Daftar ini cocok dengan changeset Liquibase 00010, 00018, 00019, dan 00032 —
+ * sepuluh karyawan awal ditambah satu akun untuk SETIAP posisi akses, supaya
+ * tiap cabang aturan "siapa boleh melihat dataset apa" bisa dibuktikan dengan
+ * masuk sebagai orangnya, bukan dengan membaca kode.
  *
  * Hanya `cognitoSub` yang benar-benar dikirim ke server. Sisanya sekadar bahan
  * tampilan untuk kartu di halaman login, karena saat itu belum ada sesi
@@ -64,6 +66,11 @@ export interface DummyIdentity {
   divisionColor: string
   role: string
   hrisLevel: string
+  /**
+   * Posisi yang menentukan dataset mana boleh dilihat — kolom
+   * `users.access_position`, milik portal ini, bukan salinan kolom HRIS.
+   */
+  accessPosition: string
   note?: string
 }
 
@@ -77,6 +84,7 @@ export const DUMMY_IDENTITIES: readonly DummyIdentity[] = [
     divisionColor: '#047857',
     role: 'ADMIN',
     hrisLevel: 'ADMIN',
+    accessPosition: 'Project Manager',
   },
   {
     cognitoSub: 'dummy-director',
@@ -87,6 +95,7 @@ export const DUMMY_IDENTITIES: readonly DummyIdentity[] = [
     divisionColor: '#047857',
     role: 'ADMIN',
     hrisLevel: 'DIRECTOR',
+    accessPosition: 'Direksi',
   },
   {
     cognitoSub: 'dummy-gm',
@@ -97,6 +106,7 @@ export const DUMMY_IDENTITIES: readonly DummyIdentity[] = [
     divisionColor: '#0F766E',
     role: 'ADMIN',
     hrisLevel: 'DIRECTOR',
+    accessPosition: 'General Manager',
   },
   {
     cognitoSub: 'dummy-corpsec',
@@ -107,6 +117,7 @@ export const DUMMY_IDENTITIES: readonly DummyIdentity[] = [
     divisionColor: '#BE123C',
     role: 'PUBLISHER',
     hrisLevel: 'CORPORATE_SECRETARY',
+    accessPosition: 'Manager',
     note: 'Satu-satunya jabatan yang namanya benar-benar tertulis di kode hris-api.',
   },
   {
@@ -118,6 +129,7 @@ export const DUMMY_IDENTITIES: readonly DummyIdentity[] = [
     divisionColor: '#7C3AED',
     role: 'PUBLISHER',
     hrisLevel: 'MANAGER',
+    accessPosition: 'Manager',
   },
   {
     cognitoSub: 'dummy-coordinator',
@@ -128,6 +140,7 @@ export const DUMMY_IDENTITIES: readonly DummyIdentity[] = [
     divisionColor: '#A21CAF',
     role: 'PUBLISHER',
     hrisLevel: 'MANAGER',
+    accessPosition: 'Team Lead',
     note: 'Jenjang terendah yang masih dihitung MANAGER oleh HRIS.',
   },
   {
@@ -139,6 +152,7 @@ export const DUMMY_IDENTITIES: readonly DummyIdentity[] = [
     divisionColor: '#047857',
     role: 'STAFF',
     hrisLevel: 'STAFF',
+    accessPosition: 'Data Analyst',
   },
   {
     cognitoSub: 'dummy-staff',
@@ -149,6 +163,7 @@ export const DUMMY_IDENTITIES: readonly DummyIdentity[] = [
     divisionColor: '#1B54C4',
     role: 'STAFF',
     hrisLevel: 'STAFF',
+    accessPosition: 'Staff',
   },
   {
     cognitoSub: 'dummy-nonstaff',
@@ -159,6 +174,110 @@ export const DUMMY_IDENTITIES: readonly DummyIdentity[] = [
     divisionColor: '#B45309',
     role: 'STAFF',
     hrisLevel: 'STAFF',
+    accessPosition: 'Magang',
+  },
+  {
+    cognitoSub: 'dummy-pos-direksi',
+    name: 'Wibowo Hartanto',
+    position: 'Direktur Operasi',
+    jobLevel: 'Direktur',
+    divisionCode: 'DNA',
+    divisionColor: '#047857',
+    role: 'ADMIN',
+    hrisLevel: 'DIRECTOR',
+    accessPosition: 'Direksi',
+    note: 'Berperan ADMIN, jadi melewati seluruh pembatasan posisi.',
+  },
+  {
+    cognitoSub: 'dummy-pos-gm',
+    name: 'Ratna Wijayanti',
+    position: 'General Manager Produk',
+    jobLevel: 'General Manager',
+    divisionCode: 'PROD',
+    divisionColor: '#0F766E',
+    role: 'ADMIN',
+    hrisLevel: 'DIRECTOR',
+    accessPosition: 'General Manager',
+    note: 'Berperan ADMIN, jadi melewati seluruh pembatasan posisi.',
+  },
+  {
+    cognitoSub: 'dummy-pos-manager',
+    name: 'Hendra Saputra',
+    position: 'Manager Infrastruktur',
+    jobLevel: 'Manager',
+    divisionCode: 'IT',
+    divisionColor: '#7C3AED',
+    role: 'PUBLISHER',
+    hrisLevel: 'MANAGER',
+    accessPosition: 'Manager',
+  },
+  {
+    cognitoSub: 'dummy-pos-pm',
+    name: 'Laras Ayuningtyas',
+    position: 'Project Manager Data & IT',
+    jobLevel: 'Junior Manager',
+    divisionCode: 'DNA',
+    divisionColor: '#047857',
+    role: 'PUBLISHER',
+    hrisLevel: 'MANAGER',
+    accessPosition: 'Project Manager',
+  },
+  {
+    cognitoSub: 'dummy-pos-lead',
+    name: 'Bimo Prakoso',
+    position: 'Team Lead Backend',
+    jobLevel: 'Supervisor',
+    divisionCode: 'PROD',
+    divisionColor: '#0F766E',
+    role: 'PUBLISHER',
+    hrisLevel: 'MANAGER',
+    accessPosition: 'Team Lead',
+  },
+  {
+    cognitoSub: 'dummy-pos-analis',
+    name: 'Kirana Melati',
+    position: 'Data Analyst',
+    jobLevel: 'Specialist',
+    divisionCode: 'DNA',
+    divisionColor: '#047857',
+    role: 'STAFF',
+    hrisLevel: 'STAFF',
+    accessPosition: 'Data Analyst',
+    note: 'Pasangan uji terbaik: BOLEH membuka dataset bertag Data Analyst.',
+  },
+  {
+    cognitoSub: 'dummy-pos-staffsenior',
+    name: 'Galih Ramadhan',
+    position: 'Analis Keuangan Senior',
+    jobLevel: 'Specialist',
+    divisionCode: 'FIN',
+    divisionColor: '#BE123C',
+    role: 'STAFF',
+    hrisLevel: 'STAFF',
+    accessPosition: 'Staff Senior',
+  },
+  {
+    cognitoSub: 'dummy-pos-staff',
+    name: 'Nabila Zahra',
+    position: 'Staf Administrasi Penjualan',
+    jobLevel: 'Staff',
+    divisionCode: 'SALES',
+    divisionColor: '#1B54C4',
+    role: 'STAFF',
+    hrisLevel: 'STAFF',
+    accessPosition: 'Staff',
+    note: 'Pasangan uji terbaik: DITOLAK pada dataset yang sama.',
+  },
+  {
+    cognitoSub: 'dummy-pos-magang',
+    name: 'Arif Setiawan',
+    position: 'Magang Sumber Daya Manusia',
+    jobLevel: 'Non Staff',
+    divisionCode: 'HR',
+    divisionColor: '#B45309',
+    role: 'STAFF',
+    hrisLevel: 'STAFF',
+    accessPosition: 'Magang',
   },
   {
     cognitoSub: 'dummy-resigned',
@@ -169,6 +288,7 @@ export const DUMMY_IDENTITIES: readonly DummyIdentity[] = [
     divisionColor: '#0EA5A0',
     role: 'STAFF',
     hrisLevel: 'STAFF',
+    accessPosition: 'Staff',
     note: 'Sengaja ditolak server (403) — untuk menguji jalur karyawan keluar.',
   },
 ] as const

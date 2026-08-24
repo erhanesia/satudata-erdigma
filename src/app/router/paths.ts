@@ -19,7 +19,15 @@ export const paths = {
   divisions: '/divisions',
   apiDocs: '/api-docs',
   status: '/status',
-  datasetUpload: '/datasets/unggah',
+
+  /**
+   * Panel admin — kerangka terpisah dari panel pengguna: sidebar gelap, tanpa
+   * footer. Rute unggah dataset dipindahkan ke sini dari `/datasets/unggah`.
+   */
+  admin: '/admin',
+  adminDatasets: '/admin/dataset',
+  adminDatasetNew: '/admin/dataset/tambah',
+  adminLog: '/admin/log',
 } as const
 
 /** Pola rute untuk react-router (bukan alamat jadi). */
@@ -33,7 +41,11 @@ export const routePatterns = {
   divisions: 'divisions',
   apiDocs: 'api-docs',
   status: 'status',
-  // Didaftarkan SEBELUM 'datasets/:slug' di router, kalau tidak
-  // "unggah" akan ditangkap sebagai slug dataset.
-  datasetUpload: 'datasets/unggah',
+
+  admin: '/admin',
+  // Relatif terhadap 'admin'. 'dataset/tambah' didaftarkan sebelum rute
+  // berparameter agar tidak pernah tertangkap sebagai nilai parameter.
+  adminDatasets: 'dataset',
+  adminDatasetNew: 'dataset/tambah',
+  adminLog: 'log',
 } as const

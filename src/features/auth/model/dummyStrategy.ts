@@ -54,10 +54,10 @@ export function createDummyStrategy(): AuthStrategy {
 
 /** Sub yang sedang dipakai, atau `null` bila belum ada yang masuk. */
 export function getDummySub(): string | null {
-  const tersimpan = sessionStorage.getItem(STORAGE_KEY)
-  if (!tersimpan) return null
+  const stored = sessionStorage.getItem(STORAGE_KEY)
+  if (!stored) return null
 
   // Nilai dari storage bisa disunting pengguna lewat DevTools. Diverifikasi
   // ulang terhadap daftar yang dikenal, bukan diteruskan mentah ke header HTTP.
-  return DUMMY_IDENTITIES.some((i) => i.cognitoSub === tersimpan) ? tersimpan : null
+  return DUMMY_IDENTITIES.some((i) => i.cognitoSub === stored) ? stored : null
 }

@@ -21,11 +21,17 @@ export type Dataset = Schemas['DatasetResponse']
 export type DatasetLite = Schemas['DatasetResponseLite']
 export type DatasetColumn = Schemas['DatasetColumnResponse']
 export type DatasetResource = Schemas['DatasetResourceResponse']
+export type DocumentText = Schemas['DocumentTextResponse']
 export type DatasetSummary = Schemas['DatasetSummaryResponse']
 export type Datastore = Schemas['DatastoreResponse']
 export type Format = Schemas['FormatResponse']
 export type Incident = Schemas['IncidentItem']
 export type Stats = Schemas['StatsResponse']
+export type DailyDownloads = Schemas['DailyDownloadResponse']
+export type AuditLog = Schemas['AuditLogResponse']
+export type AuditLogPage = Schemas['PageAuditLogResponse']
+export type DownloadLog = Schemas['DownloadLogResponse']
+export type DownloadLogPage = Schemas['PageDownloadLogResponse']
 export type Status = Schemas['StatusResponse']
 export type StatusComponent = Schemas['Component']
 export type SummaryGroup = Schemas['SummaryGroup']
@@ -34,6 +40,9 @@ export type CurrentUser = Schemas['UserResponse']
 
 /** Halaman Spring Data. `number` berbasis 0 — perhatikan saat menampilkannya. */
 export type PageOfDatasets = Schemas['PageDatasetResponseLite']
+
+/** Kata tindakan pada jejak audit: CREATE, UPDATE, PUBLISH, dan seterusnya. */
+export type AuditAction = NonNullable<AuditLog['action']>
 
 /** Peran portal Satu Data — dasar otorisasi, terpisah dari tingkat izin HRIS. */
 export type PortalRole = NonNullable<CurrentUser['role']>

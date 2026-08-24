@@ -19,7 +19,7 @@ import type { Dataset } from '@/shared/types/api'
  */
 export function ApiSnippetPanel({ dataset }: { dataset: Dataset }) {
   const slug = dataset.slug ?? ''
-  const contoh = [
+  const samples = [
     'import requests',
     '',
     'BASE = "https://api.erdigma.com"',
@@ -28,7 +28,7 @@ export function ApiSnippetPanel({ dataset }: { dataset: Dataset }) {
     'resp = requests.get(',
     '    f"{BASE}/api/v1/datasets/{SLUG}/datastore",',
     '    params={"page": 0, "size": 100},',
-    '    headers={"Authorization": "Bearer <API_KEY>"},',
+    '    headers={"Authorization": "Bearer <TOKEN>"},',
     ')',
     'rows = resp.json()["rows"]',
     'print(rows[:5])',
@@ -43,7 +43,7 @@ export function ApiSnippetPanel({ dataset }: { dataset: Dataset }) {
         </code>
       </div>
 
-      <CodeBlock code={contoh} copyKey="api-contoh" />
+      <CodeBlock code={samples} copyKey="api-contoh" />
 
       <div className="mt-4 flex flex-wrap gap-2.5">
         <Link to={paths.apiDocs}>

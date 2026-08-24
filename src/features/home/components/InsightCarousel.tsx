@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, User } from 'lucide-react'
 import { useRef, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
@@ -28,7 +28,7 @@ interface InsightItem {
   chart: ReactNode
 }
 
-const JINGGA = '#F97316'
+const ORANGE = '#F97316'
 
 const INSIGHTS: readonly InsightItem[] = [
   {
@@ -38,7 +38,7 @@ const INSIGHTS: readonly InsightItem[] = [
     chart: (
       <MiniBars
         values={[70, 52, 38, 60, 44, 58]}
-        colors={['#1D4ED8', JINGGA, '#1D4ED8', JINGGA, '#1D4ED8', JINGGA]}
+        colors={['#1D4ED8', ORANGE, '#1D4ED8', ORANGE, '#1D4ED8', ORANGE]}
       />
     ),
   },
@@ -55,7 +55,7 @@ const INSIGHTS: readonly InsightItem[] = [
     chart: (
       <MiniBars
         values={[40, 55, 48, 62, 58, 70]}
-        colors={['#BE123C', JINGGA, '#BE123C', JINGGA, '#BE123C', JINGGA]}
+        colors={['#BE123C', ORANGE, '#BE123C', ORANGE, '#BE123C', ORANGE]}
       />
     ),
   },
@@ -67,7 +67,7 @@ const INSIGHTS: readonly InsightItem[] = [
       <MiniDonut
         segments={[
           { value: 42, color: '#A21CAF' },
-          { value: 28, color: JINGGA },
+          { value: 28, color: ORANGE },
           { value: 18, color: '#0EA5A0' },
           { value: 12, color: '#FACC15' },
         ]}
@@ -87,34 +87,34 @@ const INSIGHTS: readonly InsightItem[] = [
     chart: (
       <MiniBars
         values={[60, 72, 55, 80, 68, 75]}
-        colors={['#0EA5A0', JINGGA, '#0EA5A0', JINGGA, '#0EA5A0', JINGGA]}
+        colors={['#0EA5A0', ORANGE, '#0EA5A0', ORANGE, '#0EA5A0', ORANGE]}
       />
     ),
   },
 ] as const
 
 /** Jarak satu kali tekan panah, sama dengan `scrollBy(±340)` di desain. */
-const LANGKAH = 340
+const STEP_PX = 340
 
 /**
  * Jeda animasi masuk. Nilai awalnya melanjutkan urutan hero — bilah statistik
  * mulai pada 560ms, jadi kartu pertama menyusul setelahnya. Hanya berlaku saat
  * kartu memang sudah terlihat sejak halaman dimuat; lihat `Reveal`.
  */
-const JEDA_AWAL = 660
-const JEDA_ANTAR = 70
+const FIRST_DELAY = 660
+const SLIDE_GAP = 70
 
 export function InsightCarousel() {
   const rel = useRef<HTMLDivElement>(null)
 
-  function geser(arah: -1 | 1) {
-    rel.current?.scrollBy({ left: arah * LANGKAH, behavior: 'smooth' })
+  function scrollBy(direction: -1 | 1) {
+    rel.current?.scrollBy({ left: direction * STEP_PX, behavior: 'smooth' })
   }
 
   return (
     <div className="relative">
-      <TombolGeser arah={-1} onClick={() => geser(-1)} />
-      <TombolGeser arah={1} onClick={() => geser(1)} />
+      <ScrollButton direction={-1} onClick={() => scrollBy(-1)} />
+      <ScrollButton direction={1} onClick={() => scrollBy(1)} />
 
       <div
         ref={rel}
@@ -125,7 +125,7 @@ export function InsightCarousel() {
           // snap-nya pindah ke sini — kartu di dalamnya cukup mengisi penuh.
           <Reveal
             key={item.slug}
-            delay={JEDA_AWAL + i * JEDA_ANTAR}
+            delay={FIRST_DELAY + i * SLIDE_GAP}
             className="shrink-0 basis-[300px] snap-start"
           >
             <Link
@@ -133,7 +133,7 @@ export function InsightCarousel() {
               className="border-line-200 hover:border-brand-border flex h-full flex-col gap-4 rounded-2xl border bg-white p-[22px] text-left shadow-[0_6px_20px_-12px_rgba(16,24,40,0.18)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_26px_-12px_rgba(16,24,40,0.28)]"
             >
               <div className="flex items-center gap-3.5">
-                <AvatarInsight color={item.color} />
+                <InsightAvatar color={item.color} />
                 <span className="text-ink-900 text-lg leading-[1.2] font-bold">{item.title}</span>
               </div>
 
@@ -149,34 +149,37 @@ export function InsightCarousel() {
 }
 
 /** Lingkaran 52px berikon orang — `avatar()` di desain. */
-function AvatarInsight({ color }: { color: string }) {
+function InsightAvatar({ color }: { color: string }) {
   return (
     <div
       className="flex size-[52px] shrink-0 items-center justify-center rounded-full"
       style={{ backgroundColor: color }}
       aria-hidden
     >
-      <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={1.9}>
-        <circle cx={12} cy={8} r={3.4} />
-        <path d="M5 20c0-3.6 3.1-6 7-6s7 2.4 7 6" />
-      </svg>
+      <User className="size-[26px] text-white" strokeWidth={1.9} aria-hidden />
     </div>
   )
 }
 
-function TombolGeser({ arah, onClick }: { arah: -1 | 1; onClick: () => void }) {
-  const Ikon = arah === -1 ? ChevronLeft : ChevronRight
+function ScrollButton({ direction, onClick }: { direction: -1 | 1; onClick: () => void }) {
+  const Icon = direction === -1 ? ChevronLeft : ChevronRight
 
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-label={arah === -1 ? 'Sebelumnya' : 'Berikutnya'}
-      className={`border-line-200 text-ink-600 absolute top-1/2 z-[3] flex size-10 -translate-y-1/2 items-center justify-center rounded-full border bg-white shadow-[0_4px_14px_-4px_rgba(16,24,40,0.2)] transition-colors hover:bg-[#F8FAFC] ${
-        arah === -1 ? 'left-[-14px]' : 'right-[-14px]'
+      aria-label={direction === -1 ? 'Sebelumnya' : 'Berikutnya'}
+      /*
+        Disembunyikan di ponsel. Tombolnya menjorok 14px ke luar wadah — di
+        layar lebar itu jatuh di margin, tapi pada layar sempit ia menempel ke
+        tepi dan menutupi kartu. Lagi pula tidak ada yang hilang: di perangkat
+        sentuh carousel-nya digeser dengan jari, bukan ditekan tombolnya.
+      */
+      className={`border-line-200 text-ink-600 absolute top-1/2 z-[3] hidden size-10 -translate-y-1/2 items-center justify-center rounded-full border bg-white shadow-[0_4px_14px_-4px_rgba(16,24,40,0.2)] transition-colors hover:bg-[#F8FAFC] sm:flex ${
+        direction === -1 ? 'left-[-14px]' : 'right-[-14px]'
       }`}
     >
-      <Ikon className="size-5" strokeWidth={2.4} />
+      <Icon className="size-5" strokeWidth={2.4} />
     </button>
   )
 }

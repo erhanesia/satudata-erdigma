@@ -35,10 +35,10 @@ const envSchema = z.object({
 const parsed = envSchema.safeParse(import.meta.env)
 
 if (!parsed.success) {
-  const rincian = parsed.error.issues
+  const details = parsed.error.issues
     .map((i) => `  - ${i.path.join('.')}: ${i.message}`)
     .join('\n')
-  throw new Error(`Konfigurasi lingkungan tidak sah:\n${rincian}\n\nPeriksa berkas .env Anda.`)
+  throw new Error(`Konfigurasi lingkungan tidak sah:\n${details}\n\nPeriksa berkas .env Anda.`)
 }
 
 const raw = parsed.data

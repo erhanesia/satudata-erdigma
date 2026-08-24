@@ -12,35 +12,32 @@ import { PageContainer, PageHeading } from '@/shared/components/ui/PageContainer
  * tautannya diberikan di bawah.
  */
 const ENDPOINTS = [
-  { method: 'GET', path: '/api/v1/datasets', ket: 'Daftar dataset — mendukung filter, urutan, paginasi' },
-  { method: 'GET', path: '/api/v1/datasets/{slug}', ket: 'Detail satu dataset beserta skema kolom' },
-  { method: 'GET', path: '/api/v1/datasets/{slug}/datastore', ket: 'Isi tabel dataset, berpaginasi' },
-  { method: 'GET', path: '/api/v1/datasets/{slug}/summary', ket: 'Agregat per kelompok' },
-  { method: 'GET', path: '/api/v1/datasets/{slug}/download', ket: 'Unduh berkas — butuh agreement=true' },
-  { method: 'GET', path: '/api/v1/topics', ket: 'Daftar topik' },
-  { method: 'GET', path: '/api/v1/formats', ket: 'Daftar format berkas' },
-  { method: 'GET', path: '/api/v1/divisions', ket: 'Daftar divisi kontributor' },
-  { method: 'GET', path: '/api/v1/collections', ket: 'Daftar koleksi' },
-  { method: 'GET', path: '/api/v1/stats', ket: 'Statistik ringkas portal' },
-  { method: 'GET', path: '/api/v1/status', ket: 'Status komponen layanan' },
-  { method: 'GET', path: '/api/v1/me', ket: 'Identitas pengguna yang sedang masuk' },
-  { method: 'GET', path: '/api/v1/api-keys', ket: 'Daftar API key milik sendiri' },
-  { method: 'POST', path: '/api/v1/api-keys', ket: 'Buat API key — nilai penuh muncul sekali' },
-  { method: 'DELETE', path: '/api/v1/api-keys/{id}', ket: 'Cabut API key' },
+  { method: 'GET', path: '/api/v1/datasets', note: 'Daftar dataset — mendukung filter, urutan, paginasi' },
+  { method: 'GET', path: '/api/v1/datasets/{slug}', note: 'Detail satu dataset beserta skema kolom' },
+  { method: 'GET', path: '/api/v1/datasets/{slug}/datastore', note: 'Isi tabel dataset, berpaginasi' },
+  { method: 'GET', path: '/api/v1/datasets/{slug}/summary', note: 'Agregat per kelompok' },
+  { method: 'GET', path: '/api/v1/datasets/{slug}/download', note: 'Unduh berkas — butuh agreement=true' },
+  { method: 'GET', path: '/api/v1/topics', note: 'Daftar topik' },
+  { method: 'GET', path: '/api/v1/formats', note: 'Daftar format berkas' },
+  { method: 'GET', path: '/api/v1/divisions', note: 'Daftar divisi kontributor' },
+  { method: 'GET', path: '/api/v1/collections', note: 'Daftar koleksi' },
+  { method: 'GET', path: '/api/v1/stats', note: 'Statistik ringkas portal' },
+  { method: 'GET', path: '/api/v1/status', note: 'Status komponen layanan' },
+  { method: 'GET', path: '/api/v1/me', note: 'Identitas pengguna yang sedang masuk' },
 ] as const
 
-const WARNA_METHOD: Record<string, 'success' | 'brand' | 'danger'> = {
+const METHOD_COLORS: Record<string, 'success' | 'brand' | 'danger'> = {
   GET: 'brand',
   POST: 'success',
   DELETE: 'danger',
 }
 
-const CONTOH_CURL = [
-  'curl -H "Authorization: Bearer $API_KEY" \\',
+const CURL_SAMPLE = [
+  'curl -H "Authorization: Bearer $TOKEN" \\',
   '  "https://api.erdigma.com/api/v1/datasets?topics=Penjualan&size=10"',
 ].join('\n')
 
-const CONTOH_RESPONS = `{
+const RESPONSE_SAMPLE = `{
   "content": [
     {
       "slug": "penjualan-furnitur-2025",
@@ -59,7 +56,7 @@ const CONTOH_RESPONS = `{
 
 export default function ApiDocsPage() {
   return (
-    <PageContainer className="py-10">
+    <PageContainer className="py-7 sm:py-10">
       <PageHeading
         title="Dokumentasi API"
         description="Ambil data Satu Data Erdigma langsung dari skrip atau aplikasi Anda."
@@ -72,10 +69,12 @@ export default function ApiDocsPage() {
           </CardHeader>
           <CardBody>
             <p className="text-ink-600 text-sm leading-relaxed">
-              Setiap permintaan membawa API key pada header <code className="font-mono">Authorization</code>.
-              Penerbitan kunci belum tersedia — hubungi Divisi Data &amp; Analitik untuk memintanya.
+              Portal ini tidak menerbitkan API key. Yang dipakai adalah token akun Erdigma yang
+              sama dengan yang Anda pakai masuk ke portal, dikirim pada header{' '}
+              <code className="font-mono">Authorization</code>. Dengan begitu akses lewat skrip
+              tunduk pada posisi dan divisi Anda, persis seperti akses lewat halaman.
             </p>
-            <CodeBlock code={CONTOH_CURL} copyKey="curl" className="mt-4" />
+            <CodeBlock code={CURL_SAMPLE} copyKey="curl" className="mt-4" />
           </CardBody>
         </Card>
 
@@ -103,13 +102,13 @@ export default function ApiDocsPage() {
                   {ENDPOINTS.map((e) => (
                     <tr key={`${e.method}-${e.path}`}>
                       <td className="border-line-50 border-b px-3.5 py-2.5">
-                        <Badge tone={WARNA_METHOD[e.method] ?? 'neutral'}>{e.method}</Badge>
+                        <Badge tone={METHOD_COLORS[e.method] ?? 'neutral'}>{e.method}</Badge>
                       </td>
                       <td className="border-line-50 text-ink-900 border-b px-3.5 py-2.5 font-mono text-[12.5px] whitespace-nowrap">
                         {e.path}
                       </td>
                       <td className="border-line-50 text-ink-500 border-b px-3.5 py-2.5 text-[13px]">
-                        {e.ket}
+                        {e.note}
                       </td>
                     </tr>
                   ))}
@@ -129,7 +128,7 @@ export default function ApiDocsPage() {
               <code className="font-mono">number</code> berbasis 0 — halaman pertama bernilai 0,
               bukan 1.
             </p>
-            <CodeBlock code={CONTOH_RESPONS} copyKey="respons" />
+            <CodeBlock code={RESPONSE_SAMPLE} copyKey="respons" />
           </CardBody>
         </Card>
 
@@ -140,7 +139,7 @@ export default function ApiDocsPage() {
           <CardBody>
             <p className="text-ink-600 text-sm leading-relaxed">
               Spesifikasi OpenAPI yang selalu sinkron dengan server tersedia di Swagger UI back-end.
-              Halaman ini ringkasan; kalau keduanya berbeda, Swagger yang benar.
+              Halaman ini summaryLine; kalau keduanya berbeda, Swagger yang benar.
             </p>
             <a
               href="http://localhost:8082/swagger-ui.html"

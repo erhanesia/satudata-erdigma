@@ -38,9 +38,19 @@ export interface paths {
          *     diverifikasi mesin dihitung sendiri, apa yang butuh pertanggungjawaban manusia diminta
          *     dari penerbit.
          *
-         *     Permintaan berupa **multipart** dengan dua bagian:
-         *     - `file` — berkas CSV, maksimal 10 MB
+         *     Permintaan berupa **multipart**:
+         *     - `files` — satu atau beberapa berkas (CSV, XLSX, PDF, DOCX). Maksimal 10 MB per
+         *       berkas, 40 MB seluruhnya, dan paling banyak 10 berkas.
          *     - `body` — metadata dalam JSON
+         *
+         *     **Beberapa berkas dalam satu dataset.** Yang dibaca isinya menjadi tabel hanya
+         *     **CSV pertama**; sisanya tersimpan sebagai berkas pendamping yang bisa diunduh — sama
+         *     seperti XLSX dan PDF pada dataset contoh. Dataset tanpa CSV sama sekali tetap sah:
+         *     berkasnya bisa diunduh, hanya `/datastore`-nya yang kosong.
+         *
+         *     **Keterangan tiap berkas** dikirim lewat `body.files`, dan **dipasangkan menurut
+         *     urutan** dengan bagian `files`. Jumlah keduanya harus sama persis. Boleh dikosongkan
+         *     kalau tidak perlu memberi nama sendiri.
          *
          *     **Yang dihitung sendiri, tidak perlu diisi:**
          *
@@ -49,7 +59,7 @@ export interface paths {
          *     | `slug` | dibuat dari judul bila dikosongkan |
          *     | `division` | dari akun pengunggah — tidak bisa mengaku mewakili divisi lain |
          *     | `rowCount`, `colCount`, `fileSize` | dihitung dari berkasnya |
-         *     | `format` | CSV |
+         *     | `format` | ekstensi tiap berkas |
          *     | daftar kolom, tipe data | dibaca dari header dan **isi** berkas |
          *
          *     **Soal tipe kolom:** untuk kolom di luar 17 kolom CSV penjualan furnitur, tipe data
@@ -73,46 +83,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/api-keys": {
+    "/api/v1/datasets/{slug}/reimport": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /**
-         * Daftar API key milik saya
-         * @description Seluruh key milik pengguna yang sedang login, beserta nama, waktu pembuatan, dan
-         *     waktu pemakaian terakhir.
-         *
-         *     **Nilai key-nya tidak ikut di sini** — yang tampil hanya bentuk tersamar
-         *     (`masked`). Untuk nilai penuh, panggil `GET /api/v1/api-keys/{id}/reveal` satu kunci
-         *     pada satu waktu, supaya nilai kunci tidak berhamburan di respons daftar.
-         */
-        get: operations["index_1"];
+        get?: never;
         put?: never;
         /**
-         * Buat API key baru
-         * @description Membuat kunci akses baru untuk pengguna yang sedang login.
+         * Baca ulang isi tabel dari berkas yang sudah tersimpan
+         * @description Menghapus baris dan kolom dataset ini, lalu menulisnya ulang dari berkas **CSV atau
+         *     Excel** miliknya yang sudah ada di penyimpanan. Berkasnya sendiri tidak diunggah ulang
+         *     dan tidak berubah.
          *
-         *     **Cara mengisi:** badan permintaan hanya butuh satu field, `name` — label bebas supaya
-         *     Anda ingat key itu dipakai untuk apa. Contoh:
+         *     **Kapan dipakai:**
+         *     - Dataset diunggah sebelum portal bisa membaca Excel, sehingga tabelnya kosong.
+         *     - Importir diperbaiki — penebakan tipe kolom, pemisah baru — dan dataset lama perlu
+         *       ikut menikmati perbaikannya.
          *
-         *     ```json
-         *     { "name": "Integrasi dashboard tim Sales" }
-         *     ```
-         *
-         *     `plainKey` di respons adalah nilai kuncinya. Nilai itu juga bisa dilihat lagi kapan
-         *     saja lewat `GET /api/v1/api-keys/{id}/reveal`, karena kunci disimpan terenkripsi.
-         *
-         *     Ada batas jumlah key aktif per pengguna; kalau tercapai, permintaan ditolak 400 dan
-         *     key lama harus dicabut lebih dulu.
+         *     Metadata tidak disentuh: judul, catatan, topik, tag posisi, pengunggah, dan penghitung
+         *     unduhan tetap seperti semula. Pembacaan ulangnya tercatat di log audit.
          */
-        post: operations["create_1"];
+        post: operations["reimport"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/datasets/{slug}/positions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Ganti daftar posisi yang boleh melihat
+         * @description Mengganti SELURUH tag posisi sebuah dataset dengan daftar yang dikirim. Kirim daftar
+         *     kosong untuk melepas semuanya.
+         *
+         *     Ambil nilai yang sah dari `GET /api/v1/positions`; label di luar daftar itu ditolak 400
+         *     supaya tag hasil salah ketik tidak pernah tersimpan.
+         *
+         *     **Ini mengubah hak akses, seketika.** Daftar kosong membuat dataset terbuka untuk
+         *     seluruh karyawan; daftar berisi menguncinya ke posisi-posisi itu saja. Yang tidak
+         *     berhak tidak lagi melihatnya di `GET /api/v1/datasets`, dan mendapat 403 kalau membuka
+         *     slug-nya langsung. ADMIN dan pengunggahnya sendiri selalu bisa.
+         *
+         *     Perubahannya tercatat di `GET /api/v1/audit-logs` lengkap dengan nilai sebelum dan
+         *     sesudahnya.
+         */
+        patch: operations["updatePositions"];
         trace?: never;
     };
     "/api/v1/topics": {
@@ -162,7 +192,7 @@ export interface paths {
          *     Endpoint ini berbeda dari `/actuator/health` bawaan Spring: yang ini memakai bahasa dan
          *     pengelompokan sesuai desain halaman Status, sedangkan actuator untuk pemantauan mesin.
          */
-        get: operations["index_2"];
+        get: operations["index_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -188,7 +218,71 @@ export interface paths {
          *     Nama endpoint ini sudah jamak sejak awal karena `stats` memang bentuk jamak dari
          *     *statistic*, bukan pengecualian dari konvensi.
          */
-        get: operations["index_3"];
+        get: operations["index_2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stats/downloads/daily": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Jumlah unduhan per hari
+         * @description Bahan grafik **Download harian** di dasbor admin.
+         *
+         *     **Cara tercepat:** tekan Execute tanpa mengisi apa pun — 30 hari terakhir.
+         *
+         *     **Membaca hasilnya:** `days` berisi satu baris untuk SETIAP tanggal dalam rentang,
+         *     termasuk tanggal yang jumlahnya nol. Itu disengaja: grafik garis yang melompati
+         *     tanggal sepi memperlihatkan tren yang tidak pernah terjadi.
+         *
+         *     Rentangnya berakhir hari ini, jadi baris terakhir adalah hari yang belum selesai —
+         *     wajar kalau angkanya lebih rendah dari hari sebelumnya.
+         */
+        get: operations["dailyDownloads"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/positions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Daftar posisi jabatan
+         * @description Sembilan posisi jabatan yang bisa dipakai membatasi siapa boleh melihat sebuah
+         *     dataset — isi penyaring "Akses posisi" dan isian pada form terbitkan dataset.
+         *
+         *     **Pembatasannya berlaku sungguhan.** Dataset yang diberi tag hanya bisa dibuka,
+         *     dibaca isinya, dan diunduh oleh pemilik posisi tersebut — selain ADMIN dan
+         *     pengunggahnya sendiri. Dataset tanpa tag terbuka untuk seluruh karyawan.
+         *
+         *     Posisi setiap pengguna disimpan di kolom `users.access_position`, milik portal ini.
+         *     HRIS sendiri menyimpan dua sumbu berbeda: `job_level` (enum 12 nilai) dan `position`
+         *     (teks bebas seperti "Project Manager Data & IT"). Tak satu pun cocok satu-satu dengan
+         *     sembilan label di bawah, jadi kolomnya dibuat sendiri dan nanti diisi dari HRIS lewat
+         *     pemetaan yang ditulis sekali — pola yang sama dengan `hris_permission_level`.
+         *
+         *     Karena itu daftar di bawah masih tetap (hard-coded), bukan dibaca dari tabel.
+         *
+         *     Tidak perlu login.
+         */
+        get: operations["indexPosition"];
         put?: never;
         post?: never;
         delete?: never;
@@ -231,7 +325,7 @@ export interface paths {
          *     Itu masih aman karena seluruh endpoint bersifat baca atau sudah dibatasi per-pengguna,
          *     tapi penegakan role wajib ada sebelum sisi admin dibangun.
          */
-        get: operations["index_4"];
+        get: operations["index_3"];
         put?: never;
         post?: never;
         delete?: never;
@@ -248,19 +342,76 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Daftar seluruh format berkas
-         * @description Format berkas yang tersedia di katalog: CSV, XLSX, GEOJSON, KML, dan API.
+         * Daftar seluruh jenis berkas
+         * @description Jenis berkas yang dipakai katalog ini: **CSV, XLSX, PDF, dan DOCX**.
          *
          *     Nilai `name` dari sini yang diisikan ke parameter `formats` pada
          *     `GET /api/v1/datasets`.
          *
-         *     Catatan: `API` bukan berkas — itu penanda dataset yang dialirkan langsung tanpa
-         *     unduhan. Dan **PDF belum ada di daftar ini**, padahal ada dokumen PDF di berkas
-         *     proyek; itu celah yang masih perlu diputuskan tim.
+         *     Daftarnya dirapikan pada changeset 00026. Sebelumnya memuat GEOJSON dan KML yang tidak
+         *     dipakai, serta `API` yang sebenarnya bukan jenis berkas melainkan cara pengiriman —
+         *     keadaan itu sudah punya penandanya sendiri, yaitu `realtime` pada dataset.
          *
          *     Tidak perlu login.
          */
         get: operations["indexFormat"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/download-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Daftar unduhan, terbaru lebih dulu
+         * @description Mengembalikan daftar berhalaman, diurutkan dari yang paling baru.
+         *
+         *     **Cara tercepat:** tekan Execute tanpa mengisi apa pun — 20 unduhan terbaru.
+         *
+         *     **Contoh pemakaian:**
+         *     - Satu bulan tertentu → `from` = `2026-08-01`, `to` = `2026-08-31`
+         *     - Sejak tanggal tertentu sampai sekarang → isi `from` saja, biarkan `to` kosong
+         *
+         *     **Perhatikan:** `to` bersifat inklusif — mengisinya dengan tanggal hari ini ikut
+         *     memuat unduhan yang terjadi hari ini.
+         */
+        get: operations["index_4"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/download-logs/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ekspor log unduhan sebagai CSV
+         * @description Mengunduh seluruh baris dalam rentang tanggal sebagai satu berkas CSV.
+         *
+         *     **Berkas ini memuat data pribadi** — nama, email, divisi, dan alamat IP karyawan.
+         *     Karena itu ekspornya sendiri dicatat di `GET /api/v1/audit-logs`: "siapa yang membawa
+         *     log ini keluar dari sistem" adalah persis pertanyaan yang harus bisa dijawab
+         *     belakangan. Log yang dibuat untuk menelusuri kebocoran tidak boleh justru menjadi jalan
+         *     paling mudah membuatnya.
+         *
+         *     Dibatasi 50.000 baris per ekspor. Persempit rentang tanggalnya bila hasilnya terpotong.
+         */
+        get: operations["export"];
         put?: never;
         post?: never;
         delete?: never;
@@ -313,11 +464,26 @@ export interface paths {
          *     Dipakai halaman detail dataset di portal untuk mengisi tab Ringkasan dan tab Kolom.
          *
          *     Perhatikan `resources` — kalau kosong, dataset itu tidak punya berkas untuk diunduh.
+         *
+         *     **Endpoint ini menaikkan penghitung kunjungan** setiap kali dipanggil. Untuk membaca
+         *     tanpa ikut menghitung — misalnya dari panel pengelolaan — isi `recordView` dengan
+         *     `false`.
          */
         get: operations["getById"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Hapus dataset dari katalog
+         * @description Penghapusan bersifat **soft delete**: barisnya tetap ada di database dengan penanda
+         *     `deleted_at`, tapi hilang dari seluruh daftar dan tidak bisa dibuka lagi.
+         *
+         *     Slug-nya TIDAK dilepas dan tidak bisa dipakai ulang. Itu disengaja — kalau slug bekas
+         *     bisa diambil dataset lain, tautan lama di laporan orang akan diam-diam menunjuk ke data
+         *     yang berbeda.
+         *
+         *     Penghapusannya tercatat di `GET /api/v1/audit-logs`.
+         */
+        delete: operations["delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -357,6 +523,61 @@ export interface paths {
          *     endpoint ini.
          */
         get: operations["summary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/datasets/{slug}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tampilkan berkas PDF di halaman
+         * @description Mengalirkan berkas **PDF** dengan `Content-Disposition: inline`, supaya peramban
+         *     menggambarnya sendiri di dalam halaman alih-alih menyimpannya ke disk.
+         *
+         *     **Pratinjau tetap tercatat** di log dengan `accessType = PREVIEW`. Ia tidak melewati
+         *     modal persetujuan, tapi byte-nya tetap keluar dan isinya tetap terbaca utuh — berkas
+         *     rahasia yang bisa dibaca tanpa jejak membuat seluruh guna log itu hilang.
+         *
+         *     Untuk dokumen Word, pakai `/preview/text`. Untuk CSV dan XLSX tidak perlu: isinya
+         *     sudah menjadi tabel dataset.
+         */
+        get: operations["preview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/datasets/{slug}/preview/text": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Baca isi dokumen Word sebagai teks
+         * @description Mengembalikan paragraf sebuah berkas **DOCX** dalam bentuk teks polos.
+         *
+         *     **Yang tidak ikut:** tata letak, tabel, gambar, header, dan footer. Peramban tidak bisa
+         *     menggambar .docx, dan mengurainya tanpa mesin render dokumen hanya menghasilkan
+         *     teksnya. Antarmuka menyebutkan batas ini apa adanya — pembaca yang mengira sudah
+         *     melihat dokumen lengkap padahal belum akan mengambil keputusan dari setengah isi.
+         *
+         *     Sama seperti `/preview`, pembacaannya tercatat dengan `accessType = PREVIEW`.
+         */
+        get: operations["previewText"];
         put?: never;
         post?: never;
         delete?: never;
@@ -416,6 +637,10 @@ export interface paths {
          *
          *     Naikkan `page` untuk melihat baris berikutnya. Dengan `size` 50, halaman 0 berisi baris
          *     1–50, halaman 1 berisi 51–100, dan seterusnya.
+         *
+         *     **Satu dataset bisa punya lebih dari satu tabel.** Setiap berkas CSV atau Excel di
+         *     dalamnya punya baris dan kolomnya sendiri. Pakai `resourceId` untuk memilih yang mana;
+         *     tanpa itu, yang dijawab adalah berkas bertanda `tableSource` pada daftar `resources`.
          */
         get: operations["datastore"];
         put?: never;
@@ -471,7 +696,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/api-keys/{id}/reveal": {
+    "/api/v1/audit-logs": {
         parameters: {
             query?: never;
             header?: never;
@@ -479,50 +704,23 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Tampilkan nilai API key seutuhnya
-         * @description Melayani tombol **Tampilkan** di Dasbor Akun — mengembalikan nilai kunci hasil
-         *     dekripsi.
+         * Daftar jejak audit, terbaru lebih dulu
+         * @description Mengembalikan daftar berhalaman, diurutkan dari yang paling baru.
          *
-         *     Hanya kunci milik sendiri yang bisa diungkap. Kunci milik orang lain dijawab 404
-         *     seolah tidak ada, bukan 403 — supaya keberadaannya pun tidak bocor.
+         *     **Cara tercepat:** tekan Execute tanpa mengisi apa pun — 20 baris terbaru.
          *
-         *     Kunci yang sudah **dicabut** tetap boleh diungkap. Itu disengaja: pemiliknya berhak
-         *     tahu nilai apa yang harus dicari dan dibersihkan dari skrip yang mungkin masih
-         *     memakainya.
+         *     **Contoh pemakaian:**
+         *     - Riwayat satu dataset → isi `slug` dengan `penjualan-bulanan`
+         *     - Ambil 6 baris untuk kartu dasbor → isi `size` dengan `6`
          *
-         *     **Tiga kunci yang dibuat sebelum fitur ini ada tidak punya ciphertext** dan akan
-         *     dijawab 400 dengan penjelasan — bukan galat yang membingungkan.
+         *     **Membaca hasilnya:** `action` adalah kata tindakannya, `objectLabel` judul dataset
+         *     saat tindakan itu terjadi (bukan judul terbarunya), dan `detail` keterangan singkat
+         *     yang boleh kosong. `number` adalah halaman saat ini — **dimulai dari 0**, bukan 1.
          */
-        get: operations["reveal"];
+        get: operations["index_7"];
         put?: never;
         post?: never;
         delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/api-keys/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Cabut API key
-         * @description Menonaktifkan satu key milik sendiri secara permanen. Tidak bisa dibatalkan.
-         *
-         *     **Perhatikan:** di sini path parameternya **UUID**, berbeda dengan endpoint dataset yang
-         *     memakai slug. Alasannya API key tidak punya nama publik dan tidak pernah muncul di URL
-         *     yang dibagikan — jadi identitas internalnya yang dipakai.
-         *
-         *     Ambil nilai `id` dari `GET /api/v1/api-keys`.
-         */
-        delete: operations["delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -570,6 +768,29 @@ export interface components {
              * @example komersial
              */
             collectionSlug?: string;
+            /**
+             * @description Posisi jabatan yang boleh melihat dataset ini, ambil dari GET /api/v1/positions. **Kosongkan agar terbuka untuk seluruh karyawan.** Diisi berarti hanya pemilik posisi tersebut yang bisa membuka, membaca isi tabelnya, dan mengunduhnya; yang lain mendapat 403. ADMIN dan pengunggahnya sendiri selalu bisa.
+             * @example [
+             *       "Direksi",
+             *       "General Manager",
+             *       "Manager"
+             *     ]
+             */
+            positions?: string[];
+            /** @description Keterangan tiap berkas yang diunggah — nama versi manusia dan jenisnya. Urutannya HARUS sama dengan urutan bagian multipart `files`, dan jumlahnya harus sama persis. Boleh dikosongkan kalau hanya satu berkas: namanya diambil dari judul dataset dan jenisnya dari ekstensi berkasnya. */
+            files?: components["schemas"]["FileMeta"][];
+        };
+        FileMeta: {
+            /**
+             * @description Nama berkas versi manusia.
+             * @example Kamus Kolom
+             */
+            label?: string;
+            /**
+             * @description Jenis berkas: CSV, XLSX, PDF, atau DOCX. Harus cocok dengan ekstensi berkas yang dikirim.
+             * @example CSV
+             */
+            format?: string;
         };
         CollectionResponseLite: {
             /** Format: uuid */
@@ -591,12 +812,18 @@ export interface components {
         DatasetResourceResponse: {
             /** Format: uuid */
             id?: string;
+            label?: string;
             fileName?: string;
             formatName?: string;
             contentType?: string;
             /** Format: int64 */
             sizeBytes?: number;
             checksumSha256?: string;
+            tableSource?: boolean;
+            /** Format: int64 */
+            rowCount?: number;
+            /** Format: int32 */
+            colCount?: number;
         };
         DatasetResponse: {
             /** Format: uuid */
@@ -604,9 +831,11 @@ export interface components {
             slug?: string;
             title?: string;
             division?: components["schemas"]["DivisionResponseLite"];
+            uploadedBy?: components["schemas"]["UploaderResponse"];
             collection?: components["schemas"]["CollectionResponseLite"];
             topics?: string[];
             formats?: string[];
+            positions?: string[];
             coverage?: string;
             notes?: string;
             disclaimer?: string;
@@ -640,33 +869,32 @@ export interface components {
             name?: string;
             logoBg?: string;
         };
-        ApiKeyRequestCreateDTO: {
-            name: string;
-        };
-        ApiKeyCreatedResponse: {
-            key?: components["schemas"]["ApiKeyResponse"];
-            plainKey?: string;
-            warning?: string;
-        };
-        ApiKeyResponse: {
+        UploaderResponse: {
             /** Format: uuid */
             id?: string;
+            /** @example M. Fahrega Ridwan */
             name?: string;
-            keyPrefix?: string;
-            masked?: string;
-            tier?: string;
-            /** Format: int32 */
-            rateLimitPerMinute?: number;
-            /** Format: int64 */
-            usageCount?: number;
-            /** @enum {string} */
-            status?: "ACTIVE" | "REVOKED";
-            /** Format: date-time */
-            lastUsedAt?: string;
-            /** Format: date-time */
-            revokedAt?: string;
-            /** Format: date-time */
-            createdAt?: string;
+            /**
+             * @description Jabatan, apa adanya dari HRIS.
+             * @example Project Manager Data & IT
+             */
+            position?: string;
+            /**
+             * @description Kode divisi pengunggah saat itu.
+             * @example DNA
+             */
+            divisionCode?: string;
+        };
+        DatasetPositionUpdateDTO: {
+            /**
+             * @description Daftar posisi yang berlaku setelah perubahan. Kirim daftar kosong untuk melepas seluruh tag.
+             * @example [
+             *       "Direksi",
+             *       "General Manager",
+             *       "Manager"
+             *     ]
+             */
+            positions?: string[];
         };
         TopicResponse: {
             /** Format: uuid */
@@ -714,6 +942,27 @@ export interface components {
             totalViews?: number;
             /** Format: int64 */
             totalDatasetWithFile?: number;
+            /** Format: int64 */
+            totalContributor?: number;
+            /** Format: int64 */
+            totalActiveUser?: number;
+            /** Format: int64 */
+            totalDownloads30d?: number;
+        };
+        DailyDownloadResponse: {
+            /** Format: date */
+            from?: string;
+            /** Format: date */
+            to?: string;
+            /** Format: int64 */
+            total?: number;
+            days?: components["schemas"]["Day"][];
+        };
+        Day: {
+            /** Format: date */
+            date?: string;
+            /** Format: int64 */
+            total?: number;
         };
         UserResponse: {
             /** Format: uuid */
@@ -727,6 +976,7 @@ export interface components {
             /** @enum {string} */
             hrisPermissionLevel?: "ADMIN" | "DIRECTOR" | "CORPORATE_SECRETARY" | "MANAGER" | "STAFF";
             jobLevel?: string;
+            accessPosition?: string;
             division?: components["schemas"]["DivisionResponseLite"];
         };
         FormatResponse: {
@@ -735,6 +985,57 @@ export interface components {
             name?: string;
             /** Format: int32 */
             sortOrder?: number;
+        };
+        DownloadLogResponse: {
+            /** Format: int64 */
+            id?: number;
+            userName?: string;
+            userEmail?: string;
+            divisionCode?: string;
+            datasetSlug?: string;
+            fileName?: string;
+            /** Format: int64 */
+            sizeBytes?: number;
+            accessType?: string;
+            channel?: string;
+            agreementAccepted?: boolean;
+            ipAddress?: string;
+            /** Format: date-time */
+            downloadedAt?: string;
+        };
+        PageDownloadLogResponse: {
+            /** Format: int32 */
+            totalPages?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            size?: number;
+            content?: components["schemas"]["DownloadLogResponse"][];
+            /** Format: int32 */
+            number?: number;
+            sort?: components["schemas"]["SortObject"];
+            pageable?: components["schemas"]["PageableObject"];
+            /** Format: int32 */
+            numberOfElements?: number;
+            first?: boolean;
+            last?: boolean;
+            empty?: boolean;
+        };
+        PageableObject: {
+            /** Format: int64 */
+            offset?: number;
+            sort?: components["schemas"]["SortObject"];
+            /** Format: int32 */
+            pageSize?: number;
+            paged?: boolean;
+            /** Format: int32 */
+            pageNumber?: number;
+            unpaged?: boolean;
+        };
+        SortObject: {
+            empty?: boolean;
+            sorted?: boolean;
+            unsorted?: boolean;
         };
         DivisionResponse: {
             /** Format: uuid */
@@ -759,10 +1060,15 @@ export interface components {
             slug?: string;
             title?: string;
             division?: components["schemas"]["DivisionResponseLite"];
+            uploadedBy?: components["schemas"]["UploaderResponse"];
             topics?: string[];
             formats?: string[];
+            positions?: string[];
+            resources?: components["schemas"]["DatasetResourceResponse"][];
             coverage?: string;
             notes?: string;
+            /** Format: int64 */
+            rowCount?: number;
             /** Format: int64 */
             downloads?: number;
             /** Format: int64 */
@@ -772,6 +1078,8 @@ export interface components {
             realtime?: boolean;
             /** Format: date-time */
             lastUpdatedAt?: string;
+            /** Format: date-time */
+            createdAt?: string;
         };
         PageDatasetResponseLite: {
             /** Format: int32 */
@@ -791,22 +1099,6 @@ export interface components {
             last?: boolean;
             empty?: boolean;
         };
-        PageableObject: {
-            /** Format: int64 */
-            offset?: number;
-            sort?: components["schemas"]["SortObject"];
-            paged?: boolean;
-            /** Format: int32 */
-            pageNumber?: number;
-            /** Format: int32 */
-            pageSize?: number;
-            unpaged?: boolean;
-        };
-        SortObject: {
-            empty?: boolean;
-            sorted?: boolean;
-            unsorted?: boolean;
-        };
         DatasetSummaryResponse: {
             slug?: string;
             groupBy?: string;
@@ -821,8 +1113,16 @@ export interface components {
             count?: number;
             sum?: number;
         };
+        DocumentTextResponse: {
+            fileName?: string;
+            label?: string;
+            paragraphs?: string[];
+            truncated?: boolean;
+        };
         DatastoreResponse: {
             slug?: string;
+            /** Format: uuid */
+            resourceId?: string;
             /** Format: int64 */
             totalRows?: number;
             /** Format: int32 */
@@ -853,12 +1153,37 @@ export interface components {
             /** Format: date-time */
             deletedAt?: string;
         };
-        ApiKeyRevealResponse: {
-            /**
-             * @description Nilai API key seutuhnya, hasil dekripsi.
-             * @example erd_live_9f2a8c31d4e7b0a25f6c9081b3e7a4d2
-             */
-            plainKey?: string;
+        AuditLogResponse: {
+            /** Format: int64 */
+            id?: number;
+            actorName?: string;
+            actorDivisionCode?: string;
+            /** @enum {string} */
+            action?: "CREATE" | "UPDATE" | "SUBMIT" | "PUBLISH" | "REJECT" | "ARCHIVE" | "DELETE";
+            objectType?: string;
+            objectSlug?: string;
+            objectLabel?: string;
+            detail?: string;
+            /** Format: date-time */
+            recordedAt?: string;
+        };
+        PageAuditLogResponse: {
+            /** Format: int32 */
+            totalPages?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            size?: number;
+            content?: components["schemas"]["AuditLogResponse"][];
+            /** Format: int32 */
+            number?: number;
+            sort?: components["schemas"]["SortObject"];
+            pageable?: components["schemas"]["PageableObject"];
+            /** Format: int32 */
+            numberOfElements?: number;
+            first?: boolean;
+            last?: boolean;
+            empty?: boolean;
         };
     };
     responses: never;
@@ -873,18 +1198,24 @@ export interface operations {
         parameters: {
             query?: {
                 /**
-                 * @description Kata kunci pada judul dan catatan dataset. Kosongkan untuk menampilkan semua.
+                 * @description Kata kunci pada judul, slug, dan catatan dataset. Kosongkan untuk menampilkan semua.
                  * @example penjualan
                  */
                 search?: string;
-                /** @description Saring per topik. Ulangi parameter untuk lebih dari satu, misalnya topics=Keuangan&topics=Operasional. Daftar nilainya dari GET /api/v1/topic. */
+                /** @description Saring per topik. Ulangi parameter untuk lebih dari satu, misalnya topics=Keuangan&topics=Operasional. Daftar nilainya dari GET /api/v1/topics. */
                 topics?: string[];
-                /** @description Saring per format berkas. Daftar nilainya dari GET /api/v1/format. */
+                /** @description Saring per jenis berkas: CSV, XLSX, PDF, DOCX. Daftar nilainya dari GET /api/v1/formats. */
                 formats?: string[];
-                /** @description Saring per kode divisi: DNA, IT, PROD, SALES, FIN, OPS, HR, MKT. Daftar lengkapnya dari GET /api/v1/division. */
+                /** @description Saring per kode divisi: DNA, IT, PROD, SALES, FIN, OPS, HR, MKT. Daftar lengkapnya dari GET /api/v1/divisions. */
                 divisions?: string[];
+                /**
+                 * @description Saring per tag posisi yang boleh melihat. Daftar nilainya dari GET /api/v1/positions.
+                 *
+                 *     Ini penyaring tampilan, BUKAN pembatas akses. Pembatasannya berjalan sendiri dan tidak bisa dimatikan lewat parameter apa pun: dataset yang tidak boleh Anda lihat tidak akan muncul di sini, apa pun isian penyaringnya.
+                 */
+                positions?: string[];
                 /** @description Urutan hasil. */
-                sort?: "relevance" | "downloads" | "updated";
+                sort?: "relevance" | "downloads" | "updated" | "created";
                 /** @description Halaman ke berapa, dimulai dari 0. */
                 page?: number;
                 /** @description Jumlah baris per halaman. Minimal 1. */
@@ -919,11 +1250,8 @@ export interface operations {
         requestBody?: {
             content: {
                 "multipart/form-data": {
-                    /**
-                     * Format: binary
-                     * @description Berkas CSV, maksimal 10 MB.
-                     */
-                    file: string;
+                    /** @description Satu atau beberapa berkas. Ulangi bagian `files` untuk tiap berkas. */
+                    files: string[];
                     body: components["schemas"]["DatasetRequestCreateDTO"];
                 };
             };
@@ -938,7 +1266,7 @@ export interface operations {
                     "*/*": components["schemas"]["DatasetResponse"];
                 };
             };
-            /** @description Berkas bukan CSV, judul kosong, slug bentrok, atau topik/koleksi tidak dikenal */
+            /** @description Jenis berkas tidak didukung atau tidak cocok dengan ekstensinya, jumlah keterangan berkas tidak sama dengan jumlah berkas, judul kosong, slug bentrok, atau topik/koleksi/posisi tidak dikenal */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -962,49 +1290,81 @@ export interface operations {
             };
         };
     };
-    index_1: {
+    reimport: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                /** @description Slug dataset. */
+                slug: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Daftar key berhasil diambil. Bisa berupa daftar kosong */
+            /** @description Jumlah baris setelah dibaca ulang */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ApiKeyResponse"][];
+                    "*/*": {
+                        [key: string]: number;
+                    };
                 };
+            };
+            /** @description Tidak ada berkas CSV/Excel yang bisa dibaca */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bukan ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Slug tidak dikenal */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
-    create_1: {
+    updatePositions: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                /**
+                 * @description Slug dataset.
+                 * @example penjualan-bulanan
+                 */
+                slug: string;
+            };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ApiKeyRequestCreateDTO"];
+                "application/json": components["schemas"]["DatasetPositionUpdateDTO"];
             };
         };
         responses: {
-            /** @description Key dibuat. Nilai plainKey hanya muncul di respons ini */
+            /** @description Tag posisi tersimpan */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ApiKeyCreatedResponse"];
+                    "*/*": string[];
                 };
             };
-            /** @description Batas key aktif tercapai, atau nama tidak diisi */
+            /** @description Ada label posisi yang tidak dikenal */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -1014,6 +1374,20 @@ export interface operations {
                         error?: string;
                     };
                 };
+            };
+            /** @description Bukan ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Slug tidak dikenal */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -1037,7 +1411,7 @@ export interface operations {
             };
         };
     };
-    index_2: {
+    index_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -1057,7 +1431,7 @@ export interface operations {
             };
         };
     };
-    index_3: {
+    index_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -1077,7 +1451,53 @@ export interface operations {
             };
         };
     };
-    index_4: {
+    dailyDownloads: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Panjang rentang dalam hari, dihitung mundur dari hari ini. Maksimum 365.
+                 * @example 30
+                 */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Grafik berhasil dihitung */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DailyDownloadResponse"];
+                };
+            };
+        };
+    };
+    indexPosition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Daftar posisi berhasil diambil */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string[];
+                };
+            };
+        };
+    };
+    index_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -1139,6 +1559,100 @@ export interface operations {
             };
         };
     };
+    index_4: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Halaman ke berapa, dimulai dari 0
+                 * @example 0
+                 */
+                page?: number;
+                /**
+                 * @description Jumlah baris per halaman, maksimum 200
+                 * @example 20
+                 */
+                size?: number;
+                /**
+                 * @description Tanggal awal, format YYYY-MM-DD. Boleh dikosongkan.
+                 * @example 2026-08-01
+                 */
+                from?: string;
+                /**
+                 * @description Tanggal akhir, inklusif. Boleh dikosongkan.
+                 * @example 2026-08-31
+                 */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Log unduhan berhasil diambil */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PageDownloadLogResponse"];
+                };
+            };
+            /** @description Tanggal akhir mendahului tanggal awal */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bukan ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    export: {
+        parameters: {
+            query?: {
+                /** @description Tanggal awal, format YYYY-MM-DD. */
+                from?: string;
+                /** @description Tanggal akhir, inklusif. */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Berkas CSV */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            /** @description Tanggal akhir mendahului tanggal awal */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bukan ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     index_5: {
         parameters: {
             query?: never;
@@ -1161,7 +1675,15 @@ export interface operations {
     };
     getById: {
         parameters: {
-            query?: never;
+            query?: {
+                /**
+                 * @description Apakah pemanggilan ini dihitung sebagai kunjungan. Biarkan `true` untuk
+                 *     halaman detail portal; isi `false` untuk pembacaan pengelolaan, supaya angka
+                 *     "Total kunjungan" tidak naik setiap kali admin menengok datanya sendiri.
+                 * @example true
+                 */
+                recordView?: boolean;
+            };
             header?: never;
             path: {
                 /**
@@ -1202,6 +1724,44 @@ export interface operations {
             };
         };
     };
+    delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description Slug dataset.
+                 * @example penjualan-bulanan
+                 */
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dataset dihapus */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bukan ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Slug tidak dikenal */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     summary: {
         parameters: {
             query: {
@@ -1215,6 +1775,11 @@ export interface operations {
                  * @example total_sales
                  */
                 metric?: string;
+                /**
+                 * @description Tabel milik berkas yang mana, dari daftar `resources`. Kosongkan untuk berkas utama.
+                 * @example dres-f0000000-0000-4000-8000-000000000001
+                 */
+                resourceId?: string;
             };
             header?: never;
             path: {
@@ -1261,6 +1826,99 @@ export interface operations {
             };
         };
     };
+    preview: {
+        parameters: {
+            query?: {
+                /** @description Berkas mana yang dilihat, dari daftar `resources`. */
+                resourceId?: string;
+            };
+            header?: never;
+            path: {
+                /**
+                 * @description Slug dataset.
+                 * @example penjualan-bulanan
+                 */
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Berkas dialirkan untuk digambar peramban */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+            /** @description Jenis berkas tidak bisa digambar peramban */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Dataset dibatasi untuk posisi lain */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Slug atau berkas tidak dikenal */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    previewText: {
+        parameters: {
+            query?: {
+                /** @description Berkas mana yang dibaca, dari daftar `resources`. */
+                resourceId?: string;
+            };
+            header?: never;
+            path: {
+                /**
+                 * @description Slug dataset.
+                 * @example penjualan-bulanan
+                 */
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Isi dokumen berhasil dibaca */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DocumentTextResponse"];
+                };
+            };
+            /** @description Berkas bukan DOCX atau gagal dibaca */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Dataset dibatasi untuk posisi lain */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     download: {
         parameters: {
             query?: {
@@ -1269,6 +1927,16 @@ export interface operations {
                  * @example true
                  */
                 agreement?: boolean;
+                /**
+                 * @description Berkas mana yang diminta, diisi `id` dari daftar `resources` pada
+                 *     `GET /api/v1/datasets/{slug}`. Boleh berprefiks (`dres-…`) maupun UUID polos.
+                 *
+                 *     Dikosongkan berarti berkas pertama. Satu permintaan mengambil satu berkas;
+                 *     untuk beberapa berkas, panggil endpoint ini sekali per berkas supaya
+                 *     masing-masing punya barisnya sendiri di log unduhan.
+                 * @example dres-f0000000-0000-4000-8000-000000000001
+                 */
+                resourceId?: string;
             };
             header?: never;
             path: {
@@ -1328,6 +1996,11 @@ export interface operations {
                  * @example 50
                  */
                 size?: number;
+                /**
+                 * @description Tabel milik berkas yang mana, dari daftar `resources`. Kosongkan untuk berkas utama.
+                 * @example dres-f0000000-0000-4000-8000-000000000001
+                 */
+                resourceId?: string;
             };
             header?: never;
             path: {
@@ -1431,88 +2104,46 @@ export interface operations {
             };
         };
     };
-    reveal: {
+    index_7: {
         parameters: {
-            query?: never;
-            header?: never;
-            path: {
+            query?: {
                 /**
-                 * @description Id kunci dalam bentuk `key-<uuid>` seperti yang muncul di GET /api/v1/api-keys. UUID telanjang tanpa awalan juga diterima.
-                 * @example key-3fa85f64-5717-4562-b3fc-2c963f66afa6
+                 * @description Halaman ke berapa, dimulai dari 0
+                 * @example 0
                  */
-                id: string;
+                page?: number;
+                /**
+                 * @description Jumlah baris per halaman, maksimum 200
+                 * @example 20
+                 */
+                size?: number;
+                /**
+                 * @description Saring ke satu dataset saja, diisi slug-nya
+                 * @example penjualan-bulanan
+                 */
+                slug?: string;
             };
+            header?: never;
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Nilai kunci berhasil didekripsi */
+            /** @description Jejak audit berhasil diambil */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ApiKeyRevealResponse"];
+                    "*/*": components["schemas"]["PageAuditLogResponse"];
                 };
             };
-            /** @description Kunci dibuat sebelum penyimpanan terenkripsi ada, jadi nilainya tidak tersimpan */
-            400: {
+            /** @description Bukan ADMIN */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "*/*": {
-                        error?: string;
-                    };
-                };
-            };
-            /** @description Kunci tidak ditemukan, atau bukan milik Anda */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": {
-                        error?: string;
-                    };
-                };
-            };
-        };
-    };
-    delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /**
-                 * @description Id kunci dalam bentuk `key-<uuid>` seperti yang muncul di GET /api/v1/api-keys. UUID telanjang tanpa awalan juga diterima.
-                 * @example key-3fa85f64-5717-4562-b3fc-2c963f66afa6
-                 */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Key berhasil dicabut */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": string;
-                };
-            };
-            /** @description Key tidak ditemukan, atau bukan milik Anda */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": {
-                        error?: string;
-                    };
-                };
+                content?: never;
             };
         };
     };

@@ -33,9 +33,9 @@ export function DatasetCard({ dataset }: { dataset: DatasetLite }) {
           ) : null}
 
           <div className="mt-3 flex flex-wrap items-center gap-1.5">
-            {dataset.topics?.map((topik) => (
-              <Badge key={topik} tone="brand">
-                {topik}
+            {dataset.topics?.map((topic) => (
+              <Badge key={topic} tone="brand">
+                {topic}
               </Badge>
             ))}
             {dataset.formats?.map((format) => (

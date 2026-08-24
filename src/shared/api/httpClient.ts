@@ -30,8 +30,8 @@ const instance: AxiosInstance = axios.create({
 /** Menyisipkan header autentikasi dari seam — bukan dari token yang di-hardcode. */
 instance.interceptors.request.use((config) => {
   const headers = authStrategy.getAuthHeaders()
-  for (const [nama, nilai] of Object.entries(headers)) {
-    config.headers.set(nama, nilai)
+  for (const [name, value] of Object.entries(headers)) {
+    config.headers.set(name, value)
   }
   return config
 })
@@ -68,6 +68,15 @@ export async function apiPost<T>(
   return response.data
 }
 
+export async function apiPatch<T>(
+  url: string,
+  body?: unknown,
+  config?: AxiosRequestConfig,
+): Promise<T> {
+  const response = await instance.patch<T>(url, body, config)
+  return response.data
+}
+
 export async function apiDelete<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
   const response = await instance.delete<T>(url, config)
   return response.data
@@ -85,7 +94,24 @@ export async function apiDownload(
   url: string,
   config?: AxiosRequestConfig,
 ): Promise<{ blob: Blob; fileName: string | null }> {
-  const response = await instance.get<Blob>(url, { ...config, responseType: 'blob' })
+  const response = await instance.get<Blob>(url, {
+    ...config,
+    responseType: 'blob',
+    /*
+     * `Accept` HARUS ditimpa di sini.
+     *
+     * Instance-nya menyetel `application/json` untuk seluruh permintaan — masuk
+     * akal untuk endpoint biasa, tapi mematikan setiap endpoint yang menyatakan
+     * `produces` selain JSON: Spring menjawab **406 Not Acceptable** sebelum
+     * kode controller-nya dijalankan sama sekali. Itu yang terjadi pada ekspor
+     * CSV log unduhan.
+     *
+     * Endpoint unduhan berkas selamat hanya karena kebetulan tidak menyatakan
+     * `produces`. Menimpanya di helper ini menutup jebakan itu untuk semua
+     * endpoint berkas, sekarang dan nanti.
+     */
+    headers: { ...config?.headers, Accept: '*/*' },
+  })
   return {
     blob: response.data,
     fileName: parseContentDispositionFileName(response.headers['content-disposition']),
@@ -105,6 +131,6 @@ function parseContentDispositionFileName(header: unknown): string | null {
     }
   }
 
-  const biasa = /filename="?([^";]+)"?/i.exec(header)
-  return biasa?.[1] ?? null
+  const plain = /filename="?([^";]+)"?/i.exec(header)
+  return plain?.[1] ?? null
 }

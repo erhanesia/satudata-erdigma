@@ -17,22 +17,22 @@ import { useStatus } from '../hooks/useStatus'
  * dipahami adalah kebohongan yang persis terjadi saat orang paling butuh
  * halaman ini.
  */
-function tampilanStatus(state: string | undefined) {
-  const nilai = (state ?? '').toLowerCase()
-  if (nilai.includes('operasional') || nilai.includes('up')) {
-    return { Ikon: CheckCircle2, warna: 'text-success', tone: 'success' as const }
+function statusView(state: string | undefined) {
+  const value = (state ?? '').toLowerCase()
+  if (value.includes('operasional') || value.includes('up')) {
+    return { Icon: CheckCircle2, color: 'text-success', tone: 'success' as const }
   }
-  if (nilai.includes('gangguan') || nilai.includes('down') || nilai.includes('error')) {
-    return { Ikon: AlertCircle, warna: 'text-danger', tone: 'danger' as const }
+  if (value.includes('gangguan') || value.includes('down') || value.includes('error')) {
+    return { Icon: AlertCircle, color: 'text-danger', tone: 'danger' as const }
   }
-  return { Ikon: CircleDashed, warna: 'text-ink-400', tone: 'neutral' as const }
+  return { Icon: CircleDashed, color: 'text-ink-400', tone: 'neutral' as const }
 }
 
 export default function StatusPage() {
   const query = useStatus()
 
   return (
-    <PageContainer className="py-10">
+    <PageContainer className="py-7 sm:py-10">
       <PageHeading
         title="Status Layanan"
         description="Kondisi komponen portal, diperbarui otomatis setiap menit."
@@ -48,12 +48,12 @@ export default function StatusPage() {
         }
       >
         {(status) => {
-          const keseluruhan = tampilanStatus(status.overall)
+          const overall = statusView(status.overall)
           return (
             <div className="flex flex-col gap-5">
               <Card>
                 <CardBody className="flex items-center gap-4 pt-5">
-                  <keseluruhan.Ikon className={`size-9 shrink-0 ${keseluruhan.warna}`} />
+                  <overall.Icon className={`size-9 shrink-0 ${overall.color}`} />
                   <div>
                     <div className="text-ink-900 text-lg font-extrabold">
                       {status.overallLabel || 'Status tidak diketahui'}
@@ -72,7 +72,7 @@ export default function StatusPage() {
                 <CardBody>
                   <ul className="flex flex-col">
                     {status.components?.map((komponen) => {
-                      const tampil = tampilanStatus(komponen.state)
+                      const visible = statusView(komponen.state)
                       return (
                         <li
                           key={komponen.name}
@@ -82,8 +82,8 @@ export default function StatusPage() {
                             {komponen.name}
                           </span>
                           <span className="inline-flex items-center gap-2">
-                            <tampil.Ikon className={`size-4 ${tampil.warna}`} />
-                            <Badge tone={tampil.tone}>{komponen.state}</Badge>
+                            <visible.Icon className={`size-4 ${visible.color}`} />
+                            <Badge tone={visible.tone}>{komponen.state}</Badge>
                           </span>
                         </li>
                       )

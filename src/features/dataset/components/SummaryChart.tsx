@@ -20,19 +20,19 @@ import type { DatasetColumn } from '@/shared/types/api'
 import { useDatasetSummary } from '../hooks/useDatasets'
 
 /** Warna batang, diambil dari palet divisi pada desain. */
-const WARNA = ['#1B54C4', '#7C3AED', '#0EA5A0', '#B45309', '#BE123C', '#0F766E', '#A21CAF', '#047857']
+const COLORS = ['#1B54C4', '#7C3AED', '#0EA5A0', '#B45309', '#BE123C', '#0F766E', '#A21CAF', '#047857']
 
 /** Jumlah kelompok maksimum yang ditampilkan agar sumbu tetap terbaca. */
-const MAKS_KELOMPOK = 12
+const MAX_GROUPS = 12
 
-function apakahNumerik(kolom: DatasetColumn): boolean {
-  const tipe = (kolom.dataType ?? '').toLowerCase()
-  return tipe.includes('numeric') || tipe.includes('number') || tipe.includes('int')
+function isNumeric(columns: DatasetColumn): boolean {
+  const kind = (columns.dataType ?? '').toLowerCase()
+  return kind.includes('numeric') || kind.includes('number') || kind.includes('int')
 }
 
-function apakahTanggal(kolom: DatasetColumn): boolean {
-  const tipe = (kolom.dataType ?? '').toLowerCase()
-  return tipe.includes('date') || tipe.includes('time')
+function isDateColumn(columns: DatasetColumn): boolean {
+  const kind = (columns.dataType ?? '').toLowerCase()
+  return kind.includes('date') || kind.includes('time')
 }
 
 /**
@@ -42,10 +42,10 @@ function apakahTanggal(kolom: DatasetColumn): boolean {
  * kelompok berisi satu baris — grafik yang benar secara teknis tapi tidak
  * memberi tahu apa pun.
  */
-const POLA_IDENTITAS = /(^|_)(id|kode|code)$|name|nama|address|alamat|email|phone|telepon/i
+const IDENTITY_PATTERN = /(^|_)(id|code|code)$|name|name|address|alamat|email|phone|telepon/i
 
 /** Kolom yang biasanya ingin dijumlahkan, bukan sekadar dihitung. */
-const POLA_UKURAN = /total|amount|revenue|sales|nilai|jumlah|harga|price|qty|quantity/i
+const MEASURE_PATTERN = /total|amount|revenue|sales|value|count|harga|price|qty|quantity/i
 
 /**
  * Menebak kelompok awal yang masuk akal.
@@ -54,18 +54,18 @@ const POLA_UKURAN = /total|amount|revenue|sales|nilai|jumlah|harga|price|qty|qua
  * Tujuannya supaya grafik pertama yang dilihat sudah bermakna, bukan deretan
  * ratusan batang setinggi satu.
  */
-function pilihGroupByAwal(kandidat: DatasetColumn[]): string {
-  const layak = kandidat.find(
-    (k) => !apakahTanggal(k) && !POLA_IDENTITAS.test(k.machineName ?? ''),
+function pickInitialGroupBy(candidate: DatasetColumn[]): string {
+  const suitable = candidate.find(
+    (k) => !isDateColumn(k) && !IDENTITY_PATTERN.test(k.machineName ?? ''),
   )
-  return (layak ?? kandidat[0])?.machineName ?? ''
+  return (suitable ?? candidate[0])?.machineName ?? ''
 }
 
-function pilihMetrikAwal(kandidat: DatasetColumn[]): string {
+function pickInitialMetric(candidate: DatasetColumn[]): string {
   // Tanpa kolom ukuran yang jelas, lebih jujur menghitung baris daripada
   // menjumlahkan sesuatu seperti "tahun" yang angkanya tidak bermakna kalau
   // ditotal.
-  return kandidat.find((k) => POLA_UKURAN.test(k.machineName ?? ''))?.machineName ?? ''
+  return candidate.find((k) => MEASURE_PATTERN.test(k.machineName ?? ''))?.machineName ?? ''
 }
 
 export function SummaryChart({
@@ -77,15 +77,15 @@ export function SummaryChart({
   columns: DatasetColumn[]
   rowCount: number
 }) {
-  const kolomKategori = useMemo(() => columns.filter((k) => !apakahNumerik(k)), [columns])
-  const kolomNumerik = useMemo(() => columns.filter(apakahNumerik), [columns])
+  const categoryColumns = useMemo(() => columns.filter((k) => !isNumeric(k)), [columns])
+  const numericColumns = useMemo(() => columns.filter(isNumeric), [columns])
 
-  const [groupBy, setGroupBy] = useState(() => pilihGroupByAwal(kolomKategori))
-  const [metric, setMetric] = useState(() => pilihMetrikAwal(kolomNumerik))
+  const [groupBy, setGroupBy] = useState(() => pickInitialGroupBy(categoryColumns))
+  const [metric, setMetric] = useState(() => pickInitialMetric(numericColumns))
 
   const query = useDatasetSummary(slug, groupBy, metric || undefined, rowCount > 0 && !!groupBy)
 
-  if (rowCount === 0 || kolomKategori.length === 0) {
+  if (rowCount === 0 || categoryColumns.length === 0) {
     return (
       <EmptyState
         title="Ringkasan belum tersedia"
@@ -109,15 +109,15 @@ export function SummaryChart({
               className="h-9 text-[12.5px]"
               aria-label="Kelompokkan berdasarkan"
             >
-              {kolomKategori.map((kolom) => (
-                <option key={kolom.id} value={kolom.machineName ?? ''}>
-                  {kolom.displayName ?? kolom.machineName}
+              {categoryColumns.map((columns) => (
+                <option key={columns.id} value={columns.machineName ?? ''}>
+                  {columns.displayName ?? columns.machineName}
                 </option>
               ))}
             </Select>
           </label>
 
-          {kolomNumerik.length > 0 ? (
+          {numericColumns.length > 0 ? (
             <label className="flex items-center gap-1.5">
               <span className="text-ink-500 text-[12px]">Jumlahkan</span>
               <Select
@@ -127,9 +127,9 @@ export function SummaryChart({
                 aria-label="Kolom yang dijumlahkan"
               >
                 <option value="">— hanya hitung baris —</option>
-                {kolomNumerik.map((kolom) => (
-                  <option key={kolom.id} value={kolom.machineName ?? ''}>
-                    {kolom.displayName ?? kolom.machineName}
+                {numericColumns.map((columns) => (
+                  <option key={columns.id} value={columns.machineName ?? ''}>
+                    {columns.displayName ?? columns.machineName}
                   </option>
                 ))}
               </Select>
@@ -139,16 +139,16 @@ export function SummaryChart({
 
       <QueryBoundary query={query} loading={<Skeleton className="h-72 w-full" />}>
           {(summary) => {
-            const kelompok = (summary.groups ?? []).slice(0, MAKS_KELOMPOK)
-            const pakaiJumlah = Boolean(metric)
+            const groups = (summary.groups ?? []).slice(0, MAX_GROUPS)
+            const useCount = Boolean(metric)
 
-            if (kelompok.length === 0) {
+            if (groups.length === 0) {
               return <EmptyState title="Tidak ada kelompok untuk ditampilkan" />
             }
 
-            const data = kelompok.map((g) => ({
+            const data = groups.map((g) => ({
               label: g.label ?? '(kosong)',
-              nilai: pakaiJumlah ? (g.sum ?? 0) : (g.count ?? 0),
+              value: useCount ? (g.sum ?? 0) : (g.count ?? 0),
             }))
 
             return (
@@ -175,7 +175,7 @@ export function SummaryChart({
                       />
                       <Tooltip
                         cursor={{ fill: '#F8FAFC' }}
-                        formatter={(v: number) => [formatNumber(v), pakaiJumlah ? 'Jumlah' : 'Baris']}
+                        formatter={(v: number) => [formatNumber(v), useCount ? 'Jumlah' : 'Baris']}
                         contentStyle={{
                           borderRadius: 10,
                           border: '1px solid #E3E7ED',
@@ -184,7 +184,7 @@ export function SummaryChart({
                       />
                       <Bar dataKey="nilai" radius={[4, 4, 0, 0]}>
                         {data.map((_, i) => (
-                          <Cell key={i} fill={WARNA[i % WARNA.length]} />
+                          <Cell key={i} fill={COLORS[i % COLORS.length]} />
                         ))}
                       </Bar>
                     </BarChart>
@@ -193,8 +193,8 @@ export function SummaryChart({
 
                 <p className="text-ink-400 mt-3 text-[12px]">
                   Dihitung dari {formatNumber(summary.totalRows)} baris.
-                  {(summary.groups?.length ?? 0) > MAKS_KELOMPOK
-                    ? ` Menampilkan ${MAKS_KELOMPOK} kelompok teratas dari ${summary.groups?.length}.`
+                  {(summary.groups?.length ?? 0) > MAX_GROUPS
+                    ? ` Menampilkan ${MAX_GROUPS} kelompok teratas dari ${summary.groups?.length}.`
                     : ''}
                 </p>
               </>

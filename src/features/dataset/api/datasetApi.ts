@@ -1,6 +1,7 @@
-import { apiDownload, apiGet, apiPost } from '@/shared/api/httpClient'
+import { apiDelete, apiDownload, apiGet, apiPatch, apiPost } from '@/shared/api/httpClient'
 import type {
   Dataset,
+  DocumentText,
   DatasetSummary,
   Datastore,
   Format,
@@ -24,7 +25,9 @@ export interface DatasetQuery {
   topics?: string[]
   formats?: string[]
   divisions?: string[]
-  sort?: 'relevance' | 'downloads' | 'updated'
+  /** Tag posisi. Disaring di database, bukan di layar — lihat catatan di panel admin. */
+  positions?: string[]
+  sort?: 'relevance' | 'downloads' | 'updated' | 'created'
   /** Berbasis 0, mengikuti Spring Data. */
   page?: number
   size?: number
@@ -40,18 +43,39 @@ export function fetchDatasets(query: DatasetQuery, signal?: AbortSignal): Promis
   })
 }
 
-export function fetchDataset(slug: string, signal?: AbortSignal): Promise<Dataset> {
-  return apiGet<Dataset>(`${BASE}/${encodeURIComponent(slug)}`, { signal })
+/**
+ * @param recordView `false` untuk membaca tanpa menaikkan penghitung kunjungan.
+ *   Dipakai panel admin: menengok dataset lewat panel pengelolaan bukan
+ *   kunjungan portal, dan kalau ikut dihitung, angka "Total kunjungan" naik
+ *   setiap kali admin membuka dasbornya sendiri.
+ */
+export function fetchDataset(
+  slug: string,
+  recordView = true,
+  signal?: AbortSignal,
+): Promise<Dataset> {
+  return apiGet<Dataset>(`${BASE}/${encodeURIComponent(slug)}`, {
+    params: recordView ? undefined : { recordView: false },
+    signal,
+  })
 }
 
+/**
+ * Isi tabel satu berkas.
+ *
+ * `resourceId` menentukan berkas yang mana. Satu dataset bisa memuat CSV dan
+ * Excel sekaligus, dan masing-masing punya tabelnya sendiri; tanpa parameter
+ * ini server menjawab dengan berkas utamanya.
+ */
 export function fetchDatastore(
   slug: string,
+  resourceId: string | undefined,
   page: number,
   size: number,
   signal?: AbortSignal,
 ): Promise<Datastore> {
   return apiGet<Datastore>(`${BASE}/${encodeURIComponent(slug)}/datastore`, {
-    params: { page, size },
+    params: resourceId ? { page, size, resourceId } : { page, size },
     signal,
   })
 }
@@ -79,9 +103,12 @@ export function fetchSummary(
  * tanpa nilai itu dan mencatatnya di audit log, jadi ia bukan sekadar hiasan
  * antarmuka — jangan pernah dikirim `true` secara otomatis.
  */
-export function downloadDataset(slug: string, agreement: boolean) {
+export function downloadDataset(slug: string, agreement: boolean, resourceId?: string) {
   return apiDownload(`${BASE}/${encodeURIComponent(slug)}/download`, {
-    params: { agreement },
+    // `resourceId` dikosongkan berarti berkas pertama. Satu permintaan
+    // mengambil satu berkas — beberapa berkas dipanggil berurutan, supaya
+    // masing-masing punya barisnya sendiri di log unduhan.
+    params: { agreement, ...(resourceId ? { resourceId } : {}) },
     // Berkas bisa berukuran puluhan megabita di jaringan kantor yang lambat;
     // batas 20 detik milik klien standar terlalu pendek.
     timeout: 120_000,
@@ -101,10 +128,18 @@ export interface DatasetUploadBody {
   title: string
   slug?: string
   notes?: string
-  disclaimer?: string
-  coverage?: string
   topics?: string[]
   collectionSlug?: string
+  /**
+   * Posisi jabatan yang boleh melihat. Dikosongkan berarti terbuka untuk
+   * seluruh karyawan; diisi berarti dibatasi — dan pembatasannya berlaku.
+   */
+  positions?: string[]
+  /**
+   * Keterangan tiap berkas, DIPASANGKAN MENURUT URUTAN dengan berkas yang
+   * dikirim. Jumlahnya harus sama; back-end menolak kalau tidak.
+   */
+  files?: { label?: string; format?: string }[]
 }
 
 /**
@@ -118,9 +153,54 @@ export interface DatasetUploadBody {
  * `Content-Type` sengaja TIDAK diisi sendiri: axios harus menyusunnya bersama
  * boundary multipart, dan menuliskannya manual justru membuat boundary hilang.
  */
-export function uploadDataset(file: File, body: DatasetUploadBody): Promise<Dataset> {
+export function uploadDataset(files: File[], body: DatasetUploadBody): Promise<Dataset> {
   const form = new FormData()
-  form.append('file', file)
+  // Bagian `files` diulang, bukan dikirim sebagai satu larik. Urutan
+  // penambahannya SAMA dengan urutan `body.files`, dan back-end memasangkan
+  // keduanya berdasarkan urutan itu.
+  files.forEach((file) => form.append('files', file))
   form.append('body', new Blob([JSON.stringify(body)], { type: 'application/json' }))
   return apiPost<Dataset>(BASE, form)
+}
+
+/**
+ * Mengganti SELURUH tag posisi sebuah dataset — bukan menambah.
+ *
+ * Mengirim daftar utuh, bukan selisihnya, supaya dua admin yang menyunting
+ * bersamaan tidak menghasilkan gabungan yang tidak dikehendaki siapa pun.
+ */
+export function updateDatasetPositions(slug: string, positions: string[]): Promise<string[]> {
+  return apiPatch<string[]>(`${BASE}/${encodeURIComponent(slug)}/positions`, { positions })
+}
+
+/** Soft delete. Slug-nya tidak dilepas dan tidak bisa dipakai ulang. */
+export function deleteDataset(slug: string): Promise<void> {
+  return apiDelete<void>(`${BASE}/${encodeURIComponent(slug)}`)
+}
+
+/** Isi dokumen Word sebagai teks. Lihat catatan batasnya di PreviewService. */
+export function fetchDocumentText(
+  slug: string,
+  resourceId: string,
+  signal?: AbortSignal,
+): Promise<DocumentText> {
+  return apiGet<DocumentText>(`${BASE}/${encodeURIComponent(slug)}/preview/text`, {
+    params: { resourceId },
+    signal,
+  })
+}
+
+/**
+ * Mengambil PDF untuk digambar peramban di dalam halaman.
+ *
+ * Lewat XHR, bukan `<iframe src="/api/...">` langsung: navigasi iframe tidak
+ * membawa header autentikasi, jadi server akan menjawab 401. Hasilnya dibungkus
+ * jadi blob URL — dan pemanggil WAJIB mencabutnya, karena setiap blob menahan
+ * seluruh isi berkas di memori sampai dicabut.
+ */
+export function fetchPdfPreview(slug: string, resourceId: string): Promise<Blob> {
+  return apiDownload(`${BASE}/${encodeURIComponent(slug)}/preview`, {
+    params: { resourceId },
+    timeout: 120_000,
+  }).then((result) => result.blob)
 }

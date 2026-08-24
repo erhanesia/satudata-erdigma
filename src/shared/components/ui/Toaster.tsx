@@ -2,7 +2,7 @@ import { cn } from '@/shared/lib/cn'
 
 import { useToasts, type ToastTone } from './toastStore'
 
-const GAYA: Record<ToastTone, string> = {
+const STYLES: Record<ToastTone, string> = {
   info: 'bg-ink-900 text-white',
   success: 'bg-success text-white',
   error: 'bg-danger text-white',
@@ -25,7 +25,7 @@ export function Toaster() {
           key={toast.id}
           className={cn(
             'pointer-events-auto max-w-md rounded-[var(--radius-control)] px-4 py-3 text-sm font-semibold shadow-lg',
-            GAYA[toast.tone],
+            STYLES[toast.tone],
           )}
         >
           {toast.message}

@@ -8,10 +8,10 @@ import { router } from '@/app/router/router'
 
 import '@/styles/index.css'
 
-const wadah = document.getElementById('root')
-if (!wadah) throw new Error('Elemen #root tidak ditemukan di index.html')
+const container = document.getElementById('root')
+if (!container) throw new Error('Elemen #root tidak ditemukan di index.html')
 
-createRoot(wadah).render(
+createRoot(container).render(
   <StrictMode>
     <AppErrorBoundary>
       <QueryProvider>

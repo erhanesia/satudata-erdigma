@@ -1,4 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
+
+import logoErdigma from '@/shared/assets/logo-erdigma-mark.png'
 import { AlertTriangle, ArrowRight } from 'lucide-react'
 import { useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
@@ -12,6 +14,7 @@ import { useToast } from '@/shared/components/ui/toastStore'
 import { env } from '@/shared/config/env'
 
 import { useAuthSession } from '../hooks/useAuthSession'
+import { useCurrentUser } from '../hooks/useCurrentUser'
 import { authStrategy } from '../model/authStrategy'
 import { DUMMY_IDENTITIES, initialsOf, type DummyIdentity } from '../model/types'
 
@@ -30,65 +33,94 @@ import { DUMMY_IDENTITIES, initialsOf, type DummyIdentity } from '../model/types
  * Itu sebabnya di sini tidak ada kolom kata sandi — Satu Data tidak akan pernah
  * memeriksanya, jadi menampilkannya cuma akan menyesatkan.
  */
+/**
+ * Beranda yang sesuai peran.
+ *
+ * Admin mendarat di panel admin, sisanya di portal biasa. Ini pengalihan saat
+ * masuk, bukan kurungan: admin tetap bisa membuka panel pengguna lewat URL,
+ * karena mereka juga perlu melihat katalog seperti yang dilihat orang lain.
+ *
+ * Tujuan tersimpan menang atas aturan ini — kalau seseorang membuka tautan
+ * dataset lalu diminta masuk, ia harus mendarat di dataset itu, bukan di
+ * dashboard.
+ */
+function homeForRole(role: string): string {
+  return role === 'ADMIN' ? paths.admin : paths.home
+}
+
 export default function LoginPage() {
-  const [pemilihTerbuka, setPemilihTerbuka] = useState(false)
-  const sudahMasuk = useAuthSession()
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const signedIn = useAuthSession()
   const location = useLocation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const toast = useToast()
 
-  // Halaman yang tadi hendak dibuka sebelum dialihkan ke sini. Dipasang oleh
-  // ProtectedRoute; kalau seseorang membuka /login langsung, jatuh ke beranda.
-  const tujuan = ambilTujuan(location.state) ?? paths.home
+  // Halaman yang tadi hendak dibuka sebelum dialihkan ke sini, dipasang oleh
+  // ProtectedRoute.
+  //
+  // Beranda "/" sengaja TIDAK dihitung sebagai tujuan. ProtectedRoute
+  // menyimpannya setiap kali seseorang membuka akar aplikasi dalam keadaan
+  // belum masuk — dan itu berarti "tidak menuju apa-apa", bukan permintaan
+  // sadar untuk mendarat di panel pengguna. Tanpa pengecualian ini, admin
+  // selalu berakhir di panel pengguna karena "/" mengalahkan aturan peran.
+  const stored = readRedirectTarget(location.state)
+  const specificTarget = stored && stored !== paths.home ? stored : null
 
-  if (sudahMasuk) {
-    return <Navigate to={tujuan} replace />
+  // Sesi yang sudah ada sebelum halaman ini dibuka — misalnya karena tab lama
+  // masih memegang sessionStorage. Perannya HARUS dibaca dari server, bukan
+  // dari daftar identitas lokal, karena di mode Cognito daftar itu tidak ada.
+  const { data: activeUser, isPending: loadingIdentity } = useCurrentUser()
+
+  if (signedIn) {
+    // Menunggu /me sebelum mengalihkan. Menebak lebih dulu lalu memperbaiki
+    // setelahnya membuat admin melihat panel pengguna berkedip sekilas — dan
+    // kalau /me lambat, mereka tertinggal di sana.
+    if (loadingIdentity) {
+      return null
+    }
+    return (
+      <Navigate to={specificTarget ?? homeForRole(activeUser?.role ?? '')} replace />
+    )
   }
 
-  function mulaiMasuk() {
+  function startSignIn() {
     if (authStrategy.mode === 'dummy') {
-      setPemilihTerbuka(true)
+      setPickerOpen(true)
       return
     }
 
     try {
       // Tidak pernah kembali: pemanggilan ini meninggalkan halaman.
       authStrategy.signIn()
-    } catch (galat) {
-      toast.show(galat instanceof Error ? galat.message : 'Gagal memulai proses masuk.')
+    } catch (error) {
+      toast.show(error instanceof Error ? error.message : 'Gagal memulai proses masuk.')
     }
   }
 
-  function masukSebagai(identitas: DummyIdentity) {
-    authStrategy.signIn(identitas.cognitoSub)
+  function signInAs(identity: DummyIdentity) {
+    authStrategy.signIn(identity.cognitoSub)
     // Seluruh cache dibuang, bukan hanya /me: daftar API key bersifat
     // per-pengguna. Menyisakannya berarti menampilkan data milik orang
     // sebelumnya.
     queryClient.clear()
-    setPemilihTerbuka(false)
-    void navigate(tujuan, { replace: true })
+    setPickerOpen(false)
+    void navigate(specificTarget ?? homeForRole(identity.role), { replace: true })
   }
 
   return (
-    <div className="bg-surface-50 flex min-h-screen flex-col items-center justify-center px-5 py-12">
+    <div className="bg-surface-50 flex min-h-screen flex-col items-center justify-center px-4 py-10 sm:px-5 sm:py-12">
       <div className="w-full max-w-[440px]">
         <div className="flex flex-col items-center text-center">
-          <span className="bg-brand mb-5 flex size-[52px] items-center justify-center rounded-[14px]">
-            <svg
-              width={28}
-              height={28}
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#fff"
-              strokeWidth={2.4}
-              aria-hidden
-            >
-              <path d="M4 19V9M10 19V4M16 19v-7M22 19H2" />
-            </svg>
-          </span>
+          <img
+            src={logoErdigma}
+            alt=""
+            width={52}
+            height={52}
+            className="mb-5 size-[52px] shrink-0"
+          />
 
-          <h1 className="text-ink-900 text-[30px] leading-tight font-extrabold tracking-[-1px]">
+          <h1 className="text-ink-900 text-[25px] leading-tight font-extrabold tracking-[-1px] sm:text-[30px]">
             Satu Data <span className="text-brand">Erdigma</span>
           </h1>
           <p className="text-ink-600 mt-2 text-[15px] font-medium">
@@ -96,7 +128,7 @@ export default function LoginPage() {
             menjelajah katalog.
           </p>
 
-          <Button size="lg" className="mt-7 w-full" onClick={mulaiMasuk}>
+          <Button size="lg" className="mt-7 w-full" onClick={startSignIn}>
             Masuk dengan akun Erdigma
             <ArrowRight className="size-[18px]" strokeWidth={2.4} />
           </Button>
@@ -114,10 +146,10 @@ export default function LoginPage() {
         ) : null}
       </div>
 
-      <PemilihIdentitas
-        open={pemilihTerbuka}
-        onOpenChange={setPemilihTerbuka}
-        onPilih={masukSebagai}
+      <IdentityPicker
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        onSelect={signInAs}
       />
 
       {/* Halaman ini di luar RootLayout, jadi Toaster miliknya tidak ikut
@@ -128,61 +160,61 @@ export default function LoginPage() {
   )
 }
 
-function PemilihIdentitas({
+function IdentityPicker({
   open,
   onOpenChange,
-  onPilih,
+  onSelect,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onPilih: (identitas: DummyIdentity) => void
+  onSelect: (identity: DummyIdentity) => void
 }) {
   return (
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
       title="Pilih identitas uji"
-      description="Sepuluh karyawan tiruan, mewakili kedelapan divisi dan kelima tingkat izin HRIS. Jenjang jabatan diambil dari enum JobLevel milik hris-api."
+      description="Karyawan tiruan untuk pengujian lokal: sepuluh identitas awal ditambah satu akun untuk setiap posisi akses. Jenjang jabatan memakai nilai enum JobLevel milik hris-api."
       className="max-w-3xl"
     >
       <ul className="grid gap-2.5 sm:grid-cols-2">
-        {DUMMY_IDENTITIES.map((identitas) => (
-          <li key={identitas.cognitoSub}>
+        {DUMMY_IDENTITIES.map((identity) => (
+          <li key={identity.cognitoSub}>
             <button
               type="button"
-              onClick={() => onPilih(identitas)}
+              onClick={() => onSelect(identity)}
               className="border-line-200 hover:border-brand-border hover:bg-brand-tint/40 focus-visible:outline-brand flex w-full items-start gap-3 rounded-[var(--radius-card)] border p-3 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
             >
               <span
                 className="flex size-10 shrink-0 items-center justify-center rounded-full text-[13px] font-bold text-white"
-                style={{ backgroundColor: identitas.divisionColor }}
+                style={{ backgroundColor: identity.divisionColor }}
                 aria-hidden
               >
-                {initialsOf(identitas.name)}
+                {initialsOf(identity.name)}
               </span>
 
               <span className="min-w-0 flex-1">
                 <span className="text-ink-900 block truncate text-sm font-bold">
-                  {identitas.name}
+                  {identity.name}
                 </span>
                 <span className="text-ink-600 block truncate text-[12.5px] font-medium">
-                  {identitas.position}
+                  {identity.position}
                 </span>
 
                 <span className="mt-1.5 flex flex-wrap items-center gap-1">
-                  <Badge tone="neutral">{identitas.divisionCode}</Badge>
-                  <Badge tone="neutral">{identitas.jobLevel}</Badge>
-                  <Badge tone={identitas.role === 'STAFF' ? 'neutral' : 'brand'}>
-                    {identitas.role}
+                  <Badge tone="neutral">{identity.divisionCode}</Badge>
+                  <Badge tone="neutral">{identity.jobLevel}</Badge>
+                  <Badge tone={identity.role === 'STAFF' ? 'neutral' : 'brand'}>
+                    {identity.role}
                   </Badge>
-                  {identitas.cognitoSub === 'dummy-resigned' ? (
+                  {identity.cognitoSub === 'dummy-resigned' ? (
                     <Badge tone="danger">resign</Badge>
                   ) : null}
                 </span>
 
-                {identitas.note ? (
+                {identity.note ? (
                   <span className="text-ink-500 mt-1.5 block text-[11.5px] leading-snug">
-                    {identitas.note}
+                    {identity.note}
                   </span>
                 ) : null}
               </span>
@@ -195,10 +227,10 @@ function PemilihIdentitas({
 }
 
 /** `location.state` bertipe `unknown` — diperiksa, bukan di-cast. */
-function ambilTujuan(state: unknown): string | null {
+function readRedirectTarget(state: unknown): string | null {
   if (typeof state !== 'object' || state === null) return null
-  const dari = (state as { from?: unknown }).from
+  const fromDate = (state as { from?: unknown }).from
   // Hanya jalur relatif yang diterima. Tanpa pemeriksaan ini, sebuah tautan
   // bisa menyelipkan alamat luar dan halaman login berubah jadi pengalih terbuka.
-  return typeof dari === 'string' && dari.startsWith('/') && !dari.startsWith('//') ? dari : null
+  return typeof fromDate === 'string' && fromDate.startsWith('/') && !fromDate.startsWith('//') ? fromDate : null
 }

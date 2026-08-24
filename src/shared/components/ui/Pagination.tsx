@@ -18,7 +18,7 @@ interface PaginationProps {
 }
 
 /** Jumlah tombol nomor yang tampak sekaligus, mengikuti desain. */
-const JENDELA = 5
+const WINDOW_SIZE = 5
 
 export function Pagination({
   page,
@@ -29,20 +29,23 @@ export function Pagination({
 }: PaginationProps) {
   if (totalPages <= 1) return null
 
-  const mulai = Math.max(1, Math.min(page - 2, totalPages - (JENDELA - 1)))
-  const selesai = Math.min(totalPages, mulai + (JENDELA - 1))
-  const nomor: number[] = []
-  for (let n = mulai; n <= selesai; n += 1) nomor.push(n)
+  const from = Math.max(1, Math.min(page - 2, totalPages - (WINDOW_SIZE - 1)))
+  const lastIndex = Math.min(totalPages, from + (WINDOW_SIZE - 1))
+  const rowNumber: number[] = []
+  for (let n = from; n <= lastIndex; n += 1) rowNumber.push(n)
 
   return (
-    <nav className={cn('flex items-center gap-1.5', className)} aria-label="Navigasi halaman">
-      <TombolArah
-        arah="prev"
+    <nav
+      className={cn('flex flex-wrap items-center justify-center gap-1.5', className)}
+      aria-label="Navigasi halaman"
+    >
+      <ArrowButton
+        direction="prev"
         disabled={page <= 1}
         onClick={() => onPageChange(Math.max(1, page - 1))}
         label={labels ? 'Sebelumnya' : undefined}
       />
-      {nomor.map((n) => (
+      {rowNumber.map((n) => (
         <button
           key={n}
           type="button"
@@ -59,8 +62,8 @@ export function Pagination({
           {n}
         </button>
       ))}
-      <TombolArah
-        arah="next"
+      <ArrowButton
+        direction="next"
         disabled={page >= totalPages}
         onClick={() => onPageChange(Math.min(totalPages, page + 1))}
         label={labels ? 'Berikutnya' : undefined}
@@ -69,41 +72,45 @@ export function Pagination({
   )
 }
 
-function TombolArah({
-  arah,
+function ArrowButton({
+  direction,
   disabled,
   onClick,
   label,
 }: {
-  arah: 'prev' | 'next'
+  direction: 'prev' | 'next'
   disabled: boolean
   onClick: () => void
   label?: string | undefined
 }) {
-  const Ikon = arah === 'prev' ? ChevronLeft : ChevronRight
+  const Icon = direction === 'prev' ? ChevronLeft : ChevronRight
 
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      aria-label={arah === 'prev' ? 'Halaman sebelumnya' : 'Halaman berikutnya'}
+      aria-label={direction === 'prev' ? 'Halaman sebelumnya' : 'Halaman berikutnya'}
       className={cn(
         'flex h-9.5 items-center rounded-[var(--radius-control)] border',
-        label ? 'px-3.5 text-sm font-semibold' : 'px-3',
+        label ? 'px-3 text-sm font-semibold sm:px-3.5' : 'px-3',
         disabled
           ? 'border-line-100 bg-surface-50 text-[#c7cfdb]'
           : 'border-line-200 bg-surface text-ink-700 hover:bg-surface-100',
       )}
     >
       {label ? (
-        arah === 'prev' ? (
-          <>‹&nbsp;{label}</>
+        direction === 'prev' ? (
+          <>
+            ‹<span className="hidden sm:inline">&nbsp;{label}</span>
+          </>
         ) : (
-          <>{label}&nbsp;›</>
+          <>
+            <span className="hidden sm:inline">{label}&nbsp;</span>›
+          </>
         )
       ) : (
-        <Ikon className="size-4" />
+        <Icon className="size-4" />
       )}
     </button>
   )
