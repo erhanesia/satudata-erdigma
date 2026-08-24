@@ -110,9 +110,8 @@ export default function DatasetUploadPage() {
                 Peran Anda tidak berhak menerbitkan dataset.
               </p>
               <p className="text-ink-500 mt-1 text-[13px] leading-relaxed">
-                Dibutuhkan peran ADMIN atau PUBLISHER. Untuk mencoba, ganti identitas uji ke
-                <code className="mx-1 font-mono">dummy-admin</code> atau
-                <code className="mx-1 font-mono">dummy-manager</code>.
+                Dibutuhkan peran ADMIN atau PUBLISHER. Peran mengikuti jenjang jabatan Anda di
+                HRIS — hubungi administrator bila menurut Anda ini keliru.
               </p>
               <Link to={paths.datasets} className="text-primary mt-3 inline-block text-[13px] font-semibold">
                 ← Kembali ke Datasets

@@ -63,8 +63,8 @@ export interface paths {
          *     diam-diam ditambahi angka, karena tautan yang sudah terlanjur dibagikan akan menunjuk
          *     ke tempat yang salah.
          *
-         *     Perlu peran **ADMIN** atau **PUBLISHER**. Identitas uji yang bisa dipakai:
-         *     `dummy-admin`, `dummy-director`, `dummy-corpsec`, `dummy-manager`.
+         *     Perlu peran **ADMIN** atau **PUBLISHER** — di HRIS berarti jenjang direktur,
+         *     manajerial, atau Corporate Secretary.
          */
         post: operations["create"];
         delete?: never;
@@ -211,16 +211,13 @@ export interface paths {
          *
          *     Dipakai portal untuk mengisi pil identitas di header setiap halaman.
          *
-         *     **Cara mencoba di Swagger:** tekan Authorize, isi `dummyAuth` dengan salah satu
-         *     identitas uji, lalu Execute di sini. Nama yang muncul harus sesuai identitas yang
-         *     Anda pilih.
+         *     **Cara mencoba di Swagger:** tekan Authorize, tempel token akses Cognito di
+         *     `bearerAuth`, lalu Execute di sini. Nama yang muncul harus nama pemilik token.
          *
-         *     | Isi `dummyAuth` | Hasil |
+         *     | Keadaan | Hasil |
          *     |---|---|
-         *     | `dummy-admin` | 200, peran ADMIN |
-         *     | `dummy-director` | 200, izin HRIS DIRECTOR |
-         *     | `dummy-staff` | 200, peran STAFF |
-         *     | `dummy-resigned` | **403** — sengaja, user itu sudah resign |
+         *     | Token karyawan aktif | 200, peran sesuai jenjang jabatannya di HRIS |
+         *     | Token yang pemiliknya bukan karyawan aktif | **401** — hris-api menolak identitas itu |
          *     | *(tanpa Authorize)* | **401** |
          *
          *     Perhatikan `role` (peran di portal) berbeda dari `hrisPermissionLevel` (tingkat izin

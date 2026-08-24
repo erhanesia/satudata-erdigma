@@ -1,9 +1,9 @@
 /**
  * Pemberitahuan perubahan sesi.
  *
- * Sesi hidup di luar React — di sessionStorage untuk mode dummy, di memori
- * modul untuk mode Cognito. React tidak punya cara mengetahui keduanya berubah,
- * padahal justru saat itulah pengguna harus dilempar ke halaman login.
+ * Sesi hidup di luar React — di memori modul. React tidak punya cara
+ * mengetahui isinya berubah, padahal justru saat itulah pengguna harus
+ * dilempar ke halaman login.
  *
  * Kasus yang membuat ini perlu, dan tidak bisa ditangani dengan state biasa:
  * interceptor 401 di `httpClient` membersihkan sesi dari dalam sebuah
