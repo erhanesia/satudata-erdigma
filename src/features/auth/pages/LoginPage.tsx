@@ -84,15 +84,17 @@ export default function LoginPage() {
     )
   }
 
-  function startSignIn() {
+  async function startSignIn() {
     if (authStrategy.mode === 'dummy') {
       setPickerOpen(true)
       return
     }
 
     try {
-      // Tidak pernah kembali: pemanggilan ini meninggalkan halaman.
-      authStrategy.signIn()
+      // Ditunggu: panggilannya sendiri kembali segera, pengalihan ke Hosted
+      // UI terjadi satu microtask kemudian — tanpa `await` galat sebelum itu
+      // (crypto.subtle tak ada, sessionStorage penuh) jadi unhandled rejection senyap.
+      await authStrategy.signIn()
     } catch (error) {
       toast.show(error instanceof Error ? error.message : 'Gagal memulai proses masuk.')
     }

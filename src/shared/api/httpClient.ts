@@ -3,17 +3,39 @@ import axios, { type AxiosInstance, type AxiosRequestConfig } from 'axios'
 import { authStrategy } from '@/features/auth/model/authStrategy'
 import { env } from '@/shared/config/env'
 
-import { toApiError } from './errors'
+import { ApiError, toApiError } from './errors'
+
+declare module 'axios' {
+  export interface AxiosRequestConfig {
+    /**
+     * Penanda bahwa permintaan ini sudah pernah diulang setelah penyegaran
+     * token. Ditaruh di config, bukan di variabel modul: dua permintaan
+     * berbeda tidak boleh saling menghabiskan jatah ulang satu sama lain.
+     */
+    _sudahDiulang?: boolean
+    /**
+     * Penanda bahwa penyegaran token yang memicu pengulangan di atas benar-benar
+     * BERHASIL (bukan sekadar dicoba). Dipasang tepat sebelum `instance(config)`
+     * dipanggil ulang, sehingga kalau permintaan ulang ini masih dibalas 401,
+     * penanda ini yang membedakannya dari 401 pertama yang refresh-nya gagal.
+     */
+    _penyegaranBerhasil?: boolean
+  }
+}
 
 /** Ambang waktu tunggu. Permintaan yang menggantung tidak boleh membekukan UI. */
 const TIMEOUT_MS = 20_000
 
 /**
- * Klien HTTP tunggal untuk seluruh aplikasi.
- *
- * Satu-satunya berkas yang tahu soal axios. Lapisan `api/` tiap fitur memanggil
+ * Klien HTTP tunggal untuk API Satu Data. Lapisan `api/` tiap fitur memanggil
  * `apiGet`/`apiPost`/`apiDelete` di bawah, sehingga mengganti pustaka HTTP
  * kelak cukup menyentuh berkas ini.
+ *
+ * Satu pengecualian yang disengaja: `cognitoStrategy.ts` memanggil `axios`
+ * langsung ke endpoint token Cognito. Endpoint itu tidak boleh lewat klien
+ * ini karena dua interceptor di bawah akan ikut bermain — permintaan
+ * meminta token baru justru disisipi header autentikasi lama, dan 401 dari
+ * situ akan memicu penyegaran yang memanggil balik endpoint yang sama.
  */
 const instance: AxiosInstance = axios.create({
   // Kosong saat development: permintaan menjadi relatif ke origin yang sama dan
@@ -38,12 +60,48 @@ instance.interceptors.request.use((config) => {
 
 instance.interceptors.response.use(
   (response) => response,
-  (error: unknown) => {
+  async (error: unknown) => {
     const apiError = toApiError(error)
 
-    // Sesi tidak sah: bersihkan supaya permintaan berikutnya tidak mengulang
-    // kredensial yang sudah jelas ditolak.
     if (apiError.kind === 'unauthorized') {
+      const config = axios.isAxiosError(error) ? error.config : undefined
+
+      // Token akses Cognito berumur satu jam. Tanpa percobaan penyegaran ini,
+      // pengguna terlempar ke halaman masuk sejam sekali di tengah pekerjaan.
+      // Mode dummy tidak punya `refresh`, jadi cabang ini tidak aktif di sana.
+      if (authStrategy.refresh && config && !config._sudahDiulang) {
+        config._sudahDiulang = true
+
+        if (await authStrategy.refresh()) {
+          // Header dipasang ulang oleh interceptor permintaan, yang membaca
+          // token terbaru dari seam — bukan dari salinan yang sudah basi.
+          config._penyegaranBerhasil = true
+          return instance(config)
+        }
+      }
+
+      // 401 ini datang dari permintaan yang BARU SAJA diulang setelah
+      // penyegaran token berhasil. Penyegaran tidak mungkin berhasil dengan
+      // kredensial yang rusak, jadi ini bukan sesi yang tidak sah — ini
+      // back-end yang sengaja menolak identitas ini (mis. akun HRIS
+      // karyawan resign/nonaktif; lihat GerbangIdentitas di ProtectedRoute).
+      // Sesi masih sah: jangan clearSession(), karena itu cuma memicu
+      // ProtectedRoute mengalihkan ke /login, yang lalu memantul balik seketika
+      // lewat re-auth senyap karena cookie sesi Cognito masih hidup — bolak-balik
+      // tanpa penjelasan apa pun ke pengguna.
+      if (config?._penyegaranBerhasil) {
+        return Promise.reject(
+          new ApiError(
+            'forbidden',
+            'Server menolak akun Anda, kemungkinan besar karena belum terdaftar sebagai karyawan aktif di Satu Data. Hubungi administrator bila menurut Anda ini keliru.',
+            apiError.status,
+            apiError.detail,
+          ),
+        )
+      }
+
+      // Sesi tidak sah dan tidak bisa diselamatkan: bersihkan supaya
+      // permintaan berikutnya tidak mengulang kredensial yang jelas ditolak.
       authStrategy.clearSession()
     }
 

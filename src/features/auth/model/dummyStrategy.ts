@@ -19,6 +19,14 @@ const STORAGE_KEY = 'satudata.dummy-sub'
  * ini, dan back-end punya `DummyAuthProfileGuard` untuk hal yang sama.
  */
 export function createDummyStrategy(): AuthStrategy {
+  // Fungsi bernama, bukan metode objek: dipakai dua kali, dan di mode dummy
+  // keluar memang tidak berbeda dari sesi yang dibersihkan paksa — tidak ada
+  // sesi di sisi mana pun yang perlu ikut dimatikan.
+  function clearSession(): void {
+    sessionStorage.removeItem(STORAGE_KEY)
+    notifySessionChanged()
+  }
+
   return {
     mode: 'dummy',
 
@@ -45,10 +53,8 @@ export function createDummyStrategy(): AuthStrategy {
       notifySessionChanged()
     },
 
-    clearSession() {
-      sessionStorage.removeItem(STORAGE_KEY)
-      notifySessionChanged()
-    },
+    clearSession,
+    signOut: clearSession,
   }
 }
 
