@@ -28,12 +28,13 @@ let refreshInFlight: Promise<boolean> | null = null
  * Kunci sessionStorage. Tidak satu pun berisi kredensial:
  *  - verifier dan state hidup hanya selama satu perjalanan ke Hosted UI,
  *  - tujuan sekadar alamat halaman,
- *  - penanda pernah-masuk sekadar boolean.
+ *  - penanda pernah-masuk dan sedang-keluar sekadar boolean.
  */
 const KUNCI_VERIFIER = 'satudata.pkce-verifier'
 const KUNCI_STATE = 'satudata.oauth-state'
 const KUNCI_TUJUAN = 'satudata.tujuan-setelah-masuk'
 const KUNCI_PERNAH_MASUK = 'satudata.pernah-masuk'
+const KUNCI_SEDANG_KELUAR = 'satudata.sedang-keluar'
 
 /** Disamakan persis dengan hris-web supaya bentuk token yang terbit sama. */
 const SCOPE = 'email openid phone aws.cognito.signin.user.admin'
@@ -174,8 +175,8 @@ async function berangkat(): Promise<void> {
  * katalog data). Yang menandai ini benar-benar kepulangan dari Hosted UI
  * adalah *state* yang tersimpan di sessionStorage dari `berangkat()` — tanpa
  * itu, fungsi ini keluar tanpa menyentuh apa pun, termasuk tidak menulis
- * ulang alamat. Ini sekalian melindungi mode dummy, tempat
- * `env.cognito.domain` kosong dan pertukaran kode di bawah akan mengarah ke
+ * ulang alamat. Ini juga menjaga alamat tetap utuh saat
+ * konfigurasi Cognito belum terisi dan pertukaran kode di bawah akan mengarah ke
  * origin aplikasi sendiri.
  */
 export async function completeSignIn(): Promise<void> {
@@ -184,6 +185,32 @@ export async function completeSignIn(): Promise<void> {
   const error = alamat.searchParams.get('error')
   const state = alamat.searchParams.get('state')
   const stateTersimpan = sessionStorage.getItem(KUNCI_STATE)
+
+  // Kepulangan dari /logout mendarat di alamat yang sama, tapi tanpa state
+  // maupun verifier — keduanya sengaja dihapus saat keluar. Penanda inilah
+  // yang membedakannya dari alamat biasa yang kebetulan membawa `?code`
+  // (mis. `/dataset?code=BPS-3204`); tanpa penanda, gerbang di bawah tetap
+  // menutup seperti sedia kala.
+  if (sessionStorage.getItem(KUNCI_SEDANG_KELUAR) !== null) {
+    // Dibuang lebih dulu: kalau perjalanan di bawah gagal, kepulangan
+    // berikutnya harus jatuh ke jalur normal, bukan berputar di sini.
+    sessionStorage.removeItem(KUNCI_SEDANG_KELUAR)
+
+    if (code) {
+      // Kode yang tak terpakai dibuang dari alamat lebih dulu: `berangkat()`
+      // mencatat alamat saat ini sebagai tujuan setelah masuk, dan tanpa ini
+      // orangnya mendarat kembali di `/?code=<kode-basi>`.
+      window.history.replaceState(null, '', '/')
+      // Orang ini masuk lagi di formulir Cognito. Kodenya tak bisa ditukar —
+      // tidak ada verifier untuknya — tapi cookie sesi Cognito sudah hidup
+      // kembali, jadi berangkat ulang memantul balik tanpa formulir apa pun.
+      await berangkat()
+      return
+    }
+
+    window.history.replaceState(null, '', '/login')
+    return
+  }
 
   if (!(code || error) || stateTersimpan === null) return
 
@@ -266,7 +293,6 @@ async function lakukanPenyegaran(): Promise<boolean> {
  */
 export function createCognitoStrategy(): AuthStrategy {
   return {
-    mode: 'cognito',
 
     getAuthHeaders(): Record<string, string> {
       return accessToken ? { Authorization: `Bearer ${accessToken}` } : {}
@@ -297,12 +323,26 @@ export function createCognitoStrategy(): AuthStrategy {
     signOut() {
       lupakanToken()
       lupakanPernahMasuk()
+      // Sisa perjalanan yang mungkin masih menggantung dibuang: kepulangan
+      // dari /logout harus dikenali lewat penanda di bawah, bukan lewat state
+      // basi milik perjalanan lain.
+      sessionStorage.removeItem(KUNCI_STATE)
+      sessionStorage.removeItem(KUNCI_VERIFIER)
+      sessionStorage.setItem(KUNCI_SEDANG_KELUAR, '1')
 
       // Sesi Hosted UI ikut dimatikan. Tanpa langkah ini, re-auth senyap
       // langsung memasukkan orang itu kembali dan tombol keluar tampak rusak.
+      //
+      // Bentuknya redirect_uri, bukan logout_uri: /logout tidak memantulkan
+      // langsung ke tujuannya, ia melempar ke /login sambil membawa parameter
+      // ini apa adanya, dan halaman managed login menolak permintaan yang
+      // tidak punya response_type dan redirect_uri. Bentuk logout_uri selalu
+      // berakhir di layar "Invalid request" (400). Sama seperti hris-web.
       const url = new URL(`${env.cognito.domain}/logout`)
       url.searchParams.set('client_id', env.cognito.clientId)
-      url.searchParams.set('logout_uri', alamatBalik())
+      url.searchParams.set('response_type', 'code')
+      url.searchParams.set('scope', SCOPE)
+      url.searchParams.set('redirect_uri', alamatBalik())
       window.location.assign(url.toString())
     },
 

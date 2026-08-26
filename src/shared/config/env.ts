@@ -28,9 +28,6 @@ const envSchema = z.object({
     // Garis miring di akhir membuat URL jadi ganda ("//api/v1"). Rapikan di sini.
     .transform((v) => v.replace(/\/+$/, '')),
 
-  /** Mode autentikasi. Lihat features/auth. */
-  VITE_AUTH_MODE: z.enum(['dummy', 'cognito']).default('dummy'),
-
   /**
    * Domain Hosted UI Cognito, tanpa garis miring di akhir. Sama dengan yang
    * dipakai hris-web dan Taskfy — satu user pool untuk seluruh perusahaan.
@@ -38,10 +35,8 @@ const envSchema = z.object({
   VITE_COGNITO_DOMAIN: z
     .string()
     .trim()
-    .default('')
-    .refine((v) => v === '' || /^https:\/\//.test(v), {
-      message: 'harus kosong atau diawali https://',
-    })
+    .min(1, 'wajib diisi')
+    .refine((v) => /^https:\/\//.test(v), { message: 'harus diawali https://' })
     .transform((v) => v.replace(/\/+$/, '')),
 
   /**
@@ -49,7 +44,7 @@ const envSchema = z.object({
    * setiap kali pengguna diarahkan ke Hosted UI. Yang menjaga pertukaran kode
    * adalah PKCE, bukan kerahasiaan nilai ini.
    */
-  VITE_COGNITO_CLIENT_ID: z.string().trim().default(''),
+  VITE_COGNITO_CLIENT_ID: z.string().trim().min(1, 'wajib diisi'),
 
   /**
    * Alamat balik setelah masuk. Kosong berarti origin halaman ini, yang benar
@@ -62,31 +57,7 @@ const envSchema = z.object({
     .transform((v) => v.replace(/\/+$/, '')),
 })
 
-/**
- * Ketiga nilai Cognito hanya wajib saat mode-nya memang dipakai. Diperiksa di
- * sini, bukan saat tombol masuk ditekan: konfigurasi yang kurang harus
- * menggagalkan aplikasi saat start, bukan menyisakan tombol yang tak bereaksi.
- */
-const skema = envSchema.superRefine((nilai, ctx) => {
-  if (nilai.VITE_AUTH_MODE !== 'cognito') return
-
-  if (!nilai.VITE_COGNITO_DOMAIN) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['VITE_COGNITO_DOMAIN'],
-      message: 'wajib diisi saat VITE_AUTH_MODE=cognito',
-    })
-  }
-  if (!nilai.VITE_COGNITO_CLIENT_ID) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['VITE_COGNITO_CLIENT_ID'],
-      message: 'wajib diisi saat VITE_AUTH_MODE=cognito',
-    })
-  }
-})
-
-const parsed = skema.safeParse(import.meta.env)
+const parsed = envSchema.safeParse(import.meta.env)
 
 if (!parsed.success) {
   const details = parsed.error.issues
@@ -97,25 +68,8 @@ if (!parsed.success) {
 
 const raw = parsed.data
 
-/**
- * Auth dummy hanya boleh hidup di development. Kalau seseorang men-deploy build
- * produksi dengan VITE_AUTH_MODE=dummy, siapa pun bisa menyamar jadi pengguna
- * mana pun cukup dengan mengubah satu header. Gagalkan build-nya.
- *
- * Ini cerminan DummyAuthProfileGuard di back-end, yang menolak start bila profil
- * 'auth-dummy' menyala bersama 'prod'.
- */
-if (import.meta.env.PROD && raw.VITE_AUTH_MODE === 'dummy') {
-  throw new Error(
-    'VITE_AUTH_MODE=dummy terdeteksi pada build produksi. ' +
-      'Mode dummy mengizinkan penyamaran identitas dan hanya boleh dipakai di lokal. ' +
-      'Setel VITE_AUTH_MODE=cognito sebelum membangun untuk produksi.',
-  )
-}
-
 export const env = {
   apiBaseUrl: raw.VITE_API_BASE_URL,
-  authMode: raw.VITE_AUTH_MODE,
   isDev: import.meta.env.DEV,
   isProd: import.meta.env.PROD,
   cognito: {

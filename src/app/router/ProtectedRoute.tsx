@@ -45,9 +45,9 @@ export function ProtectedRoute() {
  * Memastikan sesi yang ada benar-benar diterima server sebelum halaman apa pun
  * dirender.
  *
- * Perlu karena di mode dummy "masuk" tidak menyentuh jaringan sama sekali —
- * cukup memilih nama dari daftar. Karyawan yang sudah resign tetap bisa dipilih,
- * dan penolakannya baru muncul di permintaan pertama. Tanpa gerbang ini,
+ * Perlu karena masuk lewat Cognito tidak menyentuh API ini sama sekali: token
+ * yang sah pun bisa ditolak Satu Data kalau pemiliknya bukan karyawan aktif di
+ * HRIS, dan penolakannya baru muncul di permintaan pertama. Tanpa gerbang ini,
  * pengguna itu akan melihat seluruh portal terbuka dengan tiap kotak berisi
  * pesan galat, bukan satu kalimat yang menjelaskan kenapa ia ditolak.
  *

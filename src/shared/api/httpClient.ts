@@ -68,8 +68,7 @@ instance.interceptors.response.use(
 
       // Token akses Cognito berumur satu jam. Tanpa percobaan penyegaran ini,
       // pengguna terlempar ke halaman masuk sejam sekali di tengah pekerjaan.
-      // Mode dummy tidak punya `refresh`, jadi cabang ini tidak aktif di sana.
-      if (authStrategy.refresh && config && !config._sudahDiulang) {
+      if (config && !config._sudahDiulang) {
         config._sudahDiulang = true
 
         if (await authStrategy.refresh()) {
