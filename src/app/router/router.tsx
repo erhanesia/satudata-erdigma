@@ -23,7 +23,6 @@ const DatasetDetailPage = lazy(() => import('@/features/dataset/pages/DatasetDet
 const CollectionListPage = lazy(() => import('@/features/collection/pages/CollectionListPage'))
 const CollectionDetailPage = lazy(() => import('@/features/collection/pages/CollectionDetailPage'))
 const DivisionListPage = lazy(() => import('@/features/division/pages/DivisionListPage'))
-const ApiDocsPage = lazy(() => import('@/features/apiDocs/pages/ApiDocsPage'))
 const StatusPage = lazy(() => import('@/features/status/pages/StatusPage'))
 const LoginPage = lazy(() => import('@/features/auth/pages/LoginPage'))
 
@@ -81,7 +80,6 @@ export const router = createBrowserRouter([
           { path: routePatterns.collections, element: page(<CollectionListPage />) },
           { path: routePatterns.collectionDetail, element: page(<CollectionDetailPage />) },
           { path: routePatterns.divisions, element: page(<DivisionListPage />) },
-          { path: routePatterns.apiDocs, element: page(<ApiDocsPage />) },
           { path: routePatterns.status, element: page(<StatusPage />) },
           { path: '*', element: <NotFoundPage /> },
         ],

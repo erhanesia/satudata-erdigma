@@ -114,9 +114,6 @@ function TopicChip() {
       name: t.name ?? '',
       to: `${paths.datasets}?topics=${encodeURIComponent(t.name ?? '')}`,
     })),
-    // Chip terakhir bukan topik dari database, melainkan pintasan ke
-    // dokumentasi API — sama seperti pada desain.
-    { name: 'Real-time APIs', to: paths.apiDocs },
   ]
 
   return (

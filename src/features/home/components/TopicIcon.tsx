@@ -1,6 +1,5 @@
 import {
   BarChart3,
-  Clock,
   Code,
   DollarSign,
   LayoutList,
@@ -38,8 +37,6 @@ const TOPIC_ICONS: Record<string, Topic> = {
   Produk: { Icon: Package, color: '#0F766E' },
   Teknologi: { Icon: Code, color: '#7C3AED' },
   Geospasial: { Icon: MapPin, color: '#0369A1' },
-  /** Bukan topik dari database — pintasan ke dokumentasi API, seperti di desain. */
-  'Real-time APIs': { Icon: Clock, color: '#0EA5A0' },
 }
 
 /** Dipakai untuk topik baru yang belum punya ikon khusus. */

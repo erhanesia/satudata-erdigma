@@ -17,7 +17,6 @@ export const paths = {
   collections: '/collections',
   collectionDetail: (slug: string) => `/collections/${encodeURIComponent(slug)}`,
   divisions: '/divisions',
-  apiDocs: '/api-docs',
   status: '/status',
 
   /**
@@ -39,7 +38,6 @@ export const routePatterns = {
   collections: 'collections',
   collectionDetail: 'collections/:slug',
   divisions: 'divisions',
-  apiDocs: 'api-docs',
   status: 'status',
 
   admin: '/admin',
