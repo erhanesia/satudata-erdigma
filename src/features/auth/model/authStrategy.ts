@@ -1,22 +1,16 @@
-import { env } from '@/shared/config/env'
-
 import {
   completeSignIn,
   createCognitoStrategy,
   lupakanPernahMasuk,
   pernahMasuk,
 } from './cognitoStrategy'
-import { createDummyStrategy } from './dummyStrategy'
 import type { AuthStrategy } from './types'
 
 /**
- * Satu-satunya tempat yang memilih implementasi autentikasi.
- *
- * Padanan `@Profile("auth-dummy")` di back-end: pilihan dibuat sekali di batas
- * aplikasi, lalu seluruh kode di dalamnya bekerja lewat antarmuka yang sama.
+ * Satu-satunya tempat yang membangun implementasi autentikasi. Seluruh kode
+ * fitur bekerja lewat antarmuka `AuthStrategy`, bukan lewat berkas ini.
  */
-export const authStrategy: AuthStrategy =
-  env.authMode === 'cognito' ? createCognitoStrategy() : createDummyStrategy()
+export const authStrategy: AuthStrategy = createCognitoStrategy()
 
 /**
  * Dijalankan sekali sebelum aplikasi dirender.
@@ -34,8 +28,6 @@ export const authStrategy: AuthStrategy =
  *          berpindah ke Hosted UI dan tidak ada gunanya merender apa pun.
  */
 export async function bootstrapAuth(): Promise<boolean> {
-  if (authStrategy.mode !== 'cognito') return true
-
   await completeSignIn()
   if (authStrategy.hasSession()) return true
 

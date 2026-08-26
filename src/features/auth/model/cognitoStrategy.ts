@@ -175,8 +175,8 @@ async function berangkat(): Promise<void> {
  * katalog data). Yang menandai ini benar-benar kepulangan dari Hosted UI
  * adalah *state* yang tersimpan di sessionStorage dari `berangkat()` — tanpa
  * itu, fungsi ini keluar tanpa menyentuh apa pun, termasuk tidak menulis
- * ulang alamat. Ini sekalian melindungi mode dummy, tempat
- * `env.cognito.domain` kosong dan pertukaran kode di bawah akan mengarah ke
+ * ulang alamat. Ini juga menjaga alamat tetap utuh saat
+ * konfigurasi Cognito belum terisi dan pertukaran kode di bawah akan mengarah ke
  * origin aplikasi sendiri.
  */
 export async function completeSignIn(): Promise<void> {
@@ -293,7 +293,6 @@ async function lakukanPenyegaran(): Promise<boolean> {
  */
 export function createCognitoStrategy(): AuthStrategy {
   return {
-    mode: 'cognito',
 
     getAuthHeaders(): Record<string, string> {
       return accessToken ? { Authorization: `Bearer ${accessToken}` } : {}
