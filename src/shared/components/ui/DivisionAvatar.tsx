@@ -4,7 +4,7 @@ import { cn } from '@/shared/lib/cn'
  * Palet warna divisi, sama dengan peta `LOGO_BG` di berkas desain dan sama pula
  * dengan yang dipakai changeset 42 saat mengisi `logo_bg`.
  */
-const PALET = [
+const PALETTE = [
   '#047857',
   '#7C3AED',
   '#0F766E',
@@ -29,12 +29,12 @@ const PALET = [
  * hasilnya tetap dari palet yang sama dan tetap sama setiap kali dirender untuk
  * kode yang sama.
  */
-function warnaCadangan(code: string): string {
-  let jumlah = 0
+function fallbackColor(code: string): string {
+  let hash = 0
   for (let i = 0; i < code.length; i += 1) {
-    jumlah = (jumlah * 31 + code.charCodeAt(i)) % 1_000_000_007
+    hash = (hash * 31 + code.charCodeAt(i)) % 1_000_000_007
   }
-  return PALET[jumlah % PALET.length]!
+  return PALETTE[hash % PALETTE.length]!
 }
 
 interface DivisionAvatarProps {
@@ -46,7 +46,7 @@ interface DivisionAvatarProps {
 
 export function DivisionAvatar({ code, logoBg, size = 'md', className }: DivisionAvatarProps) {
   const initials = code ?? '?'
-  const color = logoBg ?? (code ? warnaCadangan(code) : '#667085')
+  const color = logoBg ?? (code ? fallbackColor(code) : '#667085')
 
   const sizeClass = {
     sm: 'size-8 text-[10px]',

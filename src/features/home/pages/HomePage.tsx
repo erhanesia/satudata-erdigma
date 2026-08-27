@@ -17,14 +17,6 @@ import { InsightCarousel } from '../components/InsightCarousel'
 import { TopicIcon } from '../components/TopicIcon'
 
 /**
- * Beranda.
- *
- * Urutan bagian dan seluruh nilai tata letaknya mengikuti berkas desain:
- * hero → bilah statistik → Data Insight → Dataset terbaru → Divisi teratas →
- * kartu fitur. Tiap bagian membawa `max-width` dan padding-nya sendiri, sama
- * seperti di desain, jadi tidak dibungkus satu wadah bersama.
- */
-/**
  * Data Insight dimatikan sementara. Dua alasan, dan yang kedua terlihat
  * pengguna.
  *
@@ -48,14 +40,22 @@ import { TopicIcon } from '../components/TopicIcon'
  * sungguhan lewat `GET /api/v1/datasets/{slug}/summary`, atau dibuang karena
  * "Dataset terbaru" sudah menjawab kebutuhan yang sama.
  */
-const TAMPILKAN_DATA_INSIGHT = false
+const SHOW_DATA_INSIGHT = false
 
+/**
+ * Beranda.
+ *
+ * Urutan bagian dan seluruh nilai tata letaknya mengikuti berkas desain:
+ * hero → bilah statistik → Data Insight → Dataset terbaru → Divisi teratas →
+ * kartu fitur. Tiap bagian membawa `max-width` dan padding-nya sendiri, sama
+ * seperti di desain, jadi tidak dibungkus satu wadah bersama.
+ */
 export default function HomePage() {
   return (
     <>
       <Hero />
       <StatStrip />
-      {TAMPILKAN_DATA_INSIGHT ? <DataInsightSection /> : null}
+      {SHOW_DATA_INSIGHT ? <DataInsightSection /> : null}
       <LatestDatasets />
       <TopDivisions />
       <FeatureSection />
@@ -182,7 +182,7 @@ function StatStrip() {
               label: 'Total Data Set',
               sub: `lintas ${stats.totalTopic ?? 0} topik`,
             },
-            { value: stats.totalFormat, label: 'Jenis Data', sub: 'CSV · XLSX · GEOJSON · KML · API' },
+            { value: stats.totalFormat, label: 'Jenis Data', sub: 'CSV · XLSX · PDF · DOCX' },
             { value: stats.totalDivision, label: 'Total Kontributor', sub: 'divisi kontributor' },
             { value: stats.totalTopic, label: 'Topik Data', sub: 'kategori tematik' },
             // Sel kelima mengikuti desain. Sempat terpaksa berbunyi 'Panggilan
