@@ -17,9 +17,13 @@ const CARD_DELAY = 70
 /**
  * Daftar divisi kontributor.
  *
- * Urutannya datang dari server dan memang menurun berdasarkan panggilan API —
- * sesuai keterangan di desain, "diurutkan berdasarkan aktivitas data". Tidak
- * ada pengurutan ulang di sini.
+ * Urutannya datang dari server, menurun berdasarkan jumlah unduhan. Tidak ada
+ * pengurutan ulang di sini.
+ *
+ * Dulu diurutkan berdasarkan panggilan API, mengikuti keterangan di desain
+ * "diurutkan berdasarkan aktivitas data". Kolom itu dicabut di changeset 40:
+ * penghitungnya ikut hilang bersama fitur API key, jadi angkanya tidak pernah
+ * bergerak sejak diisi dari berkas desain.
  */
 export default function DivisionListPage() {
   const query = useDivisions()
@@ -87,8 +91,7 @@ export default function DivisionListPage() {
                       </div>
                     </div>
 
-                    <dl className="border-line-100 flex gap-5 border-t pt-3">
-                      <StatsRow value={division.apiCalls} label="API calls" />
+                    <dl className="border-line-100 border-t pt-3">
                       <StatsRow value={division.downloads} label="unduhan" />
                     </dl>
                   </Link>

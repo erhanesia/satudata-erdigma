@@ -24,12 +24,38 @@ import { TopicIcon } from '../components/TopicIcon'
  * kartu fitur. Tiap bagian membawa `max-width` dan padding-nya sendiri, sama
  * seperti di desain, jadi tidak dibungkus satu wadah bersama.
  */
+/**
+ * Data Insight dimatikan sementara. Dua alasan, dan yang kedua terlihat
+ * pengguna.
+ *
+ * **Tumpang tindih.** Isinya sama dengan "Dataset terbaru" tepat di bawahnya —
+ * keduanya daftar pintasan ke dataset, hanya beda bentuk.
+ *
+ * **Angkanya bukan data.** Keenam kartu di `InsightCarousel` adalah konstanta
+ * yang ditulis tangan: judul, warna, dan setiap nilai grafiknya, tanpa satu pun
+ * permintaan ke back-end. Slug tujuannya dibuat changeset 9, yang kini berpagar
+ * `contextFilter: dev`. Di produksi kartunya tetap tergambar penuh sementara
+ * datasetnya tidak ada, dan setiap klik berujung 404 — enam grafik yang bukan
+ * milik siapa-siapa, tepat di sebelah bilah statistik yang jujur menyebut nol
+ * dataset.
+ *
+ * Sengaja saklar, bukan kode yang dikomentari: `DataInsightSection` dan
+ * `InsightCarousel` tetap ikut diperiksa compiler dan linter, jadi tidak
+ * diam-diam membusuk sampai suatu hari mau dihidupkan lagi.
+ *
+ * Untuk menghidupkannya kembali, ubah nilai ini menjadi `true` — tetapi
+ * sebaiknya setelah diputuskan seksi ini menampilkan apa: grafik dari data
+ * sungguhan lewat `GET /api/v1/datasets/{slug}/summary`, atau dibuang karena
+ * "Dataset terbaru" sudah menjawab kebutuhan yang sama.
+ */
+const TAMPILKAN_DATA_INSIGHT = false
+
 export default function HomePage() {
   return (
     <>
       <Hero />
       <StatStrip />
-      <DataInsightSection />
+      {TAMPILKAN_DATA_INSIGHT ? <DataInsightSection /> : null}
       <LatestDatasets />
       <TopDivisions />
       <FeatureSection />
@@ -270,7 +296,6 @@ function TopDivisions() {
                       {division.name}
                     </div>
                     <div className="text-ink-500 mt-1 text-[12.5px]">
-                      {formatCompact(division.apiCalls)} API calls ·{' '}
                       {formatCompact(division.downloads)} unduhan
                     </div>
                   </div>

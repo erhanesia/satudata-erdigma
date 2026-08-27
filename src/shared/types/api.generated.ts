@@ -426,14 +426,24 @@ export interface paths {
         };
         /**
          * Daftar seluruh divisi
-         * @description Delapan divisi beserta kode, nama, warna avatar, dan penghitung pemakaian
-         *     (`apiCalls`, `downloads`).
+         * @description Seluruh divisi beserta kode, nama, warna avatar, dan jumlah `downloads`.
+         *     Isinya 32 team Erdigma dari hris-api.
+         *
+         *     Urutannya menurun berdasarkan `downloads`. Sebelum changeset 40 urutannya
+         *     memakai `apiCalls`; kolom itu dicabut karena penghitungnya ikut hilang
+         *     bersama fitur API key, sehingga peringkat halaman ditentukan angka yang
+         *     tidak pernah bergerak.
          *
          *     **Nilai `code` dari sini yang diisikan ke parameter `divisions`** pada
-         *     `GET /api/v1/datasets` untuk menyaring dataset per divisi penerbit:
-         *     `DNA`, `IT`, `PROD`, `SALES`, `FIN`, `OPS`, `HR`, `MKT`.
+         *     `GET /api/v1/datasets` untuk menyaring dataset per divisi penerbit —
+         *     misalnya `DIT` untuk Data & IT, `FAT` untuk Finance Accounting & Tax,
+         *     atau `SCEW` untuk Social Commerce Eyebost & Waji.
          *
-         *     Mengisi parameter itu dengan nama panjang seperti `Divisi Penjualan` tidak akan
+         *     Kodenya milik portal ini sendiri, disusun sebagai singkatan nama karena HRIS
+         *     hanya menyimpan id dan nama. Ambil daftar terkininya dari endpoint ini,
+         *     jangan ditulis tetap di sisi pemanggil.
+         *
+         *     Mengisi parameter itu dengan nama panjang seperti `Data & IT` tidak akan
          *     menyaring apa pun — yang dipakai kodenya.
          */
         get: operations["index_5"];
@@ -1023,10 +1033,10 @@ export interface components {
             offset?: number;
             sort?: components["schemas"]["SortObject"];
             /** Format: int32 */
+            pageNumber?: number;
+            /** Format: int32 */
             pageSize?: number;
             paged?: boolean;
-            /** Format: int32 */
-            pageNumber?: number;
             unpaged?: boolean;
         };
         SortObject: {
@@ -1040,8 +1050,6 @@ export interface components {
             code?: string;
             name?: string;
             logoBg?: string;
-            /** Format: int64 */
-            apiCalls?: number;
             /** Format: int64 */
             downloads?: number;
             /** Format: date-time */
