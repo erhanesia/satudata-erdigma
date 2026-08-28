@@ -42,10 +42,25 @@ function isDateColumn(columns: DatasetColumn): boolean {
  * kelompok berisi satu baris — grafik yang benar secara teknis tapi tidak
  * memberi tahu apa pun.
  */
-const IDENTITY_PATTERN = /(^|_)(id|code|code)$|name|name|address|alamat|email|phone|telepon/i
+// Isi pola ini mencocokkan NAMA KOLOM di dataset, bukan pengenal di kode — dan
+// nama kolom di portal ini berbahasa Indonesia: `kode_cabang`, `nama_pelanggan`.
+// Karena itu kata Indonesianya wajib ada.
+//
+// Keduanya sempat hilang karena penggantian nama ke bahasa Inggris ikut menyapu
+// isi regex, menyisakan `code|code` dan `name|name` yang kembar. Aturan bahasa
+// Inggris berlaku untuk nama variabel seperti IDENTITY_PATTERN itu sendiri,
+// tidak untuk nilai yang dibandingkan dengan data.
+const IDENTITY_PATTERN = /(^|_)(id|kode|code)$|name|nama|address|alamat|email|phone|telepon/i
 
 /** Kolom yang biasanya ingin dijumlahkan, bukan sekadar dihitung. */
-const MEASURE_PATTERN = /total|amount|revenue|sales|value|count|harga|price|qty|quantity/i
+// Alasan yang sama dengan IDENTITY_PATTERN di atas: `nilai` dan `jumlah` sempat
+// terganti jadi `value` dan `count`. `harga` dan `qty` selamat hanya karena tidak
+// ada padanan Inggris yang sedang diganti — bukan karena aturannya berbeda.
+//
+// Dampaknya nyata: dataset di portal ini punya kolom `jumlah_karyawan` dan
+// `jumlah`, yang tanpa kata ini berhenti dikenali sebagai kolom ukuran sehingga
+// grafik jatuh ke "hanya hitung baris".
+const MEASURE_PATTERN = /total|amount|revenue|sales|nilai|jumlah|harga|price|qty|quantity/i
 
 /**
  * Menebak kelompok awal yang masuk akal.
@@ -182,7 +197,7 @@ export function SummaryChart({
                           fontSize: 13,
                         }}
                       />
-                      <Bar dataKey="nilai" radius={[4, 4, 0, 0]}>
+                      <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                         {data.map((_, i) => (
                           <Cell key={i} fill={COLORS[i % COLORS.length]} />
                         ))}

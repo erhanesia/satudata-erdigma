@@ -131,13 +131,13 @@ function TitleBlock({
           </Link>
           {/*
             Waktunya diambil dari `createdAt`, bukan `lastUpdatedAt`.
-            "Uploaded at" menjawab "kapan berkas ini masuk katalog" — dan
+            "Diunggah" menjawab "kapan berkas ini masuk katalog" — dan
             `lastUpdatedAt` bergeser setiap kali metadatanya disunting, sehingga
             memakainya di sini akan membuat label dan angkanya menceritakan dua
             hal yang berbeda.
           */}
           <span className="text-ink-500">
-            · Uploaded at{' '}
+            · Diunggah{' '}
             {dataset.realtime ? 'streaming real-time' : formatDateTime(dataset.createdAt)}
           </span>
         </div>
