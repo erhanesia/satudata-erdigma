@@ -52,7 +52,7 @@ export default function DivisionListPage() {
           {/* Jumlah keseluruhan, bukan jumlah hasil pencarian — kalimat ini
               menerangkan portalnya, bukan isi layar saat itu. */}
           <b className="text-ink-900">{query.data?.length ?? 0}</b> divisi kontributor · diurutkan
-          berdasarkan aktivitas data (6 bulan terakhir)
+          berdasarkan jumlah unduhan
         </p>
 
         <SearchField
@@ -80,7 +80,6 @@ export default function DivisionListPage() {
                     <div className="flex items-center gap-[13px]">
                       <DivisionAvatar
                         code={division.code}
-                        logoBg={division.logoBg}
                         className="size-[52px] rounded-xl text-base font-extrabold"
                       />
                       <div className="min-w-0">

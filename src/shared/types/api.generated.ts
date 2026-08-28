@@ -874,7 +874,6 @@ export interface components {
             id?: string;
             code?: string;
             name?: string;
-            logoBg?: string;
         };
         UploaderResponse: {
             /** Format: uuid */
@@ -1033,9 +1032,9 @@ export interface components {
             offset?: number;
             sort?: components["schemas"]["SortObject"];
             /** Format: int32 */
-            pageNumber?: number;
-            /** Format: int32 */
             pageSize?: number;
+            /** Format: int32 */
+            pageNumber?: number;
             paged?: boolean;
             unpaged?: boolean;
         };
@@ -1049,7 +1048,6 @@ export interface components {
             id?: string;
             code?: string;
             name?: string;
-            logoBg?: string;
             /** Format: int64 */
             downloads?: number;
             /** Format: date-time */

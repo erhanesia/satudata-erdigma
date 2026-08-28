@@ -13,7 +13,7 @@ export function DatasetCard({ dataset }: { dataset: DatasetLite }) {
   return (
     <article className="border-line-200 bg-surface hover:border-brand-border rounded-[var(--radius-card)] border p-5 transition-colors">
       <div className="flex gap-4">
-        <DivisionAvatar code={dataset.division?.code} logoBg={dataset.division?.logoBg} />
+        <DivisionAvatar code={dataset.division?.code} />
 
         <div className="min-w-0 flex-1">
           <h3 className="text-ink-900 text-base leading-snug font-bold">

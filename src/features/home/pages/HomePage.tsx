@@ -288,7 +288,6 @@ function TopDivisions() {
                 >
                   <DivisionAvatar
                     code={division.code}
-                    logoBg={division.logoBg}
                     className="size-12 rounded-[11px] text-[15px] font-extrabold"
                   />
                   <div className="min-w-0">

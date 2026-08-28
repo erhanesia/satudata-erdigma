@@ -36,7 +36,7 @@ export default function CollectionListPage() {
                   className="border-line-200 bg-surface hover:border-brand-border rounded-[var(--radius-card)] border p-5"
                 >
                   <div className="flex items-start gap-4">
-                    <DivisionAvatar code={collection.division?.code} logoBg={collection.division?.logoBg} />
+                    <DivisionAvatar code={collection.division?.code} />
                     <div className="min-w-0">
                       <h2 className="text-ink-900 text-base font-bold">{collection.name}</h2>
                       <p className="text-ink-500 mt-1 text-[13px]">{collection.division?.name}</p>

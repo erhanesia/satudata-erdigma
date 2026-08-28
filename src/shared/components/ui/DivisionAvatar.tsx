@@ -1,8 +1,7 @@
 import { cn } from '@/shared/lib/cn'
 
 /**
- * Palet warna divisi, sama dengan peta `LOGO_BG` di berkas desain dan sama pula
- * dengan yang dipakai changeset 42 saat mengisi `logo_bg`.
+ * Palet warna divisi, sama dengan peta `LOGO_BG` di berkas desain.
  */
 const PALETTE = [
   '#047857',
@@ -16,20 +15,28 @@ const PALETTE = [
 ] as const
 
 /**
- * Warna cadangan bila `logoBg` tidak terkirim server.
+ * Warna avatar divisi, diturunkan dari kodenya.
  *
- * Dulu berupa peta tetap dari delapan kode divisi desain — `SALES`, `IT`, `DNA`,
- * dan seterusnya. Changeset 42 mengganti seluruh isi tabel divisi dengan 32 team
- * Erdigma, sehingga tidak satu pun kunci peta itu tersisa: setiap pencarian
- * meleset dan jatuh ke abu-abu.
+ * **Dihitung, tidak disimpan.** Dulu ada kolom `division.logo_bg` yang dikirim
+ * server, dan komponen ini hanya memakainya. Kolom itu dicabut di changeset 46:
+ * warnanya murni urusan tampilan dan tidak membawa satu pun informasi yang tidak
+ * bisa dihitung ulang dari `code`.
  *
- * Sekarang warnanya diturunkan dari kodenya sendiri, jadi berlaku untuk kode apa
- * pun termasuk team yang baru ditambahkan di HRIS. Bukan peniruan persis warna
- * dari server — server memakai id HRIS, di sini yang ada hanya kodenya — tetapi
- * hasilnya tetap dari palet yang sama dan tetap sama setiap kali dirender untuk
- * kode yang sama.
+ * Pencabutannya juga menutup satu ketidakcocokan. Sempat ada DUA sumber warna —
+ * kolom di server, diisi hash SHA-256 atas id HRIS, dan warna cadangan di sini,
+ * memakai hash polinomial atas kode. Dua fungsi berbeda untuk satu nilai yang
+ * sama, dan hasilnya berbeda pada 28 dari 32 divisi. Selama server selalu
+ * mengirim nilainya, selisih itu tidak terlihat; sekali saja tidak, hampir
+ * seluruh divisi berganti warna tanpa ada yang mengubah apa pun.
+ *
+ * Paletnya delapan warna dari berkas desain. Karena divisi jauh lebih banyak
+ * dari itu, warnanya berulang — dan itu diterima: yang membedakan divisi adalah
+ * kode di dalam kotaknya, bukan warnanya.
+ *
+ * Hasilnya tetap sama untuk kode yang sama, jadi satu divisi tidak pernah
+ * berganti warna antar halaman atau antar muat ulang.
  */
-function fallbackColor(code: string): string {
+function colorFor(code: string): string {
   let hash = 0
   for (let i = 0; i < code.length; i += 1) {
     hash = (hash * 31 + code.charCodeAt(i)) % 1_000_000_007
@@ -39,14 +46,15 @@ function fallbackColor(code: string): string {
 
 interface DivisionAvatarProps {
   code: string | undefined
-  logoBg?: string | undefined
   size?: 'sm' | 'md' | 'lg'
   className?: string
 }
 
-export function DivisionAvatar({ code, logoBg, size = 'md', className }: DivisionAvatarProps) {
+export function DivisionAvatar({ code, size = 'md', className }: DivisionAvatarProps) {
   const initials = code ?? '?'
-  const color = logoBg ?? (code ? fallbackColor(code) : '#667085')
+  // Abu-abu hanya untuk divisi yang belum termuat; begitu kodenya ada,
+  // warnanya selalu dari palet.
+  const color = code ? colorFor(code) : '#667085'
 
   const sizeClass = {
     sm: 'size-8 text-[10px]',

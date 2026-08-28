@@ -29,7 +29,7 @@ export default function CollectionDetailPage() {
         {(collection) => (
           <>
             <div className="flex flex-wrap items-start gap-4">
-              <DivisionAvatar code={collection.division?.code} logoBg={collection.division?.logoBg} size="lg" />
+              <DivisionAvatar code={collection.division?.code} size="lg" />
               <div className="min-w-[260px] flex-1">
                 <h1 className="text-ink-900 text-2xl font-extrabold tracking-[-0.4px]">
                   {collection.name}
