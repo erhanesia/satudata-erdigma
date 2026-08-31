@@ -21,15 +21,15 @@ function createQueryClient() {
         gcTime: 5 * 60_000,
         refetchOnWindowFocus: false,
 
-        retry: (gagalKe, error) => {
+        retry: (attempt, error) => {
           // Galat yang jelas bukan gangguan sementara tidak perlu diulang.
           // Mengulang 401 atau 403 hanya membuat pengguna menunggu lebih lama
           // untuk pesan yang sama, dan membebani server tanpa guna.
           if (error instanceof ApiError) {
-            const takPerluUlang = ['unauthorized', 'forbidden', 'notFound', 'validation']
-            if (takPerluUlang.includes(error.kind)) return false
+            const noRetryKinds = ['unauthorized', 'forbidden', 'notFound', 'validation']
+            if (noRetryKinds.includes(error.kind)) return false
           }
-          return gagalKe < 2
+          return attempt < 2
         },
       },
       mutations: {

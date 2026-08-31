@@ -8,8 +8,8 @@ import { bootstrapAuth } from '@/features/auth/model/authStrategy'
 
 import '@/styles/index.css'
 
-const wadah = document.getElementById('root')
-if (!wadah) throw new Error('Elemen #root tidak ditemukan di index.html')
+const container = document.getElementById('root')
+if (!container) throw new Error('Elemen #root tidak ditemukan di index.html')
 
 // Autentikasi diselesaikan lebih dulu, karena keduanya mengubah alamat halaman
 // sebelum router membacanya: kepulangan dari Hosted UI membuang `?code=` dan
@@ -55,7 +55,7 @@ if (lanjutkanRender) {
   try {
     const { router } = await import('@/app/router/router')
 
-    createRoot(wadah).render(
+    createRoot(container).render(
       <StrictMode>
         <AppErrorBoundary>
           <QueryProvider>
@@ -72,7 +72,7 @@ if (lanjutkanRender) {
     if (navigasi?.type !== 'reload') {
       window.location.reload()
     } else {
-      wadah.textContent = 'Gagal memuat aplikasi. Silakan muat ulang halaman.'
+      container.textContent = 'Gagal memuat aplikasi. Silakan muat ulang halaman.'
     }
   }
 }

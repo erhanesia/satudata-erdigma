@@ -1,9 +1,7 @@
-import { Upload } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { paths } from '@/app/router/paths'
-import { useDivisions } from '@/features/division/hooks/useDivisions'
 import { QueryBoundary } from '@/shared/components/feedback/QueryBoundary'
 import { Reveal } from '@/shared/components/motion/Reveal'
 import { Pagination } from '@/shared/components/ui/Pagination'
@@ -14,12 +12,10 @@ import { formatRelative } from '@/shared/lib/format'
 import type { DatasetLite } from '@/shared/types/api'
 
 import { useDatasetFilters } from '../hooks/useDatasetFilters'
-import { useCurrentUser } from '@/features/auth/hooks/useCurrentUser'
-
-import { useDatasets, useFormats, useTopics } from '../hooks/useDatasets'
+import { useDatasets, useTopics } from '../hooks/useDatasets'
 
 /** Selang antar kartu hasil, sama dengan kisi di beranda. */
-const JEDA_KARTU = 70
+const CARD_DELAY = 70
 
 /**
  * Katalog dataset.
@@ -32,11 +28,9 @@ const JEDA_KARTU = 70
 export default function DatasetListPage() {
   const { filters, query, setFilter, toggleFilter, clearFilters } = useDatasetFilters()
   const datasets = useDatasets(query)
-  const { data: user } = useCurrentUser()
-  const bolehTerbit = user?.role === 'ADMIN' || user?.role === 'PUBLISHER'
 
   return (
-    <div className="mx-auto max-w-[1200px] px-5 pt-7 pb-[60px]">
+    <div className="mx-auto max-w-[1200px] px-4 pt-6 pb-12 sm:px-5 sm:pt-7 sm:pb-[60px]">
       <Reveal>
         <nav className="text-ink-500 mb-2 text-[13px]" aria-label="Remah roti">
           <Link to={paths.home} className="text-brand font-semibold hover:underline">
@@ -46,24 +40,15 @@ export default function DatasetListPage() {
         </nav>
 
         <div className="mb-[18px] flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-ink-900 text-[28px] font-extrabold tracking-[-0.8px]">
+          <h1 className="text-ink-900 text-[22px] font-extrabold tracking-[-0.8px] sm:text-[28px]">
+            {/* Dulu berbunyi "SearchPanel & jelajahi dataset" — kata "Cari"
+                ikut tergantikan waktu penamaan disamakan ke bahasa Inggris. */}
             Cari &amp; jelajahi dataset
           </h1>
-          {/* Hanya muncul untuk yang berhak. Menampilkan tombol yang pasti
-              ditolak server hanya membuat orang mengira aplikasinya rusak. */}
-          {bolehTerbit ? (
-            <Link
-              to={paths.datasetUpload}
-              className="bg-brand inline-flex items-center gap-2 rounded-[10px] px-4 py-2.5 text-[13.5px] font-semibold text-white transition-opacity hover:opacity-90"
-            >
-              <Upload className="size-4" />
-              Terbitkan dataset
-            </Link>
-          ) : null}
         </div>
 
         <div className="mb-[22px] flex flex-wrap gap-2.5">
-          <KotakCari nilaiAwal={filters.search} onCari={(search) => setFilter({ search })} />
+          <SearchBox initialValue={filters.search} onSearch={(search) => setFilter({ search })} />
 
           <div className="border-line-300 focus-within:border-brand flex items-center gap-2 rounded-[10px] border bg-white px-3 transition-colors">
             <span className="text-ink-500 text-[13px] font-semibold">Urutkan</span>
@@ -82,10 +67,10 @@ export default function DatasetListPage() {
       </Reveal>
 
       <Reveal delay={80}>
-        <KartuFilter filters={filters} toggleFilter={toggleFilter} clearFilters={clearFilters} />
+        <FilterCard filters={filters} toggleFilter={toggleFilter} clearFilters={clearFilters} />
       </Reveal>
 
-      <QueryBoundary query={datasets} loading={<DaftarSkeleton />}>
+      <QueryBoundary query={datasets} loading={<ListSkeleton />}>
         {(page) => (
           <>
             <Reveal delay={140}>
@@ -93,7 +78,7 @@ export default function DatasetListPage() {
                 <div className="text-ink-600 text-sm">
                   <b className="text-ink-900">{page.totalElements ?? 0}</b> dataset ditemukan
                 </div>
-                <ChipAktif filters={filters} toggleFilter={toggleFilter} />
+                <ActiveChips filters={filters} toggleFilter={toggleFilter} />
               </div>
             </Reveal>
 
@@ -101,8 +86,8 @@ export default function DatasetListPage() {
               <>
                 <div className="flex flex-col gap-3">
                   {page.content.map((dataset, i) => (
-                    <Reveal key={dataset.id} delay={i * JEDA_KARTU}>
-                      <KartuDataset dataset={dataset} />
+                    <Reveal key={dataset.id} delay={i * CARD_DELAY}>
+                      <DatasetCardItem dataset={dataset} />
                     </Reveal>
                   ))}
                 </div>
@@ -116,7 +101,7 @@ export default function DatasetListPage() {
                 />
               </>
             ) : (
-              <TidakAdaHasil onBersihkan={clearFilters} />
+              <NoResults onClear={clearFilters} />
             )}
           </>
         )}
@@ -126,14 +111,14 @@ export default function DatasetListPage() {
 }
 
 /** Jeda sebelum ketikan dikirim sebagai pencarian. */
-const JEDA_KETIK_MS = 350
+const TYPING_DEBOUNCE_MS = 350
 
-function KotakCari({ nilaiAwal, onCari }: { nilaiAwal: string; onCari: (nilai: string) => void }) {
-  const [nilai, setNilai] = useState(nilaiAwal)
+function SearchBox({ initialValue, onSearch }: { initialValue: string; onSearch: (value: string) => void }) {
+  const [value, setValue] = useState(initialValue)
 
   // Menyelaraskan kotak dengan URL saat pengguna menekan tombol Kembali, atau
   // ketika halaman ini dibuka lewat tautan pencarian dari beranda.
-  useEffect(() => setNilai(nilaiAwal), [nilaiAwal])
+  useEffect(() => setValue(initialValue), [initialValue])
 
   /*
    * Desain menyaring langsung saat mengetik. Di prototipe itu gratis — datanya
@@ -144,15 +129,15 @@ function KotakCari({ nilaiAwal, onCari }: { nilaiAwal: string; onCari: (nilai: s
    * efek ini berjalan lagi dengan nilai yang sudah sama dan berhenti di sini.
    */
   useEffect(() => {
-    if (nilai.trim() === nilaiAwal) return
-    const pewaktu = setTimeout(() => onCari(nilai.trim()), JEDA_KETIK_MS)
-    return () => clearTimeout(pewaktu)
-  }, [nilai, nilaiAwal, onCari])
+    if (value.trim() === initialValue) return
+    const timer = setTimeout(() => onSearch(value.trim()), TYPING_DEBOUNCE_MS)
+    return () => clearTimeout(timer)
+  }, [value, initialValue, onSearch])
 
   return (
     <SearchField
-      value={nilai}
-      onChange={setNilai}
+      value={value}
+      onChange={setValue}
       placeholder="Cari judul atau deskripsi dataset…"
       label="Cari dataset"
       className="min-w-[240px] flex-1"
@@ -163,14 +148,25 @@ function KotakCari({ nilaiAwal, onCari }: { nilaiAwal: string; onCari: (nilai: s
 
 type FilterApi = ReturnType<typeof useDatasetFilters>
 
-function KartuFilter({
+/**
+ * Kartu penyaring — kini hanya TOPIK.
+ *
+ * Grup "Format" dan "Divisi" dibuang dari tampilan, tapi penyaringnya TIDAK
+ * dimatikan: `?divisions=SALES` dan `?formats=CSV` di URL tetap bekerja, dan
+ * halaman Divisi maupun tautan "Oleh <divisi>" di detail dataset masih
+ * mengandalkannya.
+ *
+ * Karena itu chip aktifnya tetap ditampilkan di atas hasil, lengkap dengan
+ * tombol lepasnya. Menyaring diam-diam tanpa memberi tahu apa yang sedang
+ * disaring akan membuat orang melihat "8 dataset ditemukan" dan menyangka
+ * itulah seluruh isi katalog.
+ */
+function FilterCard({
   filters,
   toggleFilter,
   clearFilters,
 }: Pick<FilterApi, 'filters' | 'toggleFilter' | 'clearFilters'>) {
   const topics = useTopics()
-  const formats = useFormats()
-  const divisions = useDivisions()
 
   return (
     <div className="border-line-200 bg-surface mb-5 rounded-[14px] border px-[18px] py-4">
@@ -186,73 +182,59 @@ function KartuFilter({
       </div>
 
       <div className="flex flex-wrap gap-[22px]">
-        <GrupChip
-          judul="Topik"
-          memuat={topics.isPending}
-          pilihan={(topics.data ?? []).map((t) => t.name ?? '')}
-          terpilih={filters.topics}
-          onToggle={(nilai) => toggleFilter('topics', nilai)}
-        />
-        <GrupChip
-          judul="Format"
-          memuat={formats.isPending}
-          pilihan={(formats.data ?? []).map((f) => f.name ?? '')}
-          terpilih={filters.formats}
-          onToggle={(nilai) => toggleFilter('formats', nilai)}
-        />
-        <GrupChip
-          judul="Divisi"
-          memuat={divisions.isPending}
-          pilihan={(divisions.data ?? []).map((a) => a.code ?? '')}
-          terpilih={filters.divisions}
-          onToggle={(nilai) => toggleFilter('divisions', nilai)}
+        <ChipGroup
+          title="Topik"
+          loading={topics.isPending}
+          options={(topics.data ?? []).map((t) => t.name ?? '')}
+          chosen={filters.topics}
+          onToggle={(value) => toggleFilter('topics', value)}
         />
       </div>
     </div>
   )
 }
 
-function GrupChip({
-  judul,
-  memuat,
-  pilihan,
-  terpilih,
+function ChipGroup({
+  title,
+  loading,
+  options,
+  chosen,
   onToggle,
 }: {
-  judul: string
-  memuat: boolean
-  pilihan: string[]
-  terpilih: string[]
-  onToggle: (nilai: string) => void
+  title: string
+  loading: boolean
+  options: string[]
+  chosen: string[]
+  onToggle: (value: string) => void
 }) {
   return (
     <fieldset className="flex items-start gap-2.5">
-      <legend className="sr-only">{judul}</legend>
+      <legend className="sr-only">{title}</legend>
       <span className="text-ink-400 shrink-0 pt-2 text-[11.5px] font-bold tracking-[0.5px] uppercase">
-        {judul}
+        {title}
       </span>
 
       <div className="flex flex-wrap gap-[7px]">
-        {memuat
+        {loading
           ? Array.from({ length: 5 }, (_, i) => (
               <Skeleton key={i} className="h-[31px] w-20 rounded-full" />
             ))
-          : pilihan.map((nilai) => {
-              const aktif = terpilih.includes(nilai)
+          : options.map((value) => {
+              const active = chosen.includes(value)
               return (
                 <button
-                  key={nilai}
+                  key={value}
                   type="button"
-                  onClick={() => onToggle(nilai)}
-                  aria-pressed={aktif}
+                  onClick={() => onToggle(value)}
+                  aria-pressed={active}
                   className={cn(
                     'rounded-full border px-[13px] py-[7px] text-[13px] font-semibold whitespace-nowrap transition-colors',
-                    aktif
+                    active
                       ? 'bg-brand border-brand text-white'
                       : 'border-line-300 text-ink-700 hover:bg-surface-100 bg-white',
                   )}
                 >
-                  {nilai}
+                  {value}
                 </button>
               )
             })}
@@ -261,33 +243,33 @@ function GrupChip({
   )
 }
 
-function ChipAktif({ filters, toggleFilter }: Pick<FilterApi, 'filters' | 'toggleFilter'>) {
+function ActiveChips({ filters, toggleFilter }: Pick<FilterApi, 'filters' | 'toggleFilter'>) {
   const chips = [
-    ...filters.topics.map((v) => ({ kunci: 'topics' as const, nilai: v })),
-    ...filters.formats.map((v) => ({ kunci: 'formats' as const, nilai: v })),
-    ...filters.divisions.map((v) => ({ kunci: 'divisions' as const, nilai: v })),
+    ...filters.topics.map((v) => ({ key: 'topics' as const, value: v })),
+    ...filters.formats.map((v) => ({ key: 'formats' as const, value: v })),
+    ...filters.divisions.map((v) => ({ key: 'divisions' as const, value: v })),
   ]
 
   if (chips.length === 0) return null
 
   return (
     <div className="flex flex-wrap gap-1.5">
-      {chips.map(({ kunci, nilai }) => (
+      {chips.map(({ key, value }) => (
         <button
-          key={`${kunci}-${nilai}`}
+          key={`${key}-${value}`}
           type="button"
-          onClick={() => toggleFilter(kunci, nilai)}
-          aria-label={`Hapus filter ${nilai}`}
+          onClick={() => toggleFilter(key, value)}
+          aria-label={`Hapus filter ${value}`}
           className="bg-brand-tint border-brand-border text-brand hover:bg-[#e2ebff] flex items-center gap-1.5 rounded-full border py-[5px] pr-2 pl-[11px] text-[12.5px] font-semibold transition-colors"
         >
-          {nilai} <span className="text-sm">×</span>
+          {value} <span className="text-sm">×</span>
         </button>
       ))}
     </div>
   )
 }
 
-function KartuDataset({ dataset }: { dataset: DatasetLite }) {
+function DatasetCardItem({ dataset }: { dataset: DatasetLite }) {
   return (
     <Link
       to={paths.datasetDetail(dataset.slug ?? '')}
@@ -297,12 +279,12 @@ function KartuDataset({ dataset }: { dataset: DatasetLite }) {
         <span className="text-ink-600 rounded-md bg-[#F1F4F8] px-[9px] py-[3px] text-xs font-bold">
           {dataset.division?.code}
         </span>
-        {dataset.topics?.map((topik) => (
+        {dataset.topics?.map((topic) => (
           <span
-            key={topik}
+            key={topic}
             className="rounded-md bg-[#E6FAF8] px-[9px] py-[3px] text-xs font-semibold text-[#0EA5A0]"
           >
-            {topik}
+            {topic}
           </span>
         ))}
       </div>
@@ -330,10 +312,10 @@ function KartuDataset({ dataset }: { dataset: DatasetLite }) {
   )
 }
 
-function TidakAdaHasil({ onBersihkan }: { onBersihkan: () => void }) {
+function NoResults({ onClear }: { onClear: () => void }) {
   return (
-    <div className="border-line-300 bg-surface rounded-[14px] border border-dashed px-6 py-14 text-center">
-      <div className="mb-2.5 text-[40px]" aria-hidden>
+    <div className="border-line-300 bg-surface rounded-[14px] border border-dashed px-4 py-10 text-center sm:px-6 sm:py-14">
+      <div className="mb-2.5 text-[32px] sm:text-[40px]" aria-hidden>
         🔍
       </div>
       <div className="text-ink-900 mb-1.5 text-[17px] font-bold">Tidak ada dataset yang cocok</div>
@@ -342,7 +324,7 @@ function TidakAdaHasil({ onBersihkan }: { onBersihkan: () => void }) {
       </p>
       <button
         type="button"
-        onClick={onBersihkan}
+        onClick={onClear}
         className="bg-brand hover:bg-brand-hover rounded-[9px] px-5 py-[11px] text-sm font-bold text-white transition-colors"
       >
         Bersihkan semua filter
@@ -351,7 +333,7 @@ function TidakAdaHasil({ onBersihkan }: { onBersihkan: () => void }) {
   )
 }
 
-function DaftarSkeleton() {
+function ListSkeleton() {
   return (
     <div className="flex flex-col gap-3">
       {Array.from({ length: 5 }, (_, i) => (

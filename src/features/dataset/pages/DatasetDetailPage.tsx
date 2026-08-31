@@ -1,152 +1,77 @@
-import { AlertTriangle } from 'lucide-react'
+import { Check, Download, Share2 } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 
 import { paths } from '@/app/router/paths'
 import { DownloadDialog } from '@/features/download/components/DownloadDialog'
 import { QueryBoundary } from '@/shared/components/feedback/QueryBoundary'
 import { Reveal } from '@/shared/components/motion/Reveal'
 import { SkeletonCardList } from '@/shared/components/ui/Skeleton'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/Tabs'
-import { cn } from '@/shared/lib/cn'
+import { useCopyToClipboard } from '@/shared/hooks/useCopyToClipboard'
 import { formatDateTime } from '@/shared/lib/format'
 import type { Dataset } from '@/shared/types/api'
 
-import { ColumnsTable } from '../components/ColumnsTable'
 import { DataExplorer } from '../components/DataExplorer'
-import { DatasetAboutPanel } from '../components/DatasetAboutPanel'
-import { SummaryChart } from '../components/SummaryChart'
 import { useDataset } from '../hooks/useDatasets'
-
-/**
- * Dua alternatif tata letak yang ditawarkan desain:
- *
- *  - **A · Bertab** — isi dipisah ke tab Ringkasan / Data Explorer / Kolom.
- *    Halaman pendek, tapi pengguna harus tahu apa yang dicari.
- *  - **B · Gulir + sidebar** — semuanya bertumpuk dalam satu gulir, panel
- *    samping ikut sepanjang halaman. Lebih mudah dipindai, lebih panjang.
- *
- * Pilihan disimpan di query string, bukan state komponen, supaya tautan
- * perbandingan bisa dikirim ke tim desain apa adanya.
- */
-type Varian = 'A' | 'B'
-
-const PARAM_VARIAN = 'layout'
-
-/**
- * Panel samping ikut menggulir lalu berhenti 80px di bawah tepi atas — persis
- * di bawah header yang juga menempel (tingginya 64px).
- *
- * `self-start` wajib: tanpanya item kisi ini merenggang setinggi barisnya, dan
- * elemen setinggi kotaknya sendiri tidak punya jarak untuk menempel.
- */
-const STICKY_SAMPING = 'lg:sticky lg:top-20 lg:self-start'
-
-function bacaVarian(nilai: string | null): Varian {
-  return nilai === 'B' ? 'B' : 'A'
-}
 
 export default function DatasetDetailPage() {
   const { slug = '' } = useParams()
   const query = useDataset(slug)
 
   return (
-    <div className="mx-auto max-w-[1200px] px-5 pt-[22px] pb-[60px]">
+    <div className="mx-auto max-w-[1200px] px-4 pt-5 pb-12 sm:px-5 sm:pt-[22px] sm:pb-[60px]">
       <QueryBoundary query={query} loading={<SkeletonCardList count={3} />}>
-        {(dataset) => <IsiDetail dataset={dataset} />}
+        {(dataset) => <DetailBody dataset={dataset} />}
       </QueryBoundary>
     </div>
   )
 }
 
-function IsiDetail({ dataset }: { dataset: Dataset }) {
-  const [searchParams, setSearchParams] = useSearchParams()
-  const [modalUnduh, setModalUnduh] = useState(false)
-
-  const varian = bacaVarian(searchParams.get(PARAM_VARIAN))
-  const slug = dataset.slug ?? ''
-  const kolom = dataset.columns ?? []
-  const rowCount = dataset.rowCount ?? 0
-  const adaBerkas = (dataset.resources?.length ?? 0) > 0
-
-  function gantiVarian(pilihan: Varian) {
-    const params = new URLSearchParams(searchParams)
-    // Varian A adalah bawaan, jadi tidak perlu mengotori URL.
-    if (pilihan === 'A') params.delete(PARAM_VARIAN)
-    else params.set(PARAM_VARIAN, pilihan)
-    setSearchParams(params, { replace: true })
-  }
+function DetailBody({ dataset }: { dataset: Dataset }) {
+  const [downloadOpen, setDownloadOpen] = useState(false)
+  const hasFiles = (dataset.resources?.length ?? 0) > 0
 
   return (
     <>
       <Reveal>
-        <RemahRoti dataset={dataset} />
-        <SakelarVarian nilai={varian} onGanti={gantiVarian} />
-        <BlokJudul dataset={dataset} adaBerkas={adaBerkas} onUnduh={() => setModalUnduh(true)} />
+        <Breadcrumb dataset={dataset} />
+        <TitleBlock dataset={dataset} hasFiles={hasFiles} onDownload={() => setDownloadOpen(true)} />
       </Reveal>
 
-      {varian === 'A' ? (
-        <Reveal delay={90}>
-          <div className="mt-[22px]">
-            <Tabs defaultValue="ringkasan">
-              <TabsList className="mb-6">
-                <TabsTrigger value="ringkasan">Ringkasan</TabsTrigger>
-                <TabsTrigger value="explorer">Data Explorer</TabsTrigger>
-                <TabsTrigger value="kolom">Kolom</TabsTrigger>
-              </TabsList>
+      {/*
+        Halaman ini pernah punya tiga tab: Ringkasan, Data Explorer, dan Kolom.
+        Ketiganya diringkas menjadi satu aliran — kartu keterangan lalu
+        penjelajah datanya — mengikuti desain terakhir.
 
-              <TabsContent value="ringkasan">
-                <div className="grid items-start gap-[26px] lg:grid-cols-[1fr_320px]">
-                  <div className="flex min-w-0 flex-col gap-[22px]">
-                    <KartuTentang dataset={dataset} />
-                    <KartuVisualisasi slug={slug} kolom={kolom} rowCount={rowCount} berlabel />
-                  </div>
-                  <div className={STICKY_SAMPING}>
-                    <DatasetAboutPanel dataset={dataset} />
-                  </div>
-                </div>
-              </TabsContent>
+        Yang ikut hilang bersama tab Ringkasan: grafik "Visualisasi interaktif"
+        dan panel metadata di samping. Komponennya TIDAK dihapus
+        (`SummaryChart`, `DatasetAboutPanel`, `ColumnsTable`) supaya bisa
+        dipasang kembali tanpa ditulis ulang kalau ternyata masih dibutuhkan.
+      */}
+      <Reveal delay={90}>
+        <div className="mt-[22px] flex flex-col gap-[22px]">
+          <AboutCard dataset={dataset} />
+          {/*
+            Pemilih berkas menyatu dengan sakelar Tabel/Excel milik Data
+            Explorer, bukan berdiri sebagai baris tombol tersendiri di atas
+            kartunya. Keduanya menjawab pertanyaan yang sama — "saya sedang
+            melihat apa" — dan dua baris tombol untuk satu pertanyaan hanya
+            membuat orang menebak mana yang mana.
 
-              <TabsContent value="explorer">
-                <DataExplorer slug={slug} rowCount={rowCount} />
-              </TabsContent>
-
-              <TabsContent value="kolom">
-                <ColumnsTable columns={kolom} />
-              </TabsContent>
-            </Tabs>
-          </div>
-        </Reveal>
-      ) : (
-        <div className="mt-[22px] grid items-start gap-[26px] lg:grid-cols-[1fr_320px]">
-          <div className="flex min-w-0 flex-col gap-[22px]">
-            <Reveal delay={90}>
-              <KartuTentang dataset={dataset} />
-            </Reveal>
-            <Reveal delay={160}>
-              <KartuVisualisasi slug={slug} kolom={kolom} rowCount={rowCount} />
-            </Reveal>
-            <Reveal>
-              <DataExplorer slug={slug} rowCount={rowCount} />
-            </Reveal>
-            <Reveal>
-              <ColumnsTable columns={kolom} />
-            </Reveal>
-          </div>
-          {/* Sticky dipasang pada item kisi ini, bukan di dalam panelnya —
-              lihat catatan di DatasetAboutPanel. */}
-          <Reveal delay={230} className={STICKY_SAMPING}>
-            <DatasetAboutPanel dataset={dataset} />
-          </Reveal>
+            Seluruh berkas ikut jadi tombol, dilabeli menurut jenisnya sendiri.
+            Berkas yang isinya sudah dibaca menjadi tabel menampilkan tabelnya;
+            PDF dan Word menampilkan dokumennya.
+          */}
+          <DataExplorer slug={dataset.slug ?? ''} files={dataset.resources ?? []} />
         </div>
-      )}
+      </Reveal>
 
-      <DownloadDialog dataset={dataset} open={modalUnduh} onOpenChange={setModalUnduh} />
+      <DownloadDialog dataset={dataset} open={downloadOpen} onOpenChange={setDownloadOpen} />
     </>
   )
 }
 
-function RemahRoti({ dataset }: { dataset: Dataset }) {
+function Breadcrumb({ dataset }: { dataset: Dataset }) {
   return (
     <nav className="text-ink-500 mb-3.5 text-[13px]" aria-label="Remah roti">
       <Link to={paths.datasets} className="text-brand font-semibold hover:underline">
@@ -169,75 +94,25 @@ function RemahRoti({ dataset }: { dataset: Dataset }) {
   )
 }
 
-/**
- * Bilah pembanding tata letak.
- *
- * Ini alat kerja tim desain, bukan fitur untuk pengguna akhir — desainnya
- * sendiri menyebutnya "Bandingkan layout". Warnanya sengaja kuning agar jelas
- * ia bukan bagian dari halaman yang sesungguhnya, dan gampang dicabut nanti.
- */
-function SakelarVarian({ nilai, onGanti }: { nilai: Varian; onGanti: (v: Varian) => void }) {
-  return (
-    <div className="mb-[18px] flex flex-wrap items-center gap-2.5 rounded-[10px] border border-[#FCE9B8] bg-[#FFF8E8] px-3 py-2 text-[13px] text-[#92700E]">
-      <b>Bandingkan layout:</b>
-
-      <div className="flex rounded-lg border border-[#F0DBA0] bg-white p-0.5">
-        <TombolVarian aktif={nilai === 'A'} onClick={() => onGanti('A')}>
-          A · Bertab
-        </TombolVarian>
-        <TombolVarian aktif={nilai === 'B'} onClick={() => onGanti('B')}>
-          B · Gulir + sidebar
-        </TombolVarian>
-      </div>
-
-      <span className="text-[#B08820]">Dua alternatif tata letak halaman Detail Dataset.</span>
-    </div>
-  )
-}
-
-function TombolVarian({
-  aktif,
-  onClick,
-  children,
-}: {
-  aktif: boolean
-  onClick: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={aktif}
-      className={cn(
-        'rounded-md px-3 py-1.5 text-[12.5px] transition-colors',
-        aktif ? 'bg-brand font-bold text-white' : 'font-semibold text-[#92700E] hover:bg-[#FFF8E8]',
-      )}
-    >
-      {children}
-    </button>
-  )
-}
-
-function BlokJudul({
+function TitleBlock({
   dataset,
-  adaBerkas,
-  onUnduh,
+  hasFiles,
+  onDownload,
 }: {
   dataset: Dataset
-  adaBerkas: boolean
-  onUnduh: () => void
+  hasFiles: boolean
+  onDownload: () => void
 }) {
   return (
     <div className="mb-2 flex flex-wrap items-start justify-between gap-4">
       <div className="max-w-[720px]">
         <div className="mb-2.5 flex flex-wrap gap-2">
-          {dataset.topics?.map((topik) => (
+          {dataset.topics?.map((topic) => (
             <span
-              key={topik}
+              key={topic}
               className="rounded-md bg-[#E6FAF8] px-2.5 py-1 text-xs font-semibold text-[#0EA5A0]"
             >
-              {topik}
+              {topic}
             </span>
           ))}
         </div>
@@ -254,78 +129,109 @@ function BlokJudul({
           >
             {dataset.division?.name}
           </Link>
-          {dataset.coverage ? ` · Cakupan ${dataset.coverage}` : null}{' '}
+          {/*
+            Waktunya diambil dari `createdAt`, bukan `lastUpdatedAt`.
+            "Diunggah" menjawab "kapan berkas ini masuk katalog" — dan
+            `lastUpdatedAt` bergeser setiap kali metadatanya disunting, sehingga
+            memakainya di sini akan membuat label dan angkanya menceritakan dua
+            hal yang berbeda.
+          */}
           <span className="text-ink-500">
-            · Terakhir diperbarui{' '}
-            {dataset.realtime ? 'streaming real-time' : formatDateTime(dataset.lastUpdatedAt)}
+            · Diunggah{' '}
+            {dataset.realtime ? 'streaming real-time' : formatDateTime(dataset.createdAt)}
           </span>
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={onUnduh}
-        disabled={!adaBerkas}
-        className="bg-brand hover:bg-brand-hover disabled:bg-line-200 disabled:text-ink-400 flex items-center gap-2 rounded-[9px] px-[18px] py-[11px] text-sm font-bold text-white transition-colors disabled:cursor-not-allowed"
-      >
-        <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.3} aria-hidden>
-          <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16" />
-        </svg>
-        {adaBerkas ? `Unduh · ${dataset.fileSize || 'berkas'}` : 'Berkas belum tersedia'}
-      </button>
+      <div className="flex w-full flex-col gap-2.5 sm:w-auto sm:flex-row sm:items-center">
+        <ShareButton dataset={dataset} />
+
+        <button
+          type="button"
+          onClick={onDownload}
+          disabled={!hasFiles}
+          className="bg-brand hover:bg-brand-hover disabled:bg-line-200 disabled:text-ink-400 flex w-full items-center justify-center gap-2 rounded-[9px] px-[18px] py-[11px] text-sm font-bold text-white transition-colors disabled:cursor-not-allowed sm:w-auto"
+        >
+          <Download className="size-4" strokeWidth={2.3} />
+          {hasFiles ? `Unduh · ${dataset.fileSize || 'berkas'}` : 'Berkas belum tersedia'}
+        </button>
+      </div>
     </div>
   )
 }
 
-function KartuTentang({ dataset }: { dataset: Dataset }) {
+/**
+ * Membagikan tautan ke dataset ini.
+ *
+ * Dua jalur, dan urutannya disengaja:
+ *
+ * 1. **Lembar berbagi bawaan sistem** (`navigator.share`), kalau ada. Di ponsel
+ *    inilah yang sebenarnya orang cari — mengirim ke WhatsApp atau surel
+ *    langsung, tanpa menempel manual. API ini praktis hanya ada di peramban
+ *    ponsel, jadi di desktop jalur ini otomatis terlewat.
+ * 2. **Salin ke papan klip**, sebagai jalur baku desktop sekaligus jaring
+ *    pengaman kalau lembar berbagi gagal.
+ *
+ * Yang dibagikan `window.location.href`, bukan tautan yang disusun sendiri.
+ * Menyusun ulang berarti menebak host dan protokolnya, dan tebakan itu meleset
+ * begitu portalnya dibuka lewat alamat lain — IP jaringan lokal saat mencoba
+ * dari ponsel, misalnya.
+ */
+function ShareButton({ dataset }: { dataset: Dataset }) {
+  const { copy, copiedKey } = useCopyToClipboard()
+  const copied = copiedKey === 'share'
+
+  // Dataset bertag posisi tidak terbuka untuk semua orang. Penyalinnya tetap
+  // bekerja, tapi pesannya menyebut batasan itu — mengira sudah membagikan
+  // sesuatu lalu penerimanya melihat 403 adalah kebingungan yang bisa dicegah
+  // dengan satu kalimat.
+  const restricted = (dataset.positions?.length ?? 0) > 0
+  const message = restricted
+    ? 'Tautan disalin. Hanya posisi yang berhak bisa membukanya.'
+    : 'Tautan dataset disalin.'
+
+  async function share() {
+    const url = window.location.href
+
+    if (typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ title: dataset.title ?? 'Dataset', url })
+        return
+      } catch (error) {
+        // Dibatalkan sendiri oleh pengguna BUKAN kegagalan. Menyalin diam-diam
+        // setelah ia menutup lembar berbagi sama saja mengabaikan keputusannya.
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          return
+        }
+      }
+    }
+
+    await copy(url, 'share', message)
+  }
+
   return (
-    <div className="border-line-200 bg-surface rounded-[14px] border p-[22px]">
+    <button
+      type="button"
+      onClick={() => void share()}
+      className="border-line-300 text-ink-700 hover:bg-surface-100 flex w-full items-center justify-center gap-2 rounded-[9px] border bg-white px-[18px] py-[11px] text-sm font-bold transition-colors sm:w-auto"
+    >
+      {copied ? (
+        <Check className="text-success size-4" strokeWidth={2.6} />
+      ) : (
+        <Share2 className="size-4" strokeWidth={2.3} />
+      )}
+      {copied ? 'Tersalin' : 'Bagikan'}
+    </button>
+  )
+}
+
+function AboutCard({ dataset }: { dataset: Dataset }) {
+  return (
+    <div className="border-line-200 bg-surface rounded-[14px] border p-4 sm:p-[22px]">
       <h3 className="text-ink-900 mb-2.5 text-base font-bold">Tentang dataset ini</h3>
       <p className="text-ink-600 text-[14.5px] leading-[1.65]">
         {dataset.notes || 'Belum ada deskripsi untuk dataset ini.'}
       </p>
-      {/* Sebelumnya teks ini melayang tanpa judul, sehingga pembaca tidak
-          tahu sedang membaca apa — peringatan, catatan kaki, atau keterangan
-          biasa. Judulnya membuat maksudnya jelas sebelum kalimatnya dibaca. */}
-      {dataset.disclaimer ? (
-        <div className="border-warning/40 mt-3.5 rounded-r-lg border-l-[3px] bg-[#F8FAFC] px-3.5 py-2.5">
-          <div className="text-ink-700 mb-1 flex items-center gap-1.5 text-[12.5px] font-bold">
-            <AlertTriangle className="text-warning size-3.5" />
-            Disclaimer
-          </div>
-          <p className="text-ink-500 text-[13px] leading-[1.6]">{dataset.disclaimer}</p>
-        </div>
-      ) : null}
-    </div>
-  )
-}
-
-function KartuVisualisasi({
-  slug,
-  kolom,
-  rowCount,
-  berlabel = false,
-}: {
-  slug: string
-  kolom: Dataset['columns']
-  rowCount: number
-  berlabel?: boolean
-}) {
-  return (
-    <div className="border-line-200 bg-surface rounded-[14px] border p-[22px]">
-      <div
-        className={cn(
-          'flex items-center justify-between',
-          berlabel ? 'mb-1.5' : 'mb-3.5',
-        )}
-      >
-        <h3 className="text-ink-900 text-base font-bold">Visualisasi interaktif</h3>
-        {/* Keterangan ini hanya muncul di varian A, persis seperti desain. */}
-        {berlabel ? (
-          <span className="text-ink-400 text-xs">dari data aktual dataset</span>
-        ) : null}
-      </div>
-      <SummaryChart slug={slug} columns={kolom ?? []} rowCount={rowCount} />
     </div>
   )
 }

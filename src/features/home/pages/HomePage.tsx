@@ -1,3 +1,4 @@
+import { AlignLeft, BarChart3, Download } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { paths } from '@/app/router/paths'
@@ -16,6 +17,32 @@ import { InsightCarousel } from '../components/InsightCarousel'
 import { TopicIcon } from '../components/TopicIcon'
 
 /**
+ * Data Insight dimatikan sementara. Dua alasan, dan yang kedua terlihat
+ * pengguna.
+ *
+ * **Tumpang tindih.** Isinya sama dengan "Dataset terbaru" tepat di bawahnya —
+ * keduanya daftar pintasan ke dataset, hanya beda bentuk.
+ *
+ * **Angkanya bukan data.** Keenam kartu di `InsightCarousel` adalah konstanta
+ * yang ditulis tangan: judul, warna, dan setiap nilai grafiknya, tanpa satu pun
+ * permintaan ke back-end. Slug tujuannya dibuat changeset 9, yang kini berpagar
+ * `contextFilter: dev`. Di produksi kartunya tetap tergambar penuh sementara
+ * datasetnya tidak ada, dan setiap klik berujung 404 — enam grafik yang bukan
+ * milik siapa-siapa, tepat di sebelah bilah statistik yang jujur menyebut nol
+ * dataset.
+ *
+ * Sengaja saklar, bukan kode yang dikomentari: `DataInsightSection` dan
+ * `InsightCarousel` tetap ikut diperiksa compiler dan linter, jadi tidak
+ * diam-diam membusuk sampai suatu hari mau dihidupkan lagi.
+ *
+ * Untuk menghidupkannya kembali, ubah nilai ini menjadi `true` — tetapi
+ * sebaiknya setelah diputuskan seksi ini menampilkan apa: grafik dari data
+ * sungguhan lewat `GET /api/v1/datasets/{slug}/summary`, atau dibuang karena
+ * "Dataset terbaru" sudah menjawab kebutuhan yang sama.
+ */
+const SHOW_DATA_INSIGHT = false
+
+/**
  * Beranda.
  *
  * Urutan bagian dan seluruh nilai tata letaknya mengikuti berkas desain:
@@ -28,16 +55,16 @@ export default function HomePage() {
     <>
       <Hero />
       <StatStrip />
-      <DataInsight />
-      <DatasetTerbaru />
-      <DivisiTeratas />
-      <Fitur />
+      {SHOW_DATA_INSIGHT ? <DataInsightSection /> : null}
+      <LatestDatasets />
+      <TopDivisions />
+      <FeatureSection />
     </>
   )
 }
 
 /** Jarak mulai animasi masuk, dalam milidetik. */
-function jeda(ms: number) {
+function delay(ms: number) {
   return { animationDelay: `${ms}ms` }
 }
 
@@ -48,14 +75,14 @@ function jeda(ms: number) {
  * tertinggal jauh. Nilainya sejalan dengan stagger chip di hero (45ms), hanya
  * sedikit lebih longgar karena kartunya jauh lebih besar.
  */
-const JEDA_KARTU = 70
+const CARD_DELAY = 70
 
 /**
  * Saat bilah statistik mulai masuk — dan sekaligus saat angkanya mulai
  * berhitung naik. Satu nilai untuk keduanya supaya kartu dan isinya tidak
  * pernah bergerak sendiri-sendiri.
  */
-const JEDA_BILAH_STATISTIK = 560
+const STAT_STRIP_DELAY = 560
 
 /**
  * Hero beranda.
@@ -67,35 +94,35 @@ const JEDA_BILAH_STATISTIK = 560
 function Hero() {
   return (
     <section className="bg-surface">
-      <div className="mx-auto max-w-[900px] px-5 pt-[72px] pb-[60px] text-center">
+      <div className="mx-auto max-w-[900px] px-4 pt-12 pb-10 text-center sm:px-5 sm:pt-[72px] sm:pb-[60px]">
         <h1 className="mb-[26px] text-[clamp(40px,7vw,84px)] leading-[0.98] font-extrabold tracking-[-2.5px]">
-          <span className="animate-rise text-ink-900 block" style={jeda(0)}>
+          <span className="animate-rise text-ink-900 block" style={delay(0)}>
             Portal data
           </span>
-          <span className="animate-rise block text-[#98A2B3]" style={jeda(90)}>
+          <span className="animate-rise block text-[#98A2B3]" style={delay(90)}>
             internal Erdigma
           </span>
         </h1>
 
         <p
           className="animate-rise text-ink-700 mx-auto mb-[30px] max-w-[620px] text-[clamp(16px,1.8vw,21px)] font-semibold"
-          style={jeda(200)}
+          style={delay(200)}
         >
           Jelajahi data antar-divisi dan akses API untuk kebutuhan analitik &amp; pengembangan.
         </p>
 
-        <div className="animate-rise" style={jeda(300)}>
+        <div className="animate-rise" style={delay(300)}>
           <HeroSearch />
         </div>
 
-        <ChipTopik />
+        <TopicChip />
       </div>
     </section>
   )
 }
 
 /** Pintasan bertopik di bawah kotak pencarian. */
-function ChipTopik() {
+function TopicChip() {
   const { data: topics, isPending } = useTopics()
 
   if (isPending) {
@@ -108,27 +135,24 @@ function ChipTopik() {
     )
   }
 
-  const daftar = [
+  const items = [
     ...(topics ?? []).map((t) => ({
-      nama: t.name ?? '',
-      ke: `${paths.datasets}?topics=${encodeURIComponent(t.name ?? '')}`,
+      name: t.name ?? '',
+      to: `${paths.datasets}?topics=${encodeURIComponent(t.name ?? '')}`,
     })),
-    // Chip terakhir bukan topik dari database, melainkan pintasan ke
-    // dokumentasi API — sama seperti pada desain.
-    { nama: 'Real-time APIs', ke: paths.apiDocs },
   ]
 
   return (
     <div className="mx-auto mt-[34px] flex max-w-[760px] flex-wrap items-center justify-center gap-3">
-      {daftar.map((item, i) => (
+      {items.map((item, i) => (
         <Link
-          key={item.nama}
-          to={item.ke}
-          style={jeda(420 + i * 45)}
+          key={item.name}
+          to={item.to}
+          style={delay(420 + i * 45)}
           className="animate-rise border-line-200 text-ink-900 hover:border-brand-border hover:bg-brand-tint inline-flex items-center gap-[9px] rounded-full border bg-white px-5 py-[11px] text-[15px] font-bold shadow-[0_1px_2px_rgba(16,24,40,0.05)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_16px_-8px_rgba(16,24,40,0.25)]"
         >
-          <TopicIcon name={item.nama} />
-          {item.nama}
+          <TopicIcon name={item.name} />
+          {item.name}
         </Link>
       ))}
     </div>
@@ -146,41 +170,41 @@ function StatStrip() {
   const query = useStats()
 
   return (
-    <section className="mx-auto max-w-[1200px] px-5 py-11">
+    <section className="mx-auto max-w-[1200px] px-4 py-8 sm:px-5 sm:py-11">
       <QueryBoundary
         query={query}
         loading={<Skeleton className="animate-fade h-[120px] w-full rounded-2xl" />}
       >
         {(stats) => {
-          const sel = [
+          const cell = [
             {
-              nilai: stats.totalDataset,
+              value: stats.totalDataset,
               label: 'Total Data Set',
               sub: `lintas ${stats.totalTopic ?? 0} topik`,
             },
-            { nilai: stats.totalFormat, label: 'Jenis Data', sub: 'CSV · XLSX · GEOJSON · KML · API' },
-            { nilai: stats.totalDivision, label: 'Total Kontributor', sub: 'divisi kontributor' },
-            { nilai: stats.totalTopic, label: 'Topik Data', sub: 'kategori tematik' },
+            { value: stats.totalFormat, label: 'Jenis Data', sub: 'CSV · XLSX · PDF · DOCX' },
+            { value: stats.totalDivision, label: 'Total Kontributor', sub: 'divisi kontributor' },
+            { value: stats.totalTopic, label: 'Topik Data', sub: 'kategori tematik' },
             // Sel kelima mengikuti desain. Sempat terpaksa berbunyi 'Panggilan
             // API' karena portal tidak menghitung kunjungan sama sekali; sejak
             // changeset 00023 angkanya ada sungguhan — tiap pembukaan halaman
             // detail dataset menaikkan penghitungnya.
-            { nilai: stats.totalViews, label: 'Total Views', sub: 'kunjungan halaman dataset' },
-            { nilai: stats.totalDownloads, label: 'Total Unduhan', sub: 'akumulatif' },
+            { value: stats.totalViews, label: 'Total Views', sub: 'kunjungan halaman dataset' },
+            { value: stats.totalDownloads, label: 'Total Unduhan', sub: 'akumulatif' },
           ]
 
           return (
             <div
-              className="animate-rise bg-line-200 border-line-200 grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-px overflow-hidden rounded-2xl border"
-              style={jeda(JEDA_BILAH_STATISTIK)}
+              className="animate-rise bg-line-200 border-line-200 grid grid-cols-[repeat(auto-fit,minmax(min(100%,180px),1fr))] gap-px overflow-hidden rounded-2xl border"
+              style={delay(STAT_STRIP_DELAY)}
             >
-              {sel.map((s) => (
-                <div key={s.label} className="bg-white px-[22px] py-6">
+              {cell.map((s) => (
+                <div key={s.label} className="bg-white px-4 py-5 sm:px-[22px] sm:py-6">
                   {/* `tabular-nums` menyamakan lebar tiap digit. Tanpa itu angka
                       yang sedang berhitung bergoyang ke kiri-kanan tiap bingkai,
                       karena "1" jauh lebih sempit daripada "8". */}
                   <div className="text-ink-900 text-[clamp(24px,2.4vw,32px)] font-extrabold tracking-[-1px] tabular-nums">
-                    <CountUp value={s.nilai} format={formatCompact} delay={JEDA_BILAH_STATISTIK} />
+                    <CountUp value={s.value} format={formatCompact} delay={STAT_STRIP_DELAY} />
                   </div>
                   <div className="text-ink-600 mt-[3px] text-[13.5px] font-semibold">{s.label}</div>
                   <div className="text-ink-400 mt-0.5 text-xs">{s.sub}</div>
@@ -194,28 +218,28 @@ function StatStrip() {
   )
 }
 
-function DataInsight() {
+function DataInsightSection() {
   return (
-    <section className="mx-auto max-w-[1200px] px-5 pt-6 pb-5">
+    <section className="mx-auto max-w-[1200px] px-4 pt-6 pb-5 sm:px-5">
       {/* 600ms melanjutkan urutan hero: bilah statistik mulai pada 560ms. */}
-      <SectionHeading title="Data Insight" ke={paths.datasets} label="Lihat semua" delay={600} />
+      <SectionHeading title="Data Insight" to={paths.datasets} label="Lihat semua" delay={600} />
       <InsightCarousel />
     </section>
   )
 }
 
-function DatasetTerbaru() {
+function LatestDatasets() {
   const query = useDatasets({ sort: 'updated', page: 0, size: 4 })
 
   return (
-    <section className="mx-auto max-w-[1200px] px-5 pt-2 pb-5">
-      <SectionHeading title="Dataset terbaru" ke={paths.datasets} label="Lihat semua" />
+    <section className="mx-auto max-w-[1200px] px-4 pt-2 pb-5 sm:px-5">
+      <SectionHeading title="Dataset terbaru" to={paths.datasets} label="Lihat semua" />
 
-      <QueryBoundary query={query} loading={<KisiSkeleton tinggi="h-[150px]" minKolom={300} />}>
+      <QueryBoundary query={query} loading={<GridSkeleton height="h-[150px]" minColumns={300} />}>
         {(page) => (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-3.5">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-3.5">
             {page.content?.map((dataset, i) => (
-              <Reveal key={dataset.id} delay={i * JEDA_KARTU}>
+              <Reveal key={dataset.id} delay={i * CARD_DELAY}>
                 <Link
                   to={paths.datasetDetail(dataset.slug ?? '')}
                   className="border-line-200 hover:border-brand-border flex h-full flex-col gap-2.5 rounded-[14px] border bg-white p-5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_-12px_rgba(16,24,40,0.28)]"
@@ -246,34 +270,32 @@ function DatasetTerbaru() {
   )
 }
 
-function DivisiTeratas() {
+function TopDivisions() {
   const query = useDivisions()
 
   return (
-    <section className="mx-auto max-w-[1200px] px-5 py-7">
-      <SectionHeading title="Divisi teratas" ke={paths.divisions} label="Lihat semua divisi" />
+    <section className="mx-auto max-w-[1200px] px-4 py-7 sm:px-5">
+      <SectionHeading title="Divisi teratas" to={paths.divisions} label="Lihat semua divisi" />
 
-      <QueryBoundary query={query} loading={<KisiSkeleton tinggi="h-[84px]" minKolom={280} />}>
+      <QueryBoundary query={query} loading={<GridSkeleton height="h-[84px]" minColumns={280} />}>
         {(divisions) => (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3.5">
-            {divisions.slice(0, 4).map((divisi, i) => (
-              <Reveal key={divisi.id} delay={i * JEDA_KARTU}>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-3.5">
+            {divisions.slice(0, 4).map((division, i) => (
+              <Reveal key={division.id} delay={i * CARD_DELAY}>
                 <Link
-                  to={`${paths.datasets}?divisions=${encodeURIComponent(divisi.code ?? '')}`}
+                  to={`${paths.datasets}?divisions=${encodeURIComponent(division.code ?? '')}`}
                   className="border-line-200 hover:border-brand-border flex h-full items-center gap-3.5 rounded-[14px] border bg-white p-[18px] text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_-12px_rgba(16,24,40,0.28)]"
                 >
                   <DivisionAvatar
-                    code={divisi.code}
-                    logoBg={divisi.logoBg}
+                    code={division.code}
                     className="size-12 rounded-[11px] text-[15px] font-extrabold"
                   />
                   <div className="min-w-0">
                     <div className="text-ink-900 text-[14.5px] leading-[1.25] font-bold">
-                      {divisi.name}
+                      {division.name}
                     </div>
                     <div className="text-ink-500 mt-1 text-[12.5px]">
-                      {formatCompact(divisi.apiCalls)} API calls ·{' '}
-                      {formatCompact(divisi.downloads)} unduhan
+                      {formatCompact(division.downloads)} unduhan
                     </div>
                   </div>
                 </Link>
@@ -289,39 +311,40 @@ function DivisiTeratas() {
 /**
  * Kartu fitur.
  *
- * Ikonnya jalur SVG asli dari desain, bukan padanan dari lucide — bentuk yang
- * mirip-tapi-tidak-sama langsung terlihat saat ketiganya berjejer.
+ * Ikonnya dari lucide, bukan jalur SVG yang ditulis sendiri. Bentuknya memang
+ * tidak identik dengan ekspor desain, tapi bedanya sebatas ketebalan garis —
+ * dan itu jauh lebih murah daripada tiga jalur mentah yang harus dirawat.
  */
-const FITUR = [
+const FEATURES = [
   {
-    jalur: 'M12 3v12m0 0 4-4m-4 4-4-4M4 21h16',
-    judul: 'Akses & unduh data',
-    teks: 'Unduh dataset lengkap dalam CSV, XLSX, GEOJSON, atau KML.',
+    Icon: Download,
+    title: 'Akses & unduh data',
+    text: 'Unduh dataset lengkap dalam CSV, XLSX, GEOJSON, atau KML.',
     cta: 'Jelajahi datasets',
-    ke: paths.datasets,
+    to: paths.datasets,
   },
   {
-    jalur: 'M4 19V9M10 19V4M16 19v-7M22 19H2',
-    judul: 'Chart interaktif real-time',
-    teks: 'Visualisasikan dan bandingkan data langsung di browser.',
+    Icon: BarChart3,
+    title: 'Chart interaktif real-time',
+    text: 'Visualisasikan dan bandingkan data langsung di browser.',
     cta: 'Lihat contoh',
-    ke: paths.datasetDetail('penjualan-furnitur-2025'),
+    to: paths.datasetDetail('penjualan-furnitur-2025'),
   },
   {
-    jalur: 'M4 6h16M4 12h16M4 18h10',
-    judul: 'Data lintas divisi',
-    teks: 'Temukan dan gabungkan data dari 8 divisi dalam satu katalog.',
+    Icon: AlignLeft,
+    title: 'Data lintas divisi',
+    text: 'Temukan dan gabungkan data dari 8 divisi dalam satu katalog.',
     cta: 'Lihat divisi',
-    ke: paths.divisions,
+    to: paths.divisions,
   },
 ] as const
 
-function Fitur() {
+function FeatureSection() {
   return (
     <section className="bg-surface border-line-200 border-t border-b">
-      <div className="mx-auto max-w-[1200px] px-5 py-[52px]">
+      <div className="mx-auto max-w-[1200px] px-4 py-10 sm:px-5 sm:py-[52px]">
         <Reveal className="mb-[30px]">
-          <h2 className="text-ink-900 mb-2 text-[26px] font-extrabold tracking-[-0.7px]">
+          <h2 className="text-ink-900 mb-2 text-[21px] font-extrabold tracking-[-0.7px] sm:text-[26px]">
             Semua yang Anda butuhkan untuk memakai data
           </h2>
           <p className="text-ink-500 text-base">
@@ -329,31 +352,21 @@ function Fitur() {
           </p>
         </Reveal>
 
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-[18px]">
-          {FITUR.map(({ jalur, judul, teks, cta, ke }, i) => (
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,250px),1fr))] gap-[18px]">
+          {FEATURES.map(({ Icon, title, text, cta, to }, i) => (
             <Reveal
-              key={judul}
-              delay={i * JEDA_KARTU}
+              key={title}
+              delay={i * CARD_DELAY}
               className="border-line-200 h-full rounded-[14px] border bg-[#FBFCFE] p-6"
             >
               <div className="bg-brand-tint mb-3.5 flex size-[42px] items-center justify-center rounded-[11px]">
-                <svg
-                  width={20}
-                  height={20}
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="#1B54C4"
-                  strokeWidth={2.2}
-                  aria-hidden
-                >
-                  <path d={jalur} />
-                </svg>
+                <Icon size={20} color="#1B54C4" strokeWidth={2.2} aria-hidden />
               </div>
 
-              <div className="text-ink-900 mb-1.5 text-[16.5px] font-bold">{judul}</div>
-              <p className="text-ink-500 mb-3 text-sm leading-[1.5]">{teks}</p>
+              <div className="text-ink-900 mb-1.5 text-[16.5px] font-bold">{title}</div>
+              <p className="text-ink-500 mb-3 text-sm leading-[1.5]">{text}</p>
 
-              <Link to={ke} className="text-brand text-sm font-bold">
+              <Link to={to} className="text-brand text-sm font-bold">
                 {cta} →
               </Link>
             </Reveal>
@@ -372,20 +385,20 @@ function Fitur() {
  */
 function SectionHeading({
   title,
-  ke,
+  to,
   label,
   delay = 0,
 }: {
   title: string
-  ke: string
+  to: string
   label: string
   delay?: number
 }) {
   return (
     <Reveal delay={delay} className="mb-[18px] flex flex-wrap items-center justify-between gap-3">
-      <h2 className="text-ink-900 text-[23px] font-extrabold tracking-[-0.6px]">{title}</h2>
+      <h2 className="text-ink-900 text-[19px] font-extrabold tracking-[-0.6px] sm:text-[23px]">{title}</h2>
       <Link
-        to={ke}
+        to={to}
         className="border-line-300 text-ink-900 hover:bg-surface-100 rounded-lg border bg-white px-4 py-[9px] text-sm font-semibold transition-colors"
       >
         {label} →
@@ -394,14 +407,14 @@ function SectionHeading({
   )
 }
 
-function KisiSkeleton({ tinggi, minKolom }: { tinggi: string; minKolom: number }) {
+function GridSkeleton({ height, minColumns }: { height: string; minColumns: number }) {
   return (
     <div
       className="grid gap-3.5"
-      style={{ gridTemplateColumns: `repeat(auto-fill,minmax(${minKolom}px,1fr))` }}
+      style={{ gridTemplateColumns: `repeat(auto-fill,minmax(min(100%,${minColumns}px),1fr))` }}
     >
       {Array.from({ length: 4 }, (_, i) => (
-        <Skeleton key={i} className={`${tinggi} rounded-[14px]`} />
+        <Skeleton key={i} className={`${height} rounded-[14px]`} />
       ))}
     </div>
   )

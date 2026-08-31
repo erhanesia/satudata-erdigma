@@ -12,8 +12,8 @@ export function CodeBlock({
   copyKey?: string
   className?: string
 }) {
-  const { copy, kunciTersalin } = useCopyToClipboard()
-  const tersalin = kunciTersalin === copyKey
+  const { copy, copiedKey } = useCopyToClipboard()
+  const copied = copiedKey === copyKey
 
   return (
     <div className={cn('relative', className)}>
@@ -28,8 +28,8 @@ export function CodeBlock({
         onClick={() => void copy(code, copyKey)}
         className="absolute top-3 right-3 inline-flex items-center gap-1.5 rounded-[7px] bg-white/12 px-3 py-1.5 text-[12px] font-semibold text-[#CBD5E1] hover:bg-white/20"
       >
-        {tersalin ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-        {tersalin ? 'Tersalin' : 'Salin'}
+        {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+        {copied ? 'Tersalin' : 'Salin'}
       </button>
     </div>
   )

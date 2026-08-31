@@ -13,7 +13,7 @@ export function DatasetCard({ dataset }: { dataset: DatasetLite }) {
   return (
     <article className="border-line-200 bg-surface hover:border-brand-border rounded-[var(--radius-card)] border p-5 transition-colors">
       <div className="flex gap-4">
-        <DivisionAvatar code={dataset.division?.code} logoBg={dataset.division?.logoBg} />
+        <DivisionAvatar code={dataset.division?.code} />
 
         <div className="min-w-0 flex-1">
           <h3 className="text-ink-900 text-base leading-snug font-bold">
@@ -33,9 +33,9 @@ export function DatasetCard({ dataset }: { dataset: DatasetLite }) {
           ) : null}
 
           <div className="mt-3 flex flex-wrap items-center gap-1.5">
-            {dataset.topics?.map((topik) => (
-              <Badge key={topik} tone="brand">
-                {topik}
+            {dataset.topics?.map((topic) => (
+              <Badge key={topic} tone="brand">
+                {topic}
               </Badge>
             ))}
             {dataset.formats?.map((format) => (

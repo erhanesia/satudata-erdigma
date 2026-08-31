@@ -3,10 +3,10 @@ import { useSearchParams } from 'react-router-dom'
 
 import type { DatasetQuery } from '../api/datasetApi'
 
-const SORT_SAH = ['relevance', 'downloads', 'updated'] as const
-type Sort = (typeof SORT_SAH)[number]
+const VALID_SORTS = ['relevance', 'downloads', 'updated'] as const
+type Sort = (typeof VALID_SORTS)[number]
 
-export const UKURAN_HALAMAN = 5
+export const PAGE_SIZE = 5
 
 /**
  * Filter katalog disimpan di URL, bukan di state React.
@@ -19,8 +19,8 @@ export function useDatasetFilters() {
   const [searchParams, setSearchParams] = useSearchParams()
 
   const filters = useMemo(() => {
-    const sortMentah = searchParams.get('sort')
-    const halamanMentah = Number.parseInt(searchParams.get('page') ?? '1', 10)
+    const rawSort = searchParams.get('sort')
+    const rawPage = Number.parseInt(searchParams.get('page') ?? '1', 10)
 
     return {
       search: searchParams.get('search') ?? '',
@@ -29,11 +29,11 @@ export function useDatasetFilters() {
       divisions: searchParams.getAll('divisions'),
       // Nilai dari URL dikendalikan pengguna. Diperiksa terhadap daftar yang
       // sah, tidak diteruskan mentah sebagai parameter kueri ke back-end.
-      sort: (SORT_SAH as readonly string[]).includes(sortMentah ?? '')
-        ? (sortMentah as Sort)
+      sort: (VALID_SORTS as readonly string[]).includes(rawSort ?? '')
+        ? (rawSort as Sort)
         : ('relevance' as Sort),
       /** Berbasis 1 untuk tampilan; dikonversi ke 0 saat dikirim ke API. */
-      page: Number.isFinite(halamanMentah) && halamanMentah > 0 ? halamanMentah : 1,
+      page: Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1,
     }
   }, [searchParams])
 
@@ -41,12 +41,12 @@ export function useDatasetFilters() {
     (perubahan: Partial<typeof filters>) => {
       const params = new URLSearchParams(searchParams)
 
-      for (const [kunci, nilai] of Object.entries(perubahan)) {
-        params.delete(kunci)
-        if (Array.isArray(nilai)) {
-          nilai.forEach((v) => params.append(kunci, v))
-        } else if (nilai !== '' && nilai != null) {
-          params.set(kunci, String(nilai))
+      for (const [key, value] of Object.entries(perubahan)) {
+        params.delete(key)
+        if (Array.isArray(value)) {
+          value.forEach((v) => params.append(key, v))
+        } else if (value !== '' && value != null) {
+          params.set(key, String(value))
         }
       }
 
@@ -61,12 +61,12 @@ export function useDatasetFilters() {
   )
 
   const toggleFilter = useCallback(
-    (kunci: 'topics' | 'formats' | 'divisions', nilai: string) => {
-      const sekarang = filters[kunci]
+    (key: 'topics' | 'formats' | 'divisions', value: string) => {
+      const now = filters[key]
       setFilter({
-        [kunci]: sekarang.includes(nilai)
-          ? sekarang.filter((v) => v !== nilai)
-          : [...sekarang, nilai],
+        [key]: now.includes(value)
+          ? now.filter((v) => v !== value)
+          : [...now, value],
       })
     },
     [filters, setFilter],
@@ -85,13 +85,13 @@ export function useDatasetFilters() {
       divisions: filters.divisions.length ? filters.divisions : undefined,
       sort: filters.sort,
       page: filters.page - 1,
-      size: UKURAN_HALAMAN,
+      size: PAGE_SIZE,
     }),
     [filters],
   )
 
-  const jumlahFilterAktif =
+  const activeFilterCount =
     filters.topics.length + filters.formats.length + filters.divisions.length
 
-  return { filters, query, setFilter, toggleFilter, clearFilters, jumlahFilterAktif }
+  return { filters, query, setFilter, toggleFilter, clearFilters, activeFilterCount }
 }

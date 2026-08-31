@@ -16,7 +16,7 @@ export default function CollectionDetailPage() {
   const query = useCollection(slug)
 
   return (
-    <PageContainer className="py-10">
+    <PageContainer className="py-7 sm:py-10">
       <Link
         to={paths.collections}
         className="text-ink-500 hover:text-ink-900 mb-5 inline-flex items-center gap-1.5 text-[13.5px] font-semibold"
@@ -26,28 +26,28 @@ export default function CollectionDetailPage() {
       </Link>
 
       <QueryBoundary query={query} loading={<SkeletonCardList count={3} />}>
-        {(koleksi) => (
+        {(collection) => (
           <>
             <div className="flex flex-wrap items-start gap-4">
-              <DivisionAvatar code={koleksi.division?.code} logoBg={koleksi.division?.logoBg} size="lg" />
+              <DivisionAvatar code={collection.division?.code} size="lg" />
               <div className="min-w-[260px] flex-1">
                 <h1 className="text-ink-900 text-2xl font-extrabold tracking-[-0.4px]">
-                  {koleksi.name}
+                  {collection.name}
                 </h1>
-                <p className="text-ink-500 mt-1.5 text-[13.5px]">{koleksi.division?.name}</p>
+                <p className="text-ink-500 mt-1.5 text-[13.5px]">{collection.division?.name}</p>
                 <p className="text-ink-600 mt-3 max-w-2xl text-sm leading-relaxed">
-                  {koleksi.description}
+                  {collection.description}
                 </p>
               </div>
             </div>
 
             <h2 className="text-ink-900 mt-9 mb-4 text-lg font-extrabold">
-              {koleksi.datasetCount} dataset dalam koleksi ini
+              {collection.datasetCount} dataset dalam koleksi ini
             </h2>
 
-            {koleksi.datasets && koleksi.datasets.length > 0 ? (
+            {collection.datasets && collection.datasets.length > 0 ? (
               <div className="flex flex-col gap-3">
-                {koleksi.datasets.map((dataset) => (
+                {collection.datasets.map((dataset) => (
                   <DatasetCard key={dataset.id} dataset={dataset} />
                 ))}
               </div>

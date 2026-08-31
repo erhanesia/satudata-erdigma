@@ -7,14 +7,14 @@ import { useEffect, useRef, useState } from 'react'
  * sebanding dengan nilai, "56 jt" masih berlari saat "8" sudah lama diam — yang
  * terlihat bukan satu gerakan, melainkan enam yang kebetulan bersamaan.
  */
-const DURASI = 1400
+const DURATION = 1400
 
 /**
  * Ambang untuk membedakan "sudah terlihat sejak halaman dimuat" dari "baru
  * terlihat karena digulir". Sama dengan yang dipakai `Reveal`, dan karena
  * alasan yang sama.
  */
-const AMBANG_MUAT_MS = 400
+const LOAD_THRESHOLD_MS = 400
 
 /**
  * Melambat di ujung, sewatak dengan cubic-bezier(.16,1,.3,1) milik keyframe
@@ -25,7 +25,7 @@ function easeOut(t: number): number {
   return 1 - (1 - t) ** 3
 }
 
-function kurangiGerak(): boolean {
+function reducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
@@ -73,7 +73,7 @@ export function CountUp({ value, format, delay = 0, className }: CountUpProps) {
   const ref = useRef<HTMLSpanElement>(null)
 
   /** Angka yang sedang tampil — titik awal animasi berikutnya. */
-  const sekarangRef = useRef(0)
+  const currentRef = useRef(0)
 
   /**
    * Pemformat disimpan di ref supaya identitas fungsinya tidak ikut memicu
@@ -84,60 +84,60 @@ export function CountUp({ value, format, delay = 0, className }: CountUpProps) {
     formatRef.current = format
   })
 
-  const [teks, setTeks] = useState(() => format(target === null || kurangiGerak() ? value : 0))
+  const [text, setText] = useState(() => format(target === null || reducedMotion() ? value : 0))
 
   useEffect(() => {
     // Tidak ada angka untuk dihitung (null, undefined, atau NaN) — biarkan
     // pemformatnya yang memutuskan tampilannya, biasanya "—".
     if (target === null) {
-      setTeks(formatRef.current(value))
+      setText(formatRef.current(value))
       return
     }
 
     const el = ref.current
-    if (kurangiGerak() || !el || typeof IntersectionObserver === 'undefined') {
-      sekarangRef.current = target
-      setTeks(formatRef.current(target))
+    if (reducedMotion() || !el || typeof IntersectionObserver === 'undefined') {
+      currentRef.current = target
+      setText(formatRef.current(target))
       return
     }
 
-    const dari = sekarangRef.current
+    const fromDate = currentRef.current
     let raf = 0
     let timer = 0
-    let mulai = 0
+    let from = 0
 
-    const langkah = (now: number) => {
-      if (!mulai) mulai = now
-      const t = Math.min((now - mulai) / DURASI, 1)
+    const step = (now: number) => {
+      if (!from) from = now
+      const t = Math.min((now - from) / DURATION, 1)
 
       // Bingkai terakhir memakai target apa adanya. Hasil interpolasi bisa
       // meleset satu angka karena pembulatan, dan yang meleset itu justru
       // angka yang paling lama dipandang orang.
-      const nilai = t === 1 ? target : Math.round(dari + (target - dari) * easeOut(t))
-      sekarangRef.current = nilai
+      const value = t === 1 ? target : Math.round(fromDate + (target - fromDate) * easeOut(t))
+      currentRef.current = value
 
       // Dipanggil 60 kali sedetik, tapi React membatalkan render ketika
       // string-nya sama persis. Jadi yang benar-benar dirender hanya saat teks
       // yang tampak memang berubah — untuk "56 jt" itu puluhan kali, bukan
       // ratusan.
-      setTeks(formatRef.current(nilai))
+      setText(formatRef.current(value))
 
-      if (t < 1) raf = requestAnimationFrame(langkah)
+      if (t < 1) raf = requestAnimationFrame(step)
     }
 
-    const dimuatPada = performance.now()
+    const loadedAt = performance.now()
     const observer = new IntersectionObserver(
       (entries) => {
         if (!entries.some((entry) => entry.isIntersecting)) return
         observer.disconnect()
 
-        const jeda = performance.now() - dimuatPada < AMBANG_MUAT_MS ? delay : 0
-        if (jeda > 0) {
+        const startDelay = performance.now() - loadedAt < LOAD_THRESHOLD_MS ? delay : 0
+        if (startDelay > 0) {
           timer = window.setTimeout(() => {
-            raf = requestAnimationFrame(langkah)
-          }, jeda)
+            raf = requestAnimationFrame(step)
+          }, startDelay)
         } else {
-          raf = requestAnimationFrame(langkah)
+          raf = requestAnimationFrame(step)
         }
       },
       // Ditarik sedikit ke dalam supaya hitungan mulai ketika selnya benar-benar
@@ -157,7 +157,7 @@ export function CountUp({ value, format, delay = 0, className }: CountUpProps) {
   return (
     <>
       <span ref={ref} className={className} aria-hidden="true">
-        {teks}
+        {text}
       </span>
       {/* Angka yang berubah 60 kali sedetik hanya jadi kebisingan bagi pembaca
           layar. Yang diumumkan cukup nilai akhirnya. */}

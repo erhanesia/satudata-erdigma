@@ -6,7 +6,7 @@ import { cn } from '@/shared/lib/cn'
  * Batas untuk membedakan "sudah terlihat sejak halaman dimuat" dari "baru
  * terlihat karena digulir".
  */
-const AMBANG_MUAT_MS = 400
+const LOAD_THRESHOLD_MS = 400
 
 interface RevealProps {
   children: ReactNode
@@ -41,25 +41,25 @@ interface RevealProps {
  */
 export function Reveal({ children, delay = 0, className }: RevealProps) {
   const ref = useRef<HTMLDivElement>(null)
-  const [terlihat, setTerlihat] = useState(false)
-  const [jeda, setJeda] = useState(delay)
+  const [visible, setVisible] = useState(false)
+  const [effectiveDelay, setEffectiveDelay] = useState(delay)
 
   useEffect(() => {
     const el = ref.current
     if (!el) return
 
-    const kurangiGerak = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (kurangiGerak || typeof IntersectionObserver === 'undefined') {
-      setTerlihat(true)
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (reducedMotion || typeof IntersectionObserver === 'undefined') {
+      setVisible(true)
       return
     }
 
-    const dimuatPada = performance.now()
+    const loadedAt = performance.now()
     const observer = new IntersectionObserver(
       (entries) => {
         if (!entries.some((entry) => entry.isIntersecting)) return
-        setJeda(performance.now() - dimuatPada < AMBANG_MUAT_MS ? delay : 0)
-        setTerlihat(true)
+        setEffectiveDelay(performance.now() - loadedAt < LOAD_THRESHOLD_MS ? delay : 0)
+        setVisible(true)
         // Sekali tampil, selamanya tampil. Elemen yang berkedip lagi setiap
         // kali digulir naik-turun lebih mengganggu daripada membantu.
         observer.disconnect()
@@ -76,8 +76,8 @@ export function Reveal({ children, delay = 0, className }: RevealProps) {
   return (
     <div
       ref={ref}
-      className={cn(terlihat ? 'animate-rise' : 'opacity-0', className)}
-      style={terlihat && jeda > 0 ? { animationDelay: `${jeda}ms` } : undefined}
+      className={cn(visible ? 'animate-rise' : 'opacity-0', className)}
+      style={visible && effectiveDelay > 0 ? { animationDelay: `${effectiveDelay}ms` } : undefined}
     >
       {children}
     </div>
