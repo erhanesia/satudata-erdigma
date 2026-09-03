@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light" />
 
+    <!-- Ikon tab peramban. Dirujuk langsung dari src/, bukan disalin ke public/,
+         supaya hanya ada SATU berkas logo yang dijaga: header, footer, dan
+         halaman masuk memakai berkas yang sama ini. Vite memprosesnya saat build
+         dan menambahkan hash pada namanya, jadi peramban tidak menahan versi
+         lama setelah logonya diganti.
+
+         Yang dipakai varian "mark", bukan logo penuh. Logo penuh berukuran
+         1772x1772 dan berisi tulisan yang tidak akan terbaca pada kotak 16px. -->
+    <link rel="icon" type="image/png" href="/src/shared/assets/logo-erdigma-mark.png" />
+
     <!-- Portal internal: jangan sampai terindeks mesin pencari. -->
     <meta name="robots" content="noindex, nofollow" />
     <!-- Jangan bocorkan path halaman internal ke situs luar lewat header Referer. -->
