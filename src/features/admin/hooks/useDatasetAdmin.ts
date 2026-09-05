@@ -1,6 +1,7 @@
+import type { AccessRule } from '@/shared/types/api'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
-import { deleteDataset, updateDatasetPositions } from '@/features/dataset/api/datasetApi'
+import { deleteDataset, updateDatasetAccessRules } from '@/features/dataset/api/datasetApi'
 import { queryKeys } from '@/shared/api/queryKeys'
 
 /**
@@ -41,12 +42,12 @@ export function useDatasetAdmin() {
     onSuccess: refresh,
   })
 
-  const updatePositions = useMutation({
-    mutationFn: async ({ slugs, positions }: { slugs: string[]; positions: string[] }) => {
+  const updateAccessRules = useMutation({
+    mutationFn: async ({ slugs, accessRules }: { slugs: string[]; accessRules: AccessRule[] }) => {
       const failed: string[] = []
       for (const slug of slugs) {
         try {
-          await updateDatasetPositions(slug, positions)
+          await updateDatasetAccessRules(slug, accessRules)
         } catch {
           failed.push(slug)
         }
@@ -56,5 +57,5 @@ export function useDatasetAdmin() {
     onSuccess: refresh,
   })
 
-  return { remove, updatePositions }
+  return { remove, updateAccessRules }
 }

@@ -18,6 +18,16 @@ export type DivisionLite = Schemas['DivisionResponseLite']
 export type Collection = Schemas['CollectionResponse']
 export type CollectionLite = Schemas['CollectionResponseLite']
 export type Dataset = Schemas['DatasetResponse']
+
+/**
+ * Satu aturan "siapa boleh melihat".
+ *
+ * `ruleValue` berisi label jenjang untuk JOB_LEVEL, dan UUID milik HRIS untuk
+ * POSITION maupun EMPLOYEE. Nama posisi dan karyawan TIDAK ikut dikirim server —
+ * penerjemahannya dilakukan di panel admin, yang memang sudah memuat daftar
+ * keduanya untuk isian pemilihnya.
+ */
+export type AccessRule = Schemas['AccessRuleDTO']
 export type DatasetLite = Schemas['DatasetResponseLite']
 export type DatasetColumn = Schemas['DatasetColumnResponse']
 export type DatasetResource = Schemas['DatasetResourceResponse']
