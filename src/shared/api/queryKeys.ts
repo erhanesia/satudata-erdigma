@@ -31,7 +31,10 @@ export const queryKeys = {
   taxonomy: {
     topics: ['taxonomy', 'topic'] as const,
     formats: ['taxonomy', 'format'] as const,
-    positions: ['taxonomy', 'position'] as const,
+    jobLevels: ['taxonomy', 'job-level'] as const,
+    positions: (search: string) => ['taxonomy', 'position', search] as const,
+    employees: (search: string) => ['taxonomy', 'employee', search] as const,
+    employee: (id: string) => ['taxonomy', 'employee-by-id', id] as const,
   },
 
   division: {

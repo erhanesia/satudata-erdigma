@@ -113,7 +113,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/datasets/{slug}/positions": {
+    "/api/v1/datasets/{slug}/access-rules": {
         parameters: {
             query?: never;
             header?: never;
@@ -127,22 +127,39 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Ganti daftar posisi yang boleh melihat
-         * @description Mengganti SELURUH tag posisi sebuah dataset dengan daftar yang dikirim. Kirim daftar
+         * Ganti aturan siapa yang boleh melihat
+         * @description Mengganti SELURUH aturan akses sebuah dataset dengan daftar yang dikirim. Kirim daftar
          *     kosong untuk melepas semuanya.
          *
-         *     Ambil nilai yang sah dari `GET /api/v1/positions`; label di luar daftar itu ditolak 400
-         *     supaya tag hasil salah ketik tidak pernah tersimpan.
+         *     Tiap aturan punya `ruleType` dan `ruleValue`, dan ketiga jenisnya berdiri SEJAJAR —
+         *     dataset terlihat bila salah satu aturan cocok:
+         *
+         *     | `ruleType` | `ruleValue` | Ambil dari |
+         *     | --- | --- | --- |
+         *     | `JOB_LEVEL` | label jenjang, mis. `Senior Manager` | `GET /api/v1/job-levels` |
+         *     | `POSITION` | UUID posisi HRIS | `GET /api/v1/positions` |
+         *     | `EMPLOYEE` | UUID karyawan HRIS | `GET /api/v1/employees` |
+         *
+         *     Aturan `EMPLOYEE` tidak lebih kuat daripada `JOB_LEVEL`, hanya lebih sempit. Dataset
+         *     dengan `JOB_LEVEL=Manager` dan `EMPLOYEE=<Budi>` terlihat oleh seluruh Manager DAN oleh
+         *     Budi — bukan oleh Manager yang kebetulan bernama Budi.
+         *
+         *     Nilai yang tidak dikenal ditolak 400 supaya aturan hasil salah ketik tidak pernah
+         *     tersimpan. Aturan seperti itu tidak akan pernah cocok dengan siapa pun, dan diam-diam
+         *     mengunci datasetnya dari semua orang.
          *
          *     **Ini mengubah hak akses, seketika.** Daftar kosong membuat dataset terbuka untuk
-         *     seluruh karyawan; daftar berisi menguncinya ke posisi-posisi itu saja. Yang tidak
-         *     berhak tidak lagi melihatnya di `GET /api/v1/datasets`, dan mendapat 403 kalau membuka
-         *     slug-nya langsung. ADMIN dan pengunggahnya sendiri selalu bisa.
+         *     seluruh karyawan. Yang tidak berhak tidak lagi melihatnya di `GET /api/v1/datasets`,
+         *     dan mendapat 403 kalau membuka slug-nya langsung. ADMIN dan pengunggahnya sendiri
+         *     selalu bisa.
          *
          *     Perubahannya tercatat di `GET /api/v1/audit-logs` lengkap dengan nilai sebelum dan
          *     sesudahnya.
+         *
+         *     Menggantikan `PATCH /{slug}/positions` yang menerima sembilan label karangan. Lihat
+         *     changeset 47.
          */
-        patch: operations["updatePositions"];
+        patch: operations["updateAccessRules"];
         trace?: never;
     };
     "/api/v1/topics": {
@@ -264,23 +281,22 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Daftar posisi jabatan
-         * @description Sembilan posisi jabatan yang bisa dipakai membatasi siapa boleh melihat sebuah
-         *     dataset — isi penyaring "Akses posisi" dan isian pada form terbitkan dataset.
+         * Daftar posisi dari HRIS
+         * @description Diteruskan ke hris-api saat dipanggil, TIDAK disalin ke database portal ini.
          *
-         *     **Pembatasannya berlaku sungguhan.** Dataset yang diberi tag hanya bisa dibuka,
-         *     dibaca isinya, dan diunduh oleh pemilik posisi tersebut — selain ADMIN dan
-         *     pengunggahnya sendiri. Dataset tanpa tag terbuka untuk seluruh karyawan.
+         *     Daftar posisi HRIS berisi puluhan baris dan berubah tanpa memberi tahu siapa pun.
+         *     Menyalinnya mengulangi persoalan yang sudah terjadi pada divisi: salinan yang dibuat
+         *     hari ini sudah tidak cocok lagi keesokan harinya.
          *
-         *     Posisi setiap pengguna disimpan di kolom `users.access_position`, milik portal ini.
-         *     HRIS sendiri menyimpan dua sumbu berbeda: `job_level` (enum 12 nilai) dan `position`
-         *     (teks bebas seperti "Project Manager Data & IT"). Tak satu pun cocok satu-satu dengan
-         *     sembilan label di bawah, jadi kolomnya dibuat sendiri dan nanti diisi dari HRIS lewat
-         *     pemetaan yang ditulis sekali — pola yang sama dengan `hris_permission_level`.
+         *     **Nilai `id` dari sini yang diisikan ke `ruleValue`** pada aturan bertipe `POSITION` —
+         *     bukan namanya. Nama posisi di HRIS memuat salah ketik yang suatu saat diperbaiki, dan
+         *     pembatasan berbasis nama akan putus diam-diam begitu itu terjadi.
          *
-         *     Karena itu daftar di bawah masih tetap (hard-coded), bukan dibaca dari tabel.
+         *     Baris uji coba milik HRIS (`DUMMY DELETE`, `Test Baru`, `Finance Baru`) disaring di
+         *     sini supaya tidak muncul di pemilih akses.
          *
-         *     Tidak perlu login.
+         *     Memakai token pemanggil, jadi HRIS menilai izinnya persis seperti saat orang itu
+         *     membuka HRIS sendiri.
          */
         get: operations["indexPosition"];
         put?: never;
@@ -331,6 +347,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/job-levels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Daftar jenjang jabatan
+         * @description Dua belas jenjang jabatan milik HRIS, dipakai membatasi siapa boleh melihat sebuah
+         *     dataset. Urutannya dari yang paling senior, bukan menurut abjad.
+         *
+         *     **Nilai dari sini yang diisikan ke `ruleValue`** pada aturan bertipe `JOB_LEVEL` —
+         *     dikirim apa adanya, mis. `Senior Manager`, bukan `SENIOR_MANAGER`. Bentuk itu yang
+         *     dipakai HRIS pada balasan `/me`, dan karenanya juga yang tersimpan di kolom
+         *     `users.job_level` yang dibandingkan.
+         *
+         *     Daftar ini TETAP, tidak diambil dari HRIS saat dipanggil. Kedua belas nilainya ada di
+         *     kode hris-api sebagai enum, bukan di tabel, jadi tidak bisa berubah tanpa deploy ulang
+         *     HRIS — memanggil API untuk sesuatu yang tetap hanya menambah titik gagal.
+         *
+         *     Menggantikan `GET /api/v1/positions` versi lama, yang mengembalikan sembilan label
+         *     karangan dari berkas desain. Lihat changeset 47.
+         *
+         *     Tidak perlu login.
+         */
+        get: operations["indexJobLevel"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/formats": {
         parameters: {
             query?: never;
@@ -352,6 +403,70 @@ export interface paths {
          *     Tidak perlu login.
          */
         get: operations["indexFormat"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cari karyawan di HRIS
+         * @description Diteruskan ke hris-api saat dipanggil, untuk menunjuk orang tertentu sebagai yang
+         *     boleh melihat sebuah dataset.
+         *
+         *     **Parameter `search` WAJIB diisi.** Ada ratusan karyawan, dan memuat semuanya untuk
+         *     sebuah pemilih berarti mengirim daftar yang tidak akan dibaca siapa pun sampai habis.
+         *     Mewajibkan kata kunci memaksa antarmuka menampilkan kotak pencarian, dan itu memang
+         *     satu-satunya cara memakai daftar sebesar ini.
+         *
+         *     **Nilai `id` dari sini yang diisikan ke `ruleValue`** pada aturan bertipe `EMPLOYEE`.
+         *
+         *     Memakai token pemanggil, jadi HRIS menilai izinnya persis seperti saat orang itu
+         *     membuka HRIS sendiri.
+         */
+        get: operations["searchEmployee"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Nama satu karyawan HRIS
+         * @description Menerjemahkan satu id karyawan menjadi namanya.
+         *
+         *     Dipakai antarmuka untuk menampilkan aturan bertipe `EMPLOYEE` yang sudah tersimpan.
+         *     Yang disimpan di `dataset_access_rule` adalah UUID — nama posisi dan karyawan di HRIS
+         *     memuat salah ketik yang suatu saat diperbaiki, dan pembatasan berbasis nama akan putus
+         *     diam-diam begitu itu terjadi. Konsekuensinya nama harus dicari saat ditampilkan, dan
+         *     inilah jalurnya.
+         *
+         *     **Jangan dipanggil per baris pada halaman daftar.** Kolom akses di panel admin sengaja
+         *     hanya menampilkan jumlah, supaya lima puluh baris tidak berubah jadi lima puluh
+         *     panggilan.
+         *
+         *     Menjawab 404 kalau HRIS tidak mengenali id-nya — wajar terjadi kalau karyawannya sudah
+         *     dihapus setelah aturannya dibuat.
+         */
+        get: operations["getEmployee"];
         put?: never;
         post?: never;
         delete?: never;
@@ -737,6 +852,24 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AccessRuleDTO: {
+            /**
+             * @description Jenis pembatasan
+             * @example JOB_LEVEL
+             * @enum {string}
+             */
+            ruleType: "JOB_LEVEL" | "POSITION" | "EMPLOYEE";
+            /**
+             * @description Isinya bergantung `ruleType`:
+             *
+             *     - `JOB_LEVEL` — nama enum job level HRIS, mis. `SENIOR_MANAGER`.
+             *       Ambil daftarnya dari `GET /api/v1/job-levels`.
+             *     - `POSITION` — UUID posisi HRIS. Ambil dari `GET /api/v1/positions`.
+             *     - `EMPLOYEE` — UUID karyawan HRIS. Ambil dari `GET /api/v1/employees`.
+             * @example SENIOR_MANAGER
+             */
+            ruleValue: string;
+        };
         DatasetRequestCreateDTO: {
             /**
              * @description Nama dataset seperti yang akan dibaca orang. Ini klaim tentang apa data ini — tidak bisa ditebak dari berkasnya, jadi wajib ditulis penerbit.
@@ -783,7 +916,7 @@ export interface components {
              *       "Manager"
              *     ]
              */
-            positions?: string[];
+            accessRules?: components["schemas"]["AccessRuleDTO"][];
             /** @description Keterangan tiap berkas yang diunggah — nama versi manusia dan jenisnya. Urutannya HARUS sama dengan urutan bagian multipart `files`, dan jumlahnya harus sama persis. Boleh dikosongkan kalau hanya satu berkas: namanya diambil dari judul dataset dan jenisnya dari ekstensi berkasnya. */
             files?: components["schemas"]["FileMeta"][];
         };
@@ -842,7 +975,7 @@ export interface components {
             collection?: components["schemas"]["CollectionResponseLite"];
             topics?: string[];
             formats?: string[];
-            positions?: string[];
+            accessRules?: components["schemas"]["AccessRuleDTO"][];
             coverage?: string;
             notes?: string;
             disclaimer?: string;
@@ -891,16 +1024,9 @@ export interface components {
              */
             divisionCode?: string;
         };
-        DatasetPositionUpdateDTO: {
-            /**
-             * @description Daftar posisi yang berlaku setelah perubahan. Kirim daftar kosong untuk melepas seluruh tag.
-             * @example [
-             *       "Direksi",
-             *       "General Manager",
-             *       "Manager"
-             *     ]
-             */
-            positions?: string[];
+        DatasetAccessRuleUpdateDTO: {
+            /** @description Aturan yang berlaku setelah perubahan. Kirim daftar kosong untuk membuka dataset ini bagi seluruh karyawan. */
+            accessRules?: components["schemas"]["AccessRuleDTO"][];
         };
         TopicResponse: {
             /** Format: uuid */
@@ -970,6 +1096,11 @@ export interface components {
             /** Format: int64 */
             total?: number;
         };
+        Item: {
+            /** Format: uuid */
+            id?: string;
+            name?: string;
+        };
         UserResponse: {
             /** Format: uuid */
             id?: string;
@@ -982,7 +1113,7 @@ export interface components {
             /** @enum {string} */
             hrisPermissionLevel?: "ADMIN" | "DIRECTOR" | "CORPORATE_SECRETARY" | "MANAGER" | "STAFF";
             jobLevel?: string;
-            accessPosition?: string;
+            profileImageUrl?: string;
             division?: components["schemas"]["DivisionResponseLite"];
         };
         FormatResponse: {
@@ -1031,11 +1162,11 @@ export interface components {
             /** Format: int64 */
             offset?: number;
             sort?: components["schemas"]["SortObject"];
+            paged?: boolean;
             /** Format: int32 */
             pageSize?: number;
             /** Format: int32 */
             pageNumber?: number;
-            paged?: boolean;
             unpaged?: boolean;
         };
         SortObject: {
@@ -1066,7 +1197,7 @@ export interface components {
             uploadedBy?: components["schemas"]["UploaderResponse"];
             topics?: string[];
             formats?: string[];
-            positions?: string[];
+            accessRules?: components["schemas"]["AccessRuleDTO"][];
             resources?: components["schemas"]["DatasetResourceResponse"][];
             coverage?: string;
             notes?: string;
@@ -1212,11 +1343,11 @@ export interface operations {
                 /** @description Saring per kode divisi: DNA, IT, PROD, SALES, FIN, OPS, HR, MKT. Daftar lengkapnya dari GET /api/v1/divisions. */
                 divisions?: string[];
                 /**
-                 * @description Saring per tag posisi yang boleh melihat. Daftar nilainya dari GET /api/v1/positions.
+                 * @description Saring per jenjang jabatan yang boleh melihat. Daftar nilainya dari GET /api/v1/job-levels.
                  *
                  *     Ini penyaring tampilan, BUKAN pembatas akses. Pembatasannya berjalan sendiri dan tidak bisa dimatikan lewat parameter apa pun: dataset yang tidak boleh Anda lihat tidak akan muncul di sini, apa pun isian penyaringnya.
                  */
-                positions?: string[];
+                jobLevels?: string[];
                 /** @description Urutan hasil. */
                 sort?: "relevance" | "downloads" | "updated" | "created";
                 /** @description Halaman ke berapa, dimulai dari 0. */
@@ -1339,7 +1470,7 @@ export interface operations {
             };
         };
     };
-    updatePositions: {
+    updateAccessRules: {
         parameters: {
             query?: never;
             header?: never;
@@ -1354,20 +1485,20 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["DatasetPositionUpdateDTO"];
+                "application/json": components["schemas"]["DatasetAccessRuleUpdateDTO"];
             };
         };
         responses: {
-            /** @description Tag posisi tersimpan */
+            /** @description Aturan akses tersimpan */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": string[];
+                    "*/*": components["schemas"]["AccessRuleDTO"][];
                 };
             };
-            /** @description Ada label posisi yang tidak dikenal */
+            /** @description Ada aturan yang tidak sah */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -1482,7 +1613,10 @@ export interface operations {
     };
     indexPosition: {
         parameters: {
-            query?: never;
+            query?: {
+                search?: string;
+                size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -1495,7 +1629,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": string[];
+                    "*/*": components["schemas"]["Item"][];
                 };
             };
         };
@@ -1542,6 +1676,26 @@ export interface operations {
             };
         };
     };
+    indexJobLevel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Daftar jenjang jabatan berhasil diambil */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string[];
+                };
+            };
+        };
+    };
     indexFormat: {
         parameters: {
             query?: never;
@@ -1558,6 +1712,51 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["FormatResponse"][];
+                };
+            };
+        };
+    };
+    searchEmployee: {
+        parameters: {
+            query: {
+                search: string;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Hasil pencarian karyawan */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Item"][];
+                };
+            };
+        };
+    };
+    getEmployee: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Karyawan ditemukan */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Item"];
                 };
             };
         };

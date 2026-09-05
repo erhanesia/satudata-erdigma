@@ -2,6 +2,7 @@ import { Database, ExternalLink, FileText, LayoutGrid, LogOut, Menu, X } from 'l
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 
+import { UserAvatar } from '@/shared/components/ui/UserAvatar'
 import { Toaster } from '@/shared/components/ui/Toaster'
 import { useCurrentUser } from '@/features/auth/hooks/useCurrentUser'
 import { useSignOut } from '@/features/auth/hooks/useSignOut'
@@ -239,12 +240,12 @@ export function AdminLayout() {
                 {user?.role ?? '—'} · {user?.division?.code ?? '—'}
               </div>
             </div>
-            <div
-              title={user?.name ?? undefined}
-              className="flex size-9 items-center justify-center rounded-full bg-[#E9EBF0] text-[13px] font-bold text-[#4B5563] lg:size-11 lg:text-[14px]"
-            >
-              {initials(user?.name)}
-            </div>
+            <UserAvatar
+              src={user?.profileImageUrl}
+              initials={initials(user?.name)}
+              name={user?.name}
+              className="size-9 bg-[#E9EBF0] text-[13px] font-bold text-[#4B5563] lg:size-11 lg:text-[14px]"
+            />
             <button
               type="button"
               onClick={signOut}

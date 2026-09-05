@@ -5,6 +5,8 @@ import { useDataset } from '@/features/dataset/hooks/useDatasets'
 import { CountUp } from '@/shared/components/motion/CountUp'
 import { formatBytes, formatDateTime, formatNumber } from '@/shared/lib/format'
 
+import { useAccessRuleNames } from '../hooks/useAccessOptions'
+
 import { FormatBadge } from './FormatBadge'
 
 interface DatasetDrawerProps {
@@ -139,28 +141,18 @@ export function DatasetDrawer({ slug, onClose }: DatasetDrawerProps) {
                     </h3>
                     {/*
                       Desain menulis "Tag posisi dari HRIS." di baris ini.
-                      Kalimatnya diganti karena belum benar: sumbernya kolom
-                      users.access_position milik portal ini, dan pemetaan dari
-                      HRIS baru menyusul. Bentuk dan letaknya dipertahankan.
+                      Sejak changeset 47 kalimatnya akhirnya benar: sumbernya
+                      memang HRIS, hanya lewat tiga sumbu dan bukan satu.
                     */}
                     <p className="mt-0.5 text-[13px] text-[#9CA3AF]">
-                      {(d?.positions ?? []).length === 0
+                      {(d?.accessRules ?? []).length === 0
                         ? 'Terbuka untuk seluruh karyawan.'
-                        : 'Hanya posisi ini yang bisa membuka dan mengunduh.'}
+                        : 'Hanya yang cocok dengan salah satu aturan di bawah yang bisa membuka dan mengunduh.'}
                     </p>
                   </div>
 
-                  {(d?.positions ?? []).length > 0 ? (
-                    <div className="flex flex-wrap gap-2 px-5 py-4">
-                      {(d?.positions ?? []).map((p) => (
-                        <span
-                          key={p}
-                          className="rounded-lg bg-[#F1F3F7] px-3.5 py-2 text-[14px] font-semibold text-[#3C4A56]"
-                        >
-                          {p}
-                        </span>
-                      ))}
-                    </div>
+                  {(d?.accessRules ?? []).length > 0 ? (
+                    <AccessRuleBadges rules={d?.accessRules ?? []} />
                   ) : null}
                 </section>
 
@@ -181,6 +173,51 @@ export function DatasetDrawer({ slug, onClose }: DatasetDrawerProps) {
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
+  )
+}
+
+/**
+ * Lencana aturan akses, dengan UUID sudah diterjemahkan jadi nama.
+ *
+ * Dipisah jadi komponen sendiri semata-mata karena butuh hook: panel induknya
+ * merender daftar aturan di tengah pohon JSX, dan hook tidak bisa dipanggil di
+ * sana.
+ *
+ * Ongkosnya satu permintaan daftar posisi (dipakai bersama seluruh halaman lewat
+ * cache React Query) ditambah satu permintaan per karyawan yang ditunjuk.
+ * Terjangkau karena panel ini hanya terbuka untuk SATU dataset. Kolom akses di
+ * tabel di belakangnya sengaja tidak melakukan ini — di sana lima puluh baris
+ * akan berarti lima puluh panggilan, dan yang ditampilkan cukup jumlahnya.
+ */
+function AccessRuleBadges({
+  rules,
+}: {
+  rules: { ruleType?: string; ruleValue?: string }[]
+}) {
+  const cleaned = rules.filter(
+    (rule): rule is { ruleType: string; ruleValue: string } =>
+      Boolean(rule.ruleType && rule.ruleValue),
+  )
+  const nameOf = useAccessRuleNames(cleaned)
+
+  return (
+    <div className="flex flex-wrap gap-2 px-5 py-4">
+      {cleaned.map((rule) => (
+        <span
+          key={`${rule.ruleType}:${rule.ruleValue}`}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-[#F1F3F7] px-3.5 py-2 text-[14px] font-semibold text-[#3C4A56]"
+        >
+          <span className="text-[11px] font-bold text-[#9CA3AF]">
+            {rule.ruleType === 'JOB_LEVEL'
+              ? 'Jenjang'
+              : rule.ruleType === 'POSITION'
+                ? 'Posisi'
+                : 'Karyawan'}
+          </span>
+          {nameOf(rule)}
+        </span>
+      ))}
+    </div>
   )
 }
 

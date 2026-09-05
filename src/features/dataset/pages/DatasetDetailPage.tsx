@@ -181,13 +181,13 @@ function ShareButton({ dataset }: { dataset: Dataset }) {
   const { copy, copiedKey } = useCopyToClipboard()
   const copied = copiedKey === 'share'
 
-  // Dataset bertag posisi tidak terbuka untuk semua orang. Penyalinnya tetap
+  // Dataset beraturan akses tidak terbuka untuk semua orang. Penyalinnya tetap
   // bekerja, tapi pesannya menyebut batasan itu — mengira sudah membagikan
   // sesuatu lalu penerimanya melihat 403 adalah kebingungan yang bisa dicegah
   // dengan satu kalimat.
-  const restricted = (dataset.positions?.length ?? 0) > 0
+  const restricted = (dataset.accessRules?.length ?? 0) > 0
   const message = restricted
-    ? 'Tautan disalin. Hanya posisi yang berhak bisa membukanya.'
+    ? 'Tautan disalin. Hanya yang berhak bisa membukanya.'
     : 'Tautan dataset disalin.'
 
   async function share() {
