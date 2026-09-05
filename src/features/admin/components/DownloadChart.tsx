@@ -77,7 +77,25 @@ export function DownloadChart({ data, loading, failed }: DownloadChartProps) {
             // menyembunyikan sebagian sendiri, tapi jaraknya jadi tidak rata.
             // Menampilkan tiap hari kelima membuat sumbunya terbaca sekaligus
             // tetap memperlihatkan rentangnya.
-            interval={4}
+            /*
+              Tiga puluh label tidak pernah muat berdampingan, jadi sebagian
+              harus disembunyikan. Yang menentukan berapa banyak adalah lebar
+              layar, bukan angka tetap.
+
+              Dulu di sini interval={4}, yang memaksa enam label pada lebar
+              berapa pun. Di layar 360px area gambarnya tinggal sekitar 224px
+              setelah dikurangi sumbu Y dan padding, sehingga tiap label cuma
+              kebagian 37px, sementara "27 Agu" pada 12px butuh sekitar 42px.
+              Labelnya bertabrakan.
+
+              preserveStartEnd dengan minTickGap menyerahkan keputusannya kepada
+              recharts: ia menjatuhkan label secukupnya agar jarak minimum
+              terpenuhi, dan selalu mempertahankan tanggal pertama serta terakhir
+              supaya rentangnya tetap terbaca. Satu setelan yang benar di ponsel
+              maupun di layar lebar.
+            */
+            interval="preserveStartEnd"
+            minTickGap={28}
           />
           <YAxis
             tick={{ fontSize: 12, fill: '#6B7280' }}

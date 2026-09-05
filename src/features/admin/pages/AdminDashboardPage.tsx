@@ -47,7 +47,7 @@ export default function AdminDashboardPage() {
       <Reveal>
         <div className="grid gap-3.5 sm:grid-cols-2 xl:grid-cols-5">
           {cards.map((k, i) => (
-            <Reveal key={k.label} delay={Math.min(i, 4) * 60}>
+            <Reveal key={k.label} delay={Math.min(i, 4) * 60} className="min-w-0">
               <div className="rounded-lg bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,.06)] sm:p-[22px_20px]">
                 <div className="text-[26px] leading-[1.1] font-bold tracking-[-0.6px] text-[#2E3646] sm:text-[31px]">
                   {k.value === undefined ? '—' : <CountUp value={k.value} format={formatNumber} />}
@@ -69,8 +69,23 @@ export default function AdminDashboardPage() {
         `min-h-0` bukan pelengkap — tanpa itu anak flex menolak menyusut di
         bawah tinggi isinya, dan alih-alih menggulir, kartunya yang melar.
       */}
+      {/*
+        `min-w-0` pada tiap item grid BUKAN pelengkap.
+
+        Item grid bawaannya `min-width: auto`, artinya ia menolak menyusut di
+        bawah lebar min-content isinya. Dan `truncate` menyetel
+        `white-space: nowrap`, sehingga min-content sebuah judul justru sama
+        dengan panjang PENUH teksnya.
+
+        Akibatnya truncate berbalik melawan tujuannya: judul dataset sepanjang
+        71 karakter seperti "[BI-WEEKLY REPORT] Report evaluasi Meta Ads untuk
+        periode 1-20 Aug 2026." memaksa kolomnya melebar melampaui layar, dan
+        seluruh halaman ikut bisa digeser ke samping.
+
+        `min-w-0` mengizinkan item menyusut, dan barulah truncate bekerja.
+      */}
       <div className="grid gap-3.5 xl:grid-cols-2">
-        <Reveal delay={120} className="h-full">
+        <Reveal delay={120} className="h-full min-w-0">
           <div className="flex h-full flex-col overflow-hidden rounded-lg bg-white shadow-[0_1px_2px_rgba(16,24,40,.06)]">
             <div className="shrink-0 border-b border-[#E9EBF0] px-4 pt-5 pb-4 text-[16px] font-bold text-[#2E3646] sm:px-6 sm:pt-[22px]">
               Unggahan terbaru
@@ -105,7 +120,7 @@ export default function AdminDashboardPage() {
           </div>
         </Reveal>
 
-        <Reveal delay={180} className="h-full">
+        <Reveal delay={180} className="h-full min-w-0">
           <div className="flex h-full flex-col overflow-hidden rounded-lg bg-white shadow-[0_1px_2px_rgba(16,24,40,.06)]">
             <div className="shrink-0 border-b border-[#E9EBF0] px-4 pt-5 pb-4 text-[16px] font-bold text-[#2E3646] sm:px-6 sm:pt-[22px]">
               Aktivitas terakhir
@@ -129,7 +144,21 @@ export default function AdminDashboardPage() {
                 (audit.data?.content ?? []).map((a) => (
                   <div
                     key={a.id}
-                    className="flex items-baseline gap-3 border-b border-[#E9EBF0] px-4 py-[15px] last:border-b-0 sm:px-6"
+                    /*
+                        Menumpuk di layar sempit, berdampingan mulai sm.
+
+                        Stempel waktunya `whitespace-nowrap` dan memakan sekitar
+                        130px. Pada layar 360px, setelah padding layout dan
+                        kartu, yang tersisa untuk teks audit cuma sekitar 154px,
+                        sementara isinya "Nama - CREATE - dataset slug-panjang"
+                        butuh sekitar 400px. Berdampingan berarti teksnya
+                        membungkus jadi tiga baris dengan stempel waktu
+                        menggantung di baris pertama.
+
+                        Ditumpuk, keduanya mendapat lebar penuh dan barisnya
+                        turun jadi dua baris yang terbaca.
+                      */
+                      className="flex flex-col gap-1 border-b border-[#E9EBF0] px-4 py-[15px] last:border-b-0 sm:flex-row sm:items-baseline sm:gap-3 sm:px-6"
                   >
                     <span className="min-w-0 flex-1 text-[16px] text-[#3C4A56]">
                       {a.actorName ?? 'Sistem'}
