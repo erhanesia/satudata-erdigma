@@ -862,11 +862,14 @@ export interface components {
             /**
              * @description Isinya bergantung `ruleType`:
              *
-             *     - `JOB_LEVEL` — nama enum job level HRIS, mis. `SENIOR_MANAGER`.
-             *       Ambil daftarnya dari `GET /api/v1/job-levels`.
+             *     - `JOB_LEVEL` — **label** jenjang jabatan HRIS, mis. `Senior Manager`.
+             *       Bukan nama enumnya: `SENIOR_MANAGER` akan ditolak. Yang tersimpan di
+             *       `users.job_level` memang bentuk labelnya, karena hris-api memasang
+             *       `@JsonValue` pada label itu. Ambil daftarnya dari
+             *       `GET /api/v1/job-levels`.
              *     - `POSITION` — UUID posisi HRIS. Ambil dari `GET /api/v1/positions`.
              *     - `EMPLOYEE` — UUID karyawan HRIS. Ambil dari `GET /api/v1/employees`.
-             * @example SENIOR_MANAGER
+             * @example Senior Manager
              */
             ruleValue: string;
         };
@@ -909,11 +912,16 @@ export interface components {
              */
             collectionSlug?: string;
             /**
-             * @description Posisi jabatan yang boleh melihat dataset ini, ambil dari GET /api/v1/positions. **Kosongkan agar terbuka untuk seluruh karyawan.** Diisi berarti hanya pemilik posisi tersebut yang bisa membuka, membaca isi tabelnya, dan mengunduhnya; yang lain mendapat 403. ADMIN dan pengunggahnya sendiri selalu bisa.
+             * @description Aturan siapa yang boleh melihat dataset ini. **Kosongkan agar terbuka untuk seluruh karyawan.** Diisi berarti hanya yang cocok dengan **salah satu** aturan yang bisa membuka, membaca isi tabelnya, dan mengunduhnya; yang lain mendapat 403. ADMIN dan pengunggahnya sendiri selalu bisa. Ketiga jenis aturan berdiri sejajar, bukan saling mempersempit: `JOB_LEVEL` bersama `EMPLOYEE` berarti seluruh pemilik jenjang itu **dan** karyawan yang ditunjuk, bukan irisan keduanya. Lihat `AccessRuleDTO` untuk bentuk `ruleValue` tiap jenisnya.
              * @example [
-             *       "Direksi",
-             *       "General Manager",
-             *       "Manager"
+             *       {
+             *         "ruleType": "JOB_LEVEL",
+             *         "ruleValue": "Senior Manager"
+             *       },
+             *       {
+             *         "ruleType": "EMPLOYEE",
+             *         "ruleValue": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+             *       }
              *     ]
              */
             accessRules?: components["schemas"]["AccessRuleDTO"][];
@@ -1162,9 +1170,9 @@ export interface components {
             /** Format: int64 */
             offset?: number;
             sort?: components["schemas"]["SortObject"];
-            paged?: boolean;
             /** Format: int32 */
             pageSize?: number;
+            paged?: boolean;
             /** Format: int32 */
             pageNumber?: number;
             unpaged?: boolean;
