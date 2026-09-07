@@ -224,9 +224,23 @@ function SearchablePanel({
 }) {
   const [search, setSearch] = useState("");
 
-  // Kedua hook selalu dipanggil — aturan hook melarang pemanggilan bersyarat.
-  // Yang tidak dipakai diberi kata kunci kosong sehingga tidak menembak.
-  const positionQuery = usePositions(kind === "POSITION" ? search : "");
+  /*
+    Kedua hook selalu dipanggil, karena aturan hook melarang pemanggilan
+    bersyarat. Yang tidak dipakai harus dimatikan lewat `enabled`, bukan sekadar
+    diberi kata kunci kosong.
+
+    Bedanya penting, dan sempat keliru di sini. `useEmployees("")` memang berhenti
+    sendiri karena ia mensyaratkan minimal dua huruf. `usePositions("")` TIDAK:
+    kata kunci kosong justru bentuk sahnya untuk meminta seluruh daftar posisi.
+    Tanpa `enabled`, membuka tab Karyawan ikut menembak /api/v1/positions untuk
+    daftar yang tidak akan ditampilkan di tab itu — dan endpoint itu diteruskan
+    back-end ke HRIS memakai token pemanggil, jadi yang ikut terbebani bukan cuma
+    server sendiri.
+  */
+  const positionQuery = usePositions(
+    kind === "POSITION" ? search : "",
+    kind === "POSITION",
+  );
   const employeeQuery = useEmployees(kind === "EMPLOYEE" ? search : "");
 
   const query = kind === "POSITION" ? positionQuery : employeeQuery;
