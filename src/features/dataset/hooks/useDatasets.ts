@@ -180,5 +180,20 @@ export function useUploadDataset() {
     },
   })
 
-  return Object.assign(mutation, { progress })
+  /*
+    Objek baru, bukan `Object.assign(mutation, { progress })`.
+
+    `useMutation` mengembalikan `observer.getCurrentResult()`, dan itu objek
+    INTERNAL milik React Query yang dikembalikan apa adanya — bukan salinan.
+    Objek itu hanya dibuat ulang saat status mutation berubah, sehingga selama
+    unggahan berjalan statusnya tetap `pending` dan objeknya tidak pernah
+    berganti. Menempelkan `progress` ke situ berarti menimpa isi milik pustaka
+    berulang kali, dan nilainya ikut terlihat oleh siapa pun yang berlangganan
+    observer yang sama.
+
+    Tampilannya kebetulan tetap benar karena `setProgress` memicu render dari
+    state kita sendiri, bukan karena objeknya berubah. Menyalin ke objek baru
+    membuat kebenarannya tidak lagi bergantung pada kebetulan itu.
+  */
+  return { ...mutation, progress }
 }
