@@ -91,7 +91,7 @@ export function AccessRulePicker({
       <p className="text-[13.5px] leading-relaxed text-[#4B5563]">
         Dikosongkan berarti terbuka untuk seluruh karyawan. Kalau diisi, dataset
         terlihat oleh siapa pun yang cocok dengan <b>salah satu</b> pilihan.
-        ketiganya berdiri sejajar, bukan saling mempersempit.
+        Ketiganya berdiri sejajar, bukan saling mempersempit.
       </p>
 
       <Tabs defaultValue="JOB_LEVEL" className="mt-4">
