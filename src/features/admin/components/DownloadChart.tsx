@@ -73,10 +73,6 @@ export function DownloadChart({ data, loading, failed }: DownloadChartProps) {
             tick={{ fontSize: 12, fill: '#6B7280' }}
             tickLine={false}
             axisLine={{ stroke: '#E9EBF0' }}
-            // Tiga puluh label tidak muat berdampingan; recharts akan
-            // menyembunyikan sebagian sendiri, tapi jaraknya jadi tidak rata.
-            // Menampilkan tiap hari kelima membuat sumbunya terbaca sekaligus
-            // tetap memperlihatkan rentangnya.
             /*
               Tiga puluh label tidak pernah muat berdampingan, jadi sebagian
               harus disembunyikan. Yang menentukan berapa banyak adalah lebar
