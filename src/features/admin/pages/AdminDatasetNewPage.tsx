@@ -50,7 +50,6 @@ import { AccessRulePicker } from "../components/AccessRulePicker";
  * terlanjur ditulis orang. Yang hilang hanya cara mengisinya lewat layar ini.
  */
 
-const MAX_DESCRIPTION = 500;
 const MAX_FILES = 10;
 
 /** Sejalan dengan MAX_BYTES di DatasetUploadService. */
@@ -214,18 +213,28 @@ export default function AdminDatasetNewPage() {
             />
           </Field>
 
-          <Field label="Deskripsi file">
+          <Field label="Deskripsi dataset">
             <textarea
               value={description}
-              onChange={(e) =>
-                setDescription(e.target.value.slice(0, MAX_DESCRIPTION))
-              }
+              onChange={(e) => setDescription(e.target.value)}
               rows={4}
-              placeholder="Jelaskan isi file dan untuk apa dipakai."
+              placeholder="Jelaskan isi dataset ini dan untuk apa dipakai."
               className="w-full resize-y rounded-lg border border-[#E9EBF0] px-3.5 py-3 text-[16px] leading-relaxed text-[#3C4A56] outline-none transition-colors focus:border-[#4F6BED] placeholder:text-[#9CA3AF]"
             />
+            {/*
+              Penghitungnya dipertahankan meski batasnya dicabut.
+
+              Angka tanpa pembagi tidak lagi terbaca sebagai jatah yang menipis,
+              tetapi tetap memberi tahu penulis seberapa panjang tulisannya --
+              berguna untuk menakar apakah deskripsinya sudah bertele-tele.
+
+              Batas 500 dicabut karena tidak ada lapisan lain yang memaksanya:
+              kolom `dataset.notes` bertipe `text`, dan DTO di back-end tidak
+              memasang @Size. Jadi batas itu hanya ada di layar ini, dan
+              satu-satunya akibatnya adalah ketikan yang terpotong diam-diam.
+            */}
             <div className="mt-1.5 text-[13px] text-[#9CA3AF]">
-              {description.length} / {MAX_DESCRIPTION} karakter
+              {formatNumber(description.length)} karakter
             </div>
           </Field>
 
