@@ -18,7 +18,7 @@ import { Dialog } from "@/shared/components/ui/Dialog";
 import { Pagination } from "@/shared/components/ui/Pagination";
 import { useToast } from "@/shared/components/ui/toastStore";
 import { formatBytes, formatNumber } from "@/shared/lib/format";
-import type { DatasetLite } from "@/shared/types/api";
+import type { AccessRule, DatasetLite, Position } from "@/shared/types/api";
 
 import { DatasetDrawer } from "../components/DatasetDrawer";
 import { FormatBadge } from "../components/FormatBadge";
@@ -36,7 +36,7 @@ const PAGE_SIZE = 10;
  * **Tentang kotak centangnya.** Sebelumnya sengaja tidak dibuat karena kedua
  * tindakan massal pada desain — ubah akses posisi dan hapus — tidak punya
  * endpoint, dan kotak centang yang tidak menghasilkan apa-apa lebih buruk
- * daripada tidak ada. Endpoint-nya kini ada (`PATCH /{slug}/positions` dan
+ * daripada tidak ada. Endpoint-nya kini ada (`PATCH /{slug}/access-rules` dan
  * `DELETE /{slug}`), keduanya menulis jejak audit, jadi kotak centangnya
  * benar-benar bekerja.
  *
@@ -76,7 +76,7 @@ export default function AdminDatasetPage() {
   const divisions = useDivisions();
   const formats = useFormats();
   const positions = usePositions();
-  const { remove, updatePositions } = useDatasetAdmin();
+  const { remove, updateAccessRules } = useDatasetAdmin();
   const toast = useToast();
 
   const datasets = useDatasets({
@@ -106,17 +106,25 @@ export default function AdminDatasetPage() {
   }, [page, search, division, format, position]);
 
   const allChecked = rows.length > 0 && selected.length === rows.length;
-  const busy = remove.isPending || updatePositions.isPending;
+  const busy = remove.isPending || updateAccessRules.isPending;
 
   // Tag yang sedang berlaku pada dataset-dataset yang dicentang, dipakai dialog
   // untuk menyalakan pilihan awalnya. Aman diambil dari `baris` karena pilihan
   // selalu direset saat berpindah halaman — jadi setiap slug yang tercentang
   // pasti ada di halaman yang sedang tampil.
+  //
+  // Disaring ke aturan bertipe POSITION saja: dialog ini cuma bisa memilih
+  // posisi, jadi aturan JOB_LEVEL/EMPLOYEE (kalau ada, dibuat lewat API di
+  // luar layar ini) tidak punya tempat di sini dan tidak dihitung.
   const selectedTags = useMemo(
     () =>
       rows
         .filter((d) => selected.includes(d.slug ?? ""))
-        .map((d) => d.positions ?? []),
+        .map((d) =>
+          (d.accessRules ?? [])
+            .filter((r) => r.ruleType === "POSITION")
+            .map((r) => r.ruleValue),
+        ),
     [rows, selected],
   );
 
@@ -198,11 +206,13 @@ export default function AdminDatasetPage() {
             }}
             all="Semua posisi"
           >
-            {(positions.data ?? []).map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
+            {(positions.data ?? []).map((p) =>
+              p.id ? (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ) : null,
+            )}
           </Select>
 
           <button
@@ -394,7 +404,10 @@ export default function AdminDatasetPage() {
                         </td>
 
                         <td className="border-b border-[#F1F3F7] p-6">
-                          <PositionsCell positions={d.positions ?? []} />
+                          <PositionsCell
+                            rules={d.accessRules ?? []}
+                            positions={positions.data ?? []}
+                          />
                         </td>
 
                         <td className="border-b border-[#F1F3F7] p-6 text-[14.5px] whitespace-nowrap text-[#4B5563]">
@@ -490,11 +503,22 @@ export default function AdminDatasetPage() {
         count={selected.length}
         options={positions.data ?? []}
         tagSaatIni={selectedTags}
-        busy={updatePositions.isPending}
+        busy={updateAccessRules.isPending}
         onClose={() => setDialog(null)}
-        onSave={(pos) =>
-          updatePositions.mutate(
-            { slugs: selected, positions: pos },
+        onSave={(rules) =>
+          updateAccessRules.mutate(
+            // Per slug: dialog ini cuma bisa menampilkan dan mengubah aturan
+            // POSITION, jadi aturan lain (JOB_LEVEL/EMPLOYEE) milik dataset
+            // itu — kalau ada, dibuat lewat API — harus tetap dibawa, bukan
+            // ikut terhapus hanya karena UI ini tidak bisa menunjukkannya.
+            // Rujukannya baris yang sedang tampil di tabel (sama seperti
+            // `selectedTags`); kalau slug-nya kebetulan tidak ada di sana,
+            // kirim aturan posisi yang dipilih saja apa adanya.
+            selected.map((slug) => {
+              const existing = rows.find((d) => d.slug === slug)?.accessRules ?? [];
+              const kept = existing.filter((r) => r.ruleType !== "POSITION");
+              return { slug, accessRules: [...kept, ...rules] };
+            }),
             { onSuccess: (h) => report(h, "diperbarui") },
           )
         }
@@ -537,14 +561,26 @@ function PositionDialog({
 }: {
   open: boolean;
   count: number;
-  options: string[];
-  /** Tag yang berlaku pada tiap dataset terpilih — satu larik per dataset. */
+  /** `{id, name}` dari HRIS. `id` yang disimpan, `name` cuma untuk tampilan. */
+  options: Position[];
+  /** Id posisi yang berlaku pada tiap dataset terpilih — satu larik per dataset. */
   tagSaatIni: string[][];
   busy: boolean;
   onClose: () => void;
-  onSave: (positions: string[]) => void;
+  onSave: (rules: AccessRule[]) => void;
 }) {
   const [chosen, setChosen] = useState<string[]>([]);
+
+  // Nama posisi untuk id-nya, dipakai satu-satunya tempat UUID boleh berubah
+  // jadi teks yang bisa dibaca orang di dialog ini.
+  const nameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const opt of options) {
+      if (opt.id) map.set(opt.id, opt.name ?? "posisi tanpa nama");
+    }
+    return map;
+  }, [options]);
+  const nameOf = (id: string) => nameById.get(id) ?? "posisi tidak dikenal";
 
   // Dimiliki SEMUA dataset terpilih (irisan) versus hanya sebagian (gabungan
   // dikurangi irisan).
@@ -583,18 +619,20 @@ function PositionDialog({
       description="Daftar ini MENGGANTI tag yang sudah ada, bukan menambah. Yang sedang berlaku sudah dinyalakan di bawah."
     >
       <div className="flex flex-wrap gap-2">
-        {options.map((p) => {
-          const active = chosen.includes(p);
-          const half = !active && partial.includes(p);
+        {options.map((opt) => {
+          if (!opt.id) return null;
+          const id = opt.id;
+          const active = chosen.includes(id);
+          const half = !active && partial.includes(id);
           return (
             <button
-              key={p}
+              key={id}
               type="button"
               onClick={() =>
                 setChosen((previous) =>
-                  previous.includes(p)
-                    ? previous.filter((x) => x !== p)
-                    : [...previous, p],
+                  previous.includes(id)
+                    ? previous.filter((x) => x !== id)
+                    : [...previous, id],
                 )
               }
               className={[
@@ -606,7 +644,7 @@ function PositionDialog({
                     : "border-[#E9EBF0] text-[#4B5563] hover:bg-[#F8FAFC]",
               ].join(" ")}
             >
-              {p}
+              {nameOf(id)}
               {half ? (
                 <span className="ml-1.5 text-[11px] font-bold opacity-80">
                   sebagian
@@ -632,7 +670,7 @@ function PositionDialog({
           <>
             bertag{" "}
             <strong className="font-semibold text-[#2E3646]">
-              {chosen.join(", ")}
+              {chosen.map(nameOf).join(", ")}
             </strong>
           </>
         )}
@@ -642,6 +680,7 @@ function PositionDialog({
             {partial.filter((p) => !chosen.includes(p)).length > 0
               ? `Tag yang kini hanya dipunyai sebagian (${partial
                   .filter((p) => !chosen.includes(p))
+                  .map(nameOf)
                   .join(", ")}) akan dilepas dari semuanya.`
               : "Tag yang tadinya hanya dipunyai sebagian akan diberikan ke semuanya."}
           </span>
@@ -674,7 +713,9 @@ function PositionDialog({
         <button
           type="button"
           disabled={busy || !changed}
-          onClick={() => onSave(chosen)}
+          onClick={() =>
+            onSave(chosen.map((id) => ({ ruleType: "POSITION" as const, ruleValue: id })))
+          }
           className="flex items-center gap-2 rounded-lg bg-[#2E3646] px-4 py-2.5 text-[14px] font-bold text-white transition-colors hover:bg-[#1F2A37] disabled:cursor-not-allowed disabled:opacity-40"
         >
           {busy ? <Loader2 className="size-4 animate-spin" /> : null}
@@ -718,22 +759,40 @@ function FilesCell({ dataset }: { dataset: DatasetLite }) {
  * Menyebut jumlahnya lebih dulu disengaja: yang paling sering ingin diketahui
  * dari kolom ini adalah seberapa sempit aksesnya, bukan siapa persisnya. Daftar
  * lengkapnya ada di panel detail.
+ *
+ * `ruleValue` aturan bertipe POSITION adalah UUID posisi HRIS, bukan nama —
+ * dicocokkan ke daftar `usePositions` di sini. UUID mentah TIDAK BOLEH sampai
+ * ke layar; posisi yang idnya tidak (lagi) ketemu tampil sebagai "posisi
+ * terhapus" alih-alih menampilkan UUID-nya. Layar ini sendiri tidak pernah
+ * membuat aturan JOB_LEVEL/EMPLOYEE, tapi kalau ada yang datang dari API tetap
+ * dirender apa adanya supaya baris ini tidak pernah gagal.
  */
-function PositionsCell({ positions }: { positions: string[] }) {
-  if (positions.length === 0) {
-    // Bukan "belum diatur" — tanpa tag memang berarti terbuka, dan itu keadaan
-    // bawaan yang sah untuk katalog data bersama. Menyebutnya "belum" membuat
-    // setiap baris terbaca seperti pekerjaan yang belum selesai.
+function PositionsCell({ rules, positions }: { rules: AccessRule[]; positions: Position[] }) {
+  if (rules.length === 0) {
+    // Bukan "belum diatur" — tanpa aturan memang berarti terbuka, dan itu
+    // keadaan bawaan yang sah untuk katalog data bersama. Menyebutnya "belum"
+    // membuat setiap baris terbaca seperti pekerjaan yang belum selesai.
     return <span className="text-[14.5px] text-[#9CA3AF]">Semua karyawan</span>;
   }
 
-  const visible = positions.slice(0, 2);
-  const remaining = positions.length - visible.length;
+  const label = (rule: AccessRule): string => {
+    if (rule.ruleType === "POSITION") {
+      return positions.find((p) => p.id === rule.ruleValue)?.name ?? "posisi terhapus";
+    }
+    // JOB_LEVEL dan EMPLOYEE tidak pernah dibuat lewat layar ini, tapi kalau
+    // datang lewat API tetap ditampilkan tanpa membongkar UUID karyawannya.
+    if (rule.ruleType === "JOB_LEVEL") return rule.ruleValue;
+    return "karyawan tertentu";
+  };
+
+  const names = rules.map(label);
+  const visible = names.slice(0, 2);
+  const remaining = names.length - visible.length;
 
   return (
     <>
       <div className="text-[14.5px] font-semibold text-[#3C4A56]">
-        {positions.length} posisi
+        {rules.length} posisi
       </div>
       <div className="mt-0.5 text-[12.5px] text-[#9CA3AF]">
         {visible.join(", ")}

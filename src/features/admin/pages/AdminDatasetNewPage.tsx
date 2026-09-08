@@ -10,7 +10,7 @@ import { Reveal } from '@/shared/components/motion/Reveal'
 import { Dialog } from '@/shared/components/ui/Dialog'
 import { useToast } from '@/shared/components/ui/toastStore'
 import { formatBytes, formatNumber } from '@/shared/lib/format'
-import type { Dataset } from '@/shared/types/api'
+import type { Dataset, Position } from '@/shared/types/api'
 
 import { FormatBadge } from '../components/FormatBadge'
 import { usePositions } from '../hooks/usePositions'
@@ -90,6 +90,11 @@ export default function AdminDatasetNewPage() {
   const [published, setPublished] = useState<Dataset | null>(null)
 
   const positionOptions = positions.data ?? []
+  // `id`, bukan objeknya, yang dibandingkan dan dikirim ke back-end — lihat
+  // catatan di `usePositions`.
+  const positionIds = positionOptions
+    .map((p) => p.id)
+    .filter((id): id is string => Boolean(id))
 
   function change(id: number, ubahan: Partial<FileRowState>) {
     setFiles((previous) => previous.map((b) => (b.id === id ? { ...b, ...ubahan } : b)))
@@ -127,7 +132,9 @@ export default function AdminDatasetNewPage() {
           title: title.trim(),
           notes: description.trim() || undefined,
           topics: selectedTopics.length ? selectedTopics : undefined,
-          positions: selectedPositions.length ? selectedPositions : undefined,
+          accessRules: selectedPositions.length
+            ? selectedPositions.map((id) => ({ ruleType: 'POSITION' as const, ruleValue: id }))
+            : undefined,
           // Urutannya sama dengan urutan `files` di atas — back-end
           // memasangkan keduanya menurut urutan itu.
           files: files.map((b) => ({ label: b.label.trim(), format: b.kind })),
@@ -263,9 +270,7 @@ export default function AdminDatasetNewPage() {
                   {user?.name ?? '—'}
                 </span>
                 <span className="block truncate text-[13.5px] text-[#6B7280]">
-                  {[user?.position, user?.division?.code, user?.accessPosition]
-                    .filter(Boolean)
-                    .join(' · ') || '—'}
+                  {[user?.position, user?.division?.code].filter(Boolean).join(' · ') || '—'}
                 </span>
               </span>
             </div>
@@ -293,12 +298,12 @@ export default function AdminDatasetNewPage() {
                 type="button"
                 onClick={() =>
                   setSelectedPositions((previous) =>
-                    previous.length === positionOptions.length ? [] : [...positionOptions],
+                    previous.length === positionIds.length ? [] : [...positionIds],
                   )
                 }
                 className="shrink-0 text-[13.5px] font-semibold text-[#4F6BED] hover:underline"
               >
-                {selectedPositions.length === positionOptions.length && positionOptions.length > 0
+                {selectedPositions.length === positionIds.length && positionIds.length > 0
                   ? 'Bersihkan pilihan'
                   : 'Pilih semua posisi'}
               </button>
@@ -618,13 +623,23 @@ function PositionPicker({
   onToggleOpen,
   onToggle,
 }: {
-  items: string[]
+  /** `{id, name}` dari HRIS lewat `usePositions`. */
+  items: Position[]
+  /** Id posisi yang terpilih — UUID, bukan nama. */
   selected: string[]
   open: boolean
   onToggleOpen: () => void
-  onToggle: (position: string) => void
+  onToggle: (positionId: string) => void
 }) {
   const wrapperRef = useRef<HTMLDivElement>(null)
+
+  // Nama posisi untuk id-nya — UUID mentah tidak pernah dirender, baik di
+  // daftar dropdown maupun di lencana pilihan di bawahnya.
+  const nameById = new Map<string, string>()
+  for (const opt of items) {
+    if (opt.id) nameById.set(opt.id, opt.name ?? 'posisi tanpa nama')
+  }
+  const ids = [...nameById.keys()]
 
   // Panel mengambang harus bisa ditutup dari luar; tanpa itu ia menghalangi
   // isian di atasnya sampai tombol pemicunya ditekan lagi.
@@ -642,21 +657,23 @@ function PositionPicker({
   const summaryLine =
     selected.length === 0
       ? 'Semua karyawan'
-      : selected.length === items.length
-        ? `Semua posisi (${items.length})`
+      : selected.length === ids.length
+        ? `Semua posisi (${ids.length})`
         : `${selected.length} posisi dipilih`
 
   return (
     <div ref={wrapperRef} className="relative">
       {open ? (
         <div className="animate-dropdown-up absolute bottom-full left-0 z-40 mb-2 max-h-[320px] w-full overflow-y-auto overscroll-contain rounded-xl border border-[#E9EBF0] bg-white p-1.5 shadow-[0_12px_32px_-8px_rgba(16,24,40,0.24)]">
-          {items.map((p) => {
-            const isChecked = selected.includes(p)
+          {items.map((opt) => {
+            if (!opt.id) return null
+            const id = opt.id
+            const isChecked = selected.includes(id)
             return (
               <button
-                key={p}
+                key={id}
                 type="button"
-                onClick={() => onToggle(p)}
+                onClick={() => onToggle(id)}
                 className={[
                   'flex w-full items-center gap-3 rounded-lg px-2.5 py-2.5 text-left text-[15px] transition-colors',
                   isChecked
@@ -676,7 +693,7 @@ function PositionPicker({
                 >
                   <Check className="size-3" strokeWidth={3.5} />
                 </span>
-                {p}
+                {nameById.get(id) ?? 'posisi tanpa nama'}
               </button>
             )
           })}
@@ -707,16 +724,16 @@ function PositionPicker({
 
       {selected.length > 0 ? (
         <div className="mt-2.5 flex flex-wrap gap-1.5">
-          {selected.map((p) => (
+          {selected.map((id) => (
             <span
-              key={p}
+              key={id}
               className="flex items-center gap-1.5 rounded-full bg-[#EDF2FF] py-1 pr-1.5 pl-3 text-[13px] font-semibold text-[#4F6BED]"
             >
-              {p}
+              {nameById.get(id) ?? 'posisi tidak dikenal'}
               <button
                 type="button"
-                onClick={() => onToggle(p)}
-                aria-label={`Lepas ${p}`}
+                onClick={() => onToggle(id)}
+                aria-label={`Lepas ${nameById.get(id) ?? 'posisi ini'}`}
                 className="flex size-4 items-center justify-center rounded-full transition-colors hover:bg-[#D9E2FF]"
               >
                 <X className="size-3" strokeWidth={2.6} />

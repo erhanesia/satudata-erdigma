@@ -1,5 +1,6 @@
 import { apiDelete, apiDownload, apiGet, apiPatch, apiPost } from '@/shared/api/httpClient'
 import type {
+  AccessRule,
   Dataset,
   DocumentText,
   DatasetSummary,
@@ -131,10 +132,12 @@ export interface DatasetUploadBody {
   topics?: string[]
   collectionSlug?: string
   /**
-   * Posisi jabatan yang boleh melihat. Dikosongkan berarti terbuka untuk
+   * Aturan siapa yang boleh melihat. Dikosongkan berarti terbuka untuk
    * seluruh karyawan; diisi berarti dibatasi — dan pembatasannya berlaku.
+   * Layar ini hanya membuat aturan bertipe `POSITION`; `JOB_LEVEL` dan
+   * `EMPLOYEE` berdiri sejajar di API tapi belum punya pemilih di sini.
    */
-  positions?: string[]
+  accessRules?: AccessRule[]
   /**
    * Keterangan tiap berkas, DIPASANGKAN MENURUT URUTAN dengan berkas yang
    * dikirim. Jumlahnya harus sama; back-end menolak kalau tidak.
@@ -164,13 +167,20 @@ export function uploadDataset(files: File[], body: DatasetUploadBody): Promise<D
 }
 
 /**
- * Mengganti SELURUH tag posisi sebuah dataset — bukan menambah.
+ * Mengganti SELURUH aturan akses sebuah dataset — bukan menambah.
  *
  * Mengirim daftar utuh, bukan selisihnya, supaya dua admin yang menyunting
  * bersamaan tidak menghasilkan gabungan yang tidak dikehendaki siapa pun.
+ *
+ * Menggantikan `PATCH /{slug}/positions` yang sudah tidak ada di back-end.
  */
-export function updateDatasetPositions(slug: string, positions: string[]): Promise<string[]> {
-  return apiPatch<string[]>(`${BASE}/${encodeURIComponent(slug)}/positions`, { positions })
+export function updateDatasetAccessRules(
+  slug: string,
+  accessRules: AccessRule[],
+): Promise<AccessRule[]> {
+  return apiPatch<AccessRule[]>(`${BASE}/${encodeURIComponent(slug)}/access-rules`, {
+    accessRules,
+  })
 }
 
 /** Soft delete. Slug-nya tidak dilepas dan tidak bisa dipakai ulang. */

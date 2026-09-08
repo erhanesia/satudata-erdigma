@@ -1,4 +1,5 @@
 import type { DatasetQuery } from '@/features/dataset/api/datasetApi'
+import type { UserQuery } from '@/features/userManagement/api/userAdminApi'
 
 /**
  * Kunci cache react-query, terkumpul di satu tempat.
@@ -42,6 +43,11 @@ export const queryKeys = {
     all: ['collection'] as const,
     list: ['collection', 'list'] as const,
     detail: (slug: string) => ['collection', 'detail', slug] as const,
+  },
+
+  user: {
+    all: ['user'] as const,
+    list: (params: UserQuery) => ['user', 'list', params] as const,
   },
 
   stats: ['stats'] as const,

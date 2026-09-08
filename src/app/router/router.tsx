@@ -31,6 +31,9 @@ const AdminDashboardPage = lazy(() => import('@/features/admin/pages/AdminDashbo
 const AdminDatasetPage = lazy(() => import('@/features/admin/pages/AdminDatasetPage'))
 const AdminDatasetNewPage = lazy(() => import('@/features/admin/pages/AdminDatasetNewPage'))
 const AdminLogPage = lazy(() => import('@/features/admin/pages/AdminLogPage'))
+// Manajemen pengguna tinggal di modulnya sendiri, tetapi dirender di dalam
+// kerangka admin — fungsinya fungsi admin, bukan halaman panel pengguna.
+const UserListPage = lazy(() => import('@/features/userManagement/pages/UserListPage'))
 
 function page(element: React.ReactNode) {
   return <Suspense fallback={<RouteFallback />}>{element}</Suspense>
@@ -64,6 +67,7 @@ export const router = createBrowserRouter([
               { path: routePatterns.adminDatasetNew, element: page(<AdminDatasetNewPage />) },
               { path: routePatterns.adminDatasets, element: page(<AdminDatasetPage />) },
               { path: routePatterns.adminLog, element: page(<AdminLogPage />) },
+              { path: routePatterns.adminUsers, element: page(<UserListPage />) },
               { path: '*', element: <NotFoundPage /> },
             ],
           },

@@ -27,6 +27,7 @@ export const paths = {
   adminDatasets: '/admin/dataset',
   adminDatasetNew: '/admin/dataset/tambah',
   adminLog: '/admin/log',
+  adminUsers: '/admin/pengguna',
 } as const
 
 /** Pola rute untuk react-router (bukan alamat jadi). */
@@ -46,4 +47,5 @@ export const routePatterns = {
   adminDatasets: 'dataset',
   adminDatasetNew: 'dataset/tambah',
   adminLog: 'log',
+  adminUsers: 'pengguna',
 } as const

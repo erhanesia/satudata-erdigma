@@ -4,8 +4,24 @@ import { User, X } from 'lucide-react'
 import { useDataset } from '@/features/dataset/hooks/useDatasets'
 import { CountUp } from '@/shared/components/motion/CountUp'
 import { formatBytes, formatDateTime, formatNumber } from '@/shared/lib/format'
+import type { AccessRule } from '@/shared/types/api'
 
+import { usePositions } from '../hooks/usePositions'
 import { FormatBadge } from './FormatBadge'
+
+/**
+ * Nama posisi untuk `ruleValue` sebuah aturan POSITION — UUID mentah TIDAK
+ * BOLEH sampai ke layar. Aturan JOB_LEVEL (labelnya sudah teks manusia) dan
+ * EMPLOYEE tidak pernah dibuat lewat panel ini, tapi kalau ada yang datang
+ * dari API tetap dirender apa adanya supaya panel ini tidak pernah gagal.
+ */
+function accessRuleLabel(rule: AccessRule, positions: { id?: string; name?: string }[]): string {
+  if (rule.ruleType === 'POSITION') {
+    return positions.find((p) => p.id === rule.ruleValue)?.name ?? 'posisi terhapus'
+  }
+  if (rule.ruleType === 'JOB_LEVEL') return rule.ruleValue
+  return 'karyawan tertentu'
+}
 
 interface DatasetDrawerProps {
   /** Slug dataset yang sedang dibuka; `null` menutup panel. */
@@ -32,6 +48,7 @@ export function DatasetDrawer({ slug, onClose }: DatasetDrawerProps) {
   const open = slug !== null
   const dataset = useDataset(slug ?? '', false)
   const d = dataset.data
+  const positions = usePositions()
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={(next) => !next && onClose()}>
@@ -138,26 +155,26 @@ export function DatasetDrawer({ slug, onClose }: DatasetDrawerProps) {
                       Siapa yang boleh melihat
                     </h3>
                     {/*
-                      Desain menulis "Tag posisi dari HRIS." di baris ini.
-                      Kalimatnya diganti karena belum benar: sumbernya kolom
-                      users.access_position milik portal ini, dan pemetaan dari
-                      HRIS baru menyusul. Bentuk dan letaknya dipertahankan.
+                      Desain menulis "Tag posisi dari HRIS." di baris ini — dan
+                      sekarang itu sudah benar: sejak aturan akses pindah ke
+                      HRIS, id yang tersimpan memang UUID posisi HRIS, bukan
+                      lagi kolom users.access_position milik portal ini.
                     */}
                     <p className="mt-0.5 text-[13px] text-[#9CA3AF]">
-                      {(d?.positions ?? []).length === 0
+                      {(d?.accessRules ?? []).length === 0
                         ? 'Terbuka untuk seluruh karyawan.'
                         : 'Hanya posisi ini yang bisa membuka dan mengunduh.'}
                     </p>
                   </div>
 
-                  {(d?.positions ?? []).length > 0 ? (
+                  {(d?.accessRules ?? []).length > 0 ? (
                     <div className="flex flex-wrap gap-2 px-5 py-4">
-                      {(d?.positions ?? []).map((p) => (
+                      {(d?.accessRules ?? []).map((rule, i) => (
                         <span
-                          key={p}
+                          key={`${rule.ruleType}-${rule.ruleValue}-${i}`}
                           className="rounded-lg bg-[#F1F3F7] px-3.5 py-2 text-[14px] font-semibold text-[#3C4A56]"
                         >
-                          {p}
+                          {accessRuleLabel(rule, positions.data ?? [])}
                         </span>
                       ))}
                     </div>

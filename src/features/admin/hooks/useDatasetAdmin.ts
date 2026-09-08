@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
-import { deleteDataset, updateDatasetPositions } from '@/features/dataset/api/datasetApi'
+import { deleteDataset, updateDatasetAccessRules } from '@/features/dataset/api/datasetApi'
 import { queryKeys } from '@/shared/api/queryKeys'
+import type { AccessRule } from '@/shared/types/api'
 
 /**
  * Tindakan pengelolaan dataset dari panel admin.
@@ -41,20 +42,24 @@ export function useDatasetAdmin() {
     onSuccess: refresh,
   })
 
-  const updatePositions = useMutation({
-    mutationFn: async ({ slugs, positions }: { slugs: string[]; positions: string[] }) => {
+  // Per slug, bukan satu daftar untuk semuanya: tiap dataset punya aturan
+  // sendiri (termasuk JOB_LEVEL/EMPLOYEE yang mungkin sudah dibuat lewat API),
+  // jadi pemanggil yang menyusun payload akhirnya per dataset — lihat
+  // `AdminDatasetPage`.
+  const updateAccessRules = useMutation({
+    mutationFn: async (items: { slug: string; accessRules: AccessRule[] }[]) => {
       const failed: string[] = []
-      for (const slug of slugs) {
+      for (const { slug, accessRules } of items) {
         try {
-          await updateDatasetPositions(slug, positions)
+          await updateDatasetAccessRules(slug, accessRules)
         } catch {
           failed.push(slug)
         }
       }
-      return { total: slugs.length, failed }
+      return { total: items.length, failed }
     },
     onSuccess: refresh,
   })
 
-  return { remove, updatePositions }
+  return { remove, updateAccessRules }
 }
