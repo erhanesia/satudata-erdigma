@@ -1,8 +1,10 @@
+import { Search } from 'lucide-react'
+
 import { cn } from '@/shared/lib/cn'
 
 interface SearchFieldProps {
   value: string
-  onChange: (nilai: string) => void
+  onChange: (value: string) => void
   placeholder: string
   /** Teks untuk pembaca layar — placeholder saja tidak cukup sebagai label. */
   label: string
@@ -36,18 +38,7 @@ export function SearchField({
         className,
       )}
     >
-      <svg
-        width={18}
-        height={18}
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="#98A2B3"
-        strokeWidth={2.2}
-        aria-hidden
-      >
-        <circle cx={11} cy={11} r={7} />
-        <path d="m21 21-4.3-4.3" />
-      </svg>
+      <Search className="size-[18px] shrink-0 text-[#98A2B3]" strokeWidth={2.2} aria-hidden />
       <input
         type="search"
         value={value}

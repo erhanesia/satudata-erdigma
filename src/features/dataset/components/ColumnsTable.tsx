@@ -2,7 +2,7 @@ import { EmptyState } from '@/shared/components/feedback/StateViews'
 import { Badge } from '@/shared/components/ui/Badge'
 import type { DatasetColumn } from '@/shared/types/api'
 
-const JUDUL = ['Nama tampilan', 'Machine name', 'Tipe', 'Unit', 'Deskripsi'] as const
+const TITLES = ['Nama tampilan', 'Machine name', 'Tipe', 'Unit', 'Deskripsi'] as const
 
 export function ColumnsTable({ columns }: { columns: DatasetColumn[] }) {
   if (columns.length === 0) {
@@ -21,27 +21,27 @@ export function ColumnsTable({ columns }: { columns: DatasetColumn[] }) {
           <table className="w-full min-w-[640px] border-collapse">
             <thead className="bg-surface-50">
               <tr>
-                {JUDUL.map((judul) => (
+                {TITLES.map((title) => (
                   <th
-                    key={judul}
+                    key={title}
                     scope="col"
                     className="border-line-200 text-ink-600 border-b-2 px-3.5 py-3 text-left text-[12.5px] font-bold whitespace-nowrap"
                   >
-                    {judul}
+                    {title}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {columns.map((kolom) => (
-                <tr key={kolom.id}>
-                  <Sel>{kolom.displayName}</Sel>
-                  <Sel mono>{kolom.machineName}</Sel>
-                  <Sel>
-                    <Badge tone="brand">{kolom.dataType}</Badge>
-                  </Sel>
-                  <Sel redup>{kolom.unit || '—'}</Sel>
-                  <Sel redup>{kolom.description || '—'}</Sel>
+              {columns.map((column) => (
+                <tr key={column.id}>
+                  <Cell>{column.displayName}</Cell>
+                  <Cell mono>{column.machineName}</Cell>
+                  <Cell>
+                    <Badge tone="brand">{column.dataType}</Badge>
+                  </Cell>
+                  <Cell muted>{column.unit || '—'}</Cell>
+                  <Cell muted>{column.description || '—'}</Cell>
                 </tr>
               ))}
             </tbody>
@@ -51,21 +51,21 @@ export function ColumnsTable({ columns }: { columns: DatasetColumn[] }) {
   )
 }
 
-function Sel({
+function Cell({
   children,
   mono,
-  redup,
+  muted,
 }: {
   children: React.ReactNode
   mono?: boolean
-  redup?: boolean
+  muted?: boolean
 }) {
   return (
     <td
       className={[
         'border-line-50 border-b px-3.5 py-3 text-[13.5px]',
         mono ? 'font-mono' : '',
-        redup ? 'text-ink-500' : 'text-ink-700',
+        muted ? 'text-ink-500' : 'text-ink-700',
       ].join(' ')}
     >
       {children}

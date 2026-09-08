@@ -1,3 +1,4 @@
+import { FileText } from 'lucide-react'
 import { useState } from 'react'
 
 import { EmptyState } from '@/shared/components/feedback/StateViews'
@@ -5,13 +6,14 @@ import { QueryBoundary } from '@/shared/components/feedback/QueryBoundary'
 import { SkeletonTable } from '@/shared/components/ui/Skeleton'
 import { cn } from '@/shared/lib/cn'
 import { formatNumber } from '@/shared/lib/format'
-import type { DatastoreRow } from '@/shared/types/api'
+import type { DatasetResource, DatastoreRow } from '@/shared/types/api'
 
 import { useDatastore } from '../hooks/useDatasets'
+import { FilePreview } from './FilePreview'
 
-const UKURAN_HALAMAN = 10
+const PAGE_SIZE = 10
 
-interface KolomMeta {
+interface ColumnMeta {
   machineName: string
   displayName: string
   dataType: string
@@ -28,75 +30,142 @@ interface KolomMeta {
  * memakai huruf kolom serta nomor baris. Yang kedua bukan gimmick — banyak
  * pengguna portal data membaca dan memverifikasi angka dalam bentuk itu.
  */
-export function DataExplorer({ slug, rowCount }: { slug: string; rowCount: number }) {
-  const [halaman, setHalaman] = useState(1)
-  const [tampilan, setTampilan] = useState<'tabel' | 'excel'>('tabel')
-  const query = useDatastore(slug, halaman - 1, UKURAN_HALAMAN, rowCount > 0)
+export function DataExplorer({
+  slug,
+  files = [],
+}: {
+  slug: string
+  /**
+   * SELURUH berkas milik dataset, bukan hanya yang bukan tabel.
+   *
+   * Sakelarnya menampilkan satu tombol per berkas — tidak lebih, tidak kurang.
+   * Sebelumnya ada dua tombol tetap, "Tabel" dan "Excel", yang sebenarnya dua
+   * cara MENGGAMBAR data yang sama. Untuk dataset berisi CSV, tombol kedua itu
+   * berbunyi "Excel" dan terbaca sebagai klaim tentang jenis berkasnya —
+   * padahal berkasnya CSV. Label yang salah tentang jenis berkas di katalog
+   * data lebih berbahaya daripada kehilangan satu gaya tampilan.
+   */
+  files?: DatasetResource[]
+}) {
+  const [page, setPage] = useState(1)
 
-  if (rowCount === 0) {
+  // Berkas utama didahulukan sebagai pilihan awal — itu yang paling sering
+  // ingin dilihat orang.
+  const mainIndex = files.findIndex((r) => r.tableSource)
+  const [activeId, setActiveId] = useState<string>(
+    () => files[mainIndex >= 0 ? mainIndex : 0]?.id ?? '',
+  )
+
+  const active = files.find((r) => r.id === activeId) ?? files[0]
+
+  /*
+   * Punya tabel atau tidak ditentukan oleh JUMLAH BARISNYA, bukan oleh
+   * penanda berkas utama.
+   *
+   * Dulu yang dipakai `tableSource`, dan itu keliru sejak satu dataset boleh
+   * memuat lebih dari satu berkas bertabel: berkas kedua — CSV yang sah dan
+   * sudah terbaca isinya — tetap dianggap tidak bisa ditampilkan, padahal
+   * berkas yang sama tampil normal kalau diunggah sendirian.
+   */
+  const showTable = (active?.rowCount ?? 0) > 0
+
+  /*
+   * Halaman kembali ke satu setiap kali berkasnya berganti. Tanpa ini,
+   * berpindah dari Excel 61.876 baris di halaman 300 ke CSV lima baris
+   * meminta halaman yang tidak ada, dan yang tampil adalah tabel kosong —
+   * terlihat seperti berkasnya gagal dibaca.
+   */
+  const selectFile = (id: string) => {
+    setActiveId(id)
+    setPage(1)
+  }
+
+  const query = useDatastore(slug, active?.id, page - 1, PAGE_SIZE, showTable)
+
+  if (files.length === 0) {
     return (
       <EmptyState
-        title="Belum ada isi tabel untuk dataset ini"
-        description="Metadata dataset sudah tersedia, tetapi barisnya belum dimuat ke datastore. Data akan muncul di sini setelah tim data engineer mengunggahnya."
+        title="Belum ada berkas untuk dataset ini"
+        description="Metadata dataset sudah tersedia, tetapi belum ada satu pun berkas yang diunggah."
       />
+    )
+  }
+
+  const header = (
+    <div className="flex flex-wrap items-center gap-3">
+      <h3 className="text-ink-900 text-base font-bold">Data Explorer</h3>
+      <ViewSwitch value={active?.id ?? ''} onChange={selectFile} files={files} />
+    </div>
+  )
+
+  // Berkas dokumen menggantikan seluruh isi kartu, termasuk penghitung baris
+  // dan paginasi — keduanya tidak berarti apa-apa untuk sebuah PDF.
+  if (!showTable) {
+    return (
+      <div className="border-line-200 bg-surface rounded-[14px] border p-5">
+        <div className="mb-3.5">{header}</div>
+        <div key={active?.id} className="animate-tab-in">
+          {active ? <FilePreview slug={slug} files={active} /> : null}
+        </div>
+      </div>
     )
   }
 
   return (
     <div className="border-line-200 bg-surface rounded-[14px] border p-5">
-      <QueryBoundary query={query} loading={<SkeletonTable rows={UKURAN_HALAMAN} />}>
+      <QueryBoundary query={query} loading={<SkeletonTable rows={PAGE_SIZE} />}>
         {(datastore) => {
-          const kolom: KolomMeta[] = (datastore.columns ?? []).map((k) => ({
+          const columns: ColumnMeta[] = (datastore.columns ?? []).map((k) => ({
             machineName: k.machineName ?? '',
             displayName: k.displayName ?? k.machineName ?? '',
             dataType: k.dataType ?? '',
           }))
-          const baris = (datastore.rows ?? []) as DatastoreRow[]
-          const totalHalaman = datastore.totalPages ?? 1
+          const rows = (datastore.rows ?? []) as DatastoreRow[]
+          const totalPages = datastore.totalPages ?? 1
 
           return (
             <>
               <div className="mb-3.5 flex flex-wrap items-center justify-between gap-2.5">
-                <div className="flex items-center gap-3">
-                  <h3 className="text-ink-900 text-base font-bold">Data Explorer</h3>
-                  <SakelarTampilan nilai={tampilan} onGanti={setTampilan} />
-                </div>
+                {header}
                 <div className="text-ink-500 text-[13px]">
-                  {formatNumber(rowCount)} baris · menampilkan {kolom.length} dari {kolom.length}{' '}
-                  kolom
+                  {formatNumber(active?.rowCount ?? 0)} baris · {columns.length} kolom
                 </div>
               </div>
 
-              {baris.length === 0 ? (
+              {/*
+                Kunci animasi memuat BERKAS dan halaman sekaligus, dan keduanya
+                diambil dari JAWABAN SERVER, bukan dari tab yang sedang aktif.
+
+                Dulu kuncinya halaman saja, dan itu membuat perpindahan
+                antar-berkas bertabel tidak beranimasi sama sekali: berpindah
+                berkas mengembalikan halaman ke 1, jadi kalau sebelumnya memang
+                di halaman 1, kuncinya tidak berubah. React memakai ulang
+                elemen yang sama, tidak ada yang dipasang ulang, dan animasi
+                masuknya tidak pernah diputar.
+
+                Mengikuti tab pun belum cukup. Selama berkas baru masih
+                diambil, react-query menahan isi yang lama supaya tabelnya
+                tidak berkedip kosong — kunci yang mengikuti tab akan memutar
+                animasi untuk isi LAMA, lalu menukar isinya diam-diam begitu
+                data baru tiba. Persis terbalik. Yang dipakai jawaban server,
+                supaya animasinya jatuh tepat ketika isinya memang berubah.
+              */}
+              {rows.length === 0 ? (
                 <EmptyState title="Halaman ini kosong" />
               ) : (
-                /*
-                 * `key` wajib ada. Tanpa itu React memakai ulang elemen yang
-                 * sama saat tampilan berganti, sehingga animasi CSS-nya tidak
-                 * pernah diputar ulang — hanya isinya yang tiba-tiba berganti.
-                 *
-                 * Memakai `animate-tab-in` yang sama dengan tab di atasnya,
-                 * bukan kurva baru: berpindah Tabel/Excel dan berpindah tab
-                 * adalah tindakan sejenis, jadi geraknya sebaiknya sama.
-                 */
-                <div key={tampilan} className="animate-tab-in">
-                  {tampilan === 'excel' ? (
-                    <KisiExcel slug={slug} columns={kolom} rows={baris} />
-                  ) : (
-                    <TabelBiasa columns={kolom} rows={baris} />
-                  )}
+                <div
+                  key={`${datastore.resourceId ?? ''}-${datastore.page ?? 0}`}
+                  className="animate-tab-in"
+                >
+                  <PlainTable columns={columns} rows={rows} />
                 </div>
               )}
 
               <div className="mt-3.5 flex flex-wrap items-center justify-between gap-3">
                 <div className="text-ink-500 text-[13px]">
-                  Halaman {halaman} dari {totalHalaman}
+                  Halaman {page} dari {totalPages}
                 </div>
-                <PaginasiTabel
-                  halaman={halaman}
-                  totalHalaman={totalHalaman}
-                  onGanti={setHalaman}
-                />
+                <TablePagination page={page} totalPages={totalPages} onChange={setPage} />
               </div>
             </>
           )
@@ -106,43 +175,56 @@ export function DataExplorer({ slug, rowCount }: { slug: string; rowCount: numbe
   )
 }
 
-function SakelarTampilan({
-  nilai,
-  onGanti,
+/** Nama yang dipakai orang untuk tiap jenis berkas. */
+const KIND_LABELS: Record<string, string> = {
+  PDF: 'PDF',
+  DOCX: 'Word',
+  CSV: 'CSV',
+  XLSX: 'Excel',
+}
+
+function ViewSwitch({
+  value,
+  onChange,
+  files,
 }: {
-  nilai: 'tabel' | 'excel'
-  onGanti: (nilai: 'tabel' | 'excel') => void
+  value: string
+  onChange: (value: string) => void
+  files: DatasetResource[]
 }) {
+  // Satu berkas tidak perlu pemilih — tombol tunggal yang tidak bisa
+  // diapa-apakan hanya menambah kebisingan.
+  if (files.length < 2) {
+    return null
+  }
+
+  // Jenis berkas dipakai sebagai label selama jenisnya masih membedakan. Dua
+  // berkas CSV dalam satu dataset akan menghasilkan dua tombol bertuliskan
+  // "CSV" yang tidak bisa dibedakan, jadi untuk itu dipakai nama berkasnya.
+  const kinds = files.map((r) => (r.formatName ?? '').toUpperCase())
+  const kindIsUnique = new Set(kinds).size === kinds.length
+
   return (
-    <div className="flex rounded-[9px] bg-[#EEF1F5] p-[3px]">
-      <TombolSakelar aktif={nilai === 'tabel'} onClick={() => onGanti('tabel')}>
-        Tabel
-      </TombolSakelar>
-      <TombolSakelar aktif={nilai === 'excel'} onClick={() => onGanti('excel')}>
-        <svg
-          width={14}
-          height={14}
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke={nilai === 'excel' ? '#137A46' : '#98A2B3'}
-          strokeWidth={2}
-          aria-hidden
-        >
-          <rect x={3} y={3} width={18} height={18} rx={2} />
-          <path d="M3 9h18M3 15h18M9 3v18M15 3v18" />
-        </svg>
-        Excel
-      </TombolSakelar>
+    <div className="flex flex-wrap rounded-[9px] bg-[#EEF1F5] p-[3px]">
+      {files.map((r) => {
+        const kind = (r.formatName ?? '').toUpperCase()
+        return (
+          <SwitchButton key={r.id} active={value === r.id} onClick={() => onChange(r.id ?? '')}>
+            <FileText className="size-3.5" />
+            {kindIsUnique ? (KIND_LABELS[kind] ?? kind) : r.label || r.fileName}
+          </SwitchButton>
+        )
+      })}
     </div>
   )
 }
 
-function TombolSakelar({
-  aktif,
+function SwitchButton({
+  active,
   onClick,
   children,
 }: {
-  aktif: boolean
+  active: boolean
   onClick: () => void
   children: React.ReactNode
 }) {
@@ -150,10 +232,10 @@ function TombolSakelar({
     <button
       type="button"
       onClick={onClick}
-      aria-pressed={aktif}
+      aria-pressed={active}
       className={cn(
         'flex items-center gap-1.5 rounded-[7px] px-3.5 py-1.5 text-[12.5px] font-bold transition-colors',
-        aktif
+        active
           ? 'text-ink-900 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.12)]'
           : 'text-ink-500 bg-transparent',
       )}
@@ -163,35 +245,35 @@ function TombolSakelar({
   )
 }
 
-function TabelBiasa({ columns, rows }: { columns: KolomMeta[]; rows: DatastoreRow[] }) {
+function PlainTable({ columns, rows }: { columns: ColumnMeta[]; rows: DatastoreRow[] }) {
   return (
     <div className="border-line-100 overflow-x-auto rounded-[10px] border">
       <table className="w-full min-w-[560px] border-collapse">
         <thead className="bg-surface-50">
           <tr>
-            {columns.map((kolom) => (
+            {columns.map((column) => (
               <th
-                key={kolom.machineName}
+                key={column.machineName}
                 scope="col"
                 className="border-line-200 border-b-2 px-3.5 py-2.5 text-left whitespace-nowrap"
               >
-                <div className="text-ink-900 text-[13px] font-bold">{kolom.displayName}</div>
+                <div className="text-ink-900 text-[13px] font-bold">{column.displayName}</div>
                 <div className="text-ink-400 font-mono text-[11px] font-semibold">
-                  {kolom.dataType}
+                  {column.dataType}
                 </div>
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {rows.map((baris, i) => (
+          {rows.map((row, i) => (
             <tr key={i} className={i % 2 ? 'bg-surface-25' : 'bg-surface'}>
-              {columns.map((kolom) => (
+              {columns.map((column) => (
                 <td
-                  key={kolom.machineName}
+                  key={column.machineName}
                   className="border-line-50 text-ink-700 border-b px-3.5 py-2.5 text-[13.5px] whitespace-nowrap"
                 >
-                  {keTeks(baris[kolom.machineName])}
+                  {toText(row[column.machineName])}
                 </td>
               ))}
             </tr>
@@ -208,123 +290,47 @@ function TabelBiasa({ columns, rows }: { columns: KolomMeta[]; rows: DatastoreRo
  * Desain hanya menyiapkan A–E karena dataset contohnya berkolom lima. Dataset
  * furnitur punya 17 kolom, jadi urutannya dihitung, bukan didaftar.
  */
-function hurufKolom(index: number): string {
-  let sisa = index
-  let hasil = ''
-  do {
-    hasil = String.fromCharCode(65 + (sisa % 26)) + hasil
-    sisa = Math.floor(sisa / 26) - 1
-  } while (sisa >= 0)
-  return hasil
-}
 
-function KisiExcel({
-  slug,
-  columns,
-  rows,
-}: {
-  slug: string
-  columns: KolomMeta[]
-  rows: DatastoreRow[]
-}) {
-  const selDasar =
-    'min-w-[110px] border-r border-b border-[#E7EAEF] px-2.5 py-[5px] font-mono text-[13px] whitespace-nowrap bg-white'
-  const selNomor =
-    'w-11 min-w-11 sticky left-0 z-[1] bg-[#F0F2F5] border-r border-[#D6DBE2] border-b border-[#E7EAEF] text-center text-[11.5px] font-semibold text-[#5F6B7A]'
-
-  return (
-    <div className="overflow-hidden rounded-[10px] border border-[#D6DBE2]">
-      <div className="flex items-center gap-2 bg-[#107C41] px-3.5 py-2 text-white">
-        <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} aria-hidden>
-          <rect x={3} y={3} width={18} height={18} rx={2} />
-          <path d="M8 8l8 8M16 8l-8 8" />
-        </svg>
-        <span className="text-[13px] font-bold">{slug}.xlsx</span>
-        <span className="ml-auto text-[11.5px] opacity-85">Sheet1</span>
-      </div>
-
-      <div className="overflow-x-auto bg-white">
-        <table className="w-full min-w-[620px] border-collapse">
-          <thead>
-            <tr>
-              <th className="sticky left-0 z-[2] w-11 min-w-11 border-r border-b border-[#D6DBE2] bg-[#F0F2F5]" />
-              {columns.map((_, i) => (
-                <th
-                  key={i}
-                  className="min-w-[110px] border-r border-b border-[#D6DBE2] bg-[#F0F2F5] py-1 text-center text-[11.5px] font-bold text-[#5F6B7A]"
-                >
-                  {hurufKolom(i)}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {/* Baris 1 berisi nama kolom, persis seperti berkas Excel sungguhan
-                yang barisan pertamanya adalah header. */}
-            <tr>
-              <td className={selNomor}>1</td>
-              {columns.map((kolom) => (
-                <td key={kolom.machineName} className={cn(selDasar, 'font-bold text-[#1F2A37]')}>
-                  {kolom.displayName}
-                </td>
-              ))}
-            </tr>
-            {rows.map((baris, ri) => (
-              <tr key={ri}>
-                <td className={selNomor}>{ri + 2}</td>
-                {columns.map((kolom) => (
-                  <td key={kolom.machineName} className={cn(selDasar, 'text-[#1F2A37]')}>
-                    {keTeks(baris[kolom.machineName])}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
-}
 
 /** Paginasi kecil khusus tabel — 34px, bukan 38px seperti katalog dataset. */
-function PaginasiTabel({
-  halaman,
-  totalHalaman,
-  onGanti,
+function TablePagination({
+  page,
+  totalPages,
+  onChange,
 }: {
-  halaman: number
-  totalHalaman: number
-  onGanti: (halaman: number) => void
+  page: number
+  totalPages: number
+  onChange: (page: number) => void
 }) {
-  if (totalHalaman <= 1) return null
+  if (totalPages <= 1) return null
 
-  const mulai = Math.max(1, Math.min(halaman - 2, totalHalaman - 4))
-  const nomor: number[] = []
-  for (let n = mulai; n <= Math.min(totalHalaman, mulai + 4); n += 1) nomor.push(n)
+  const from = Math.max(1, Math.min(page - 2, totalPages - 4))
+  const rowNumber: number[] = []
+  for (let n = from; n <= Math.min(totalPages, from + 4); n += 1) rowNumber.push(n)
 
-  const arah =
+  const direction =
     'border-line-200 text-ink-700 hover:bg-surface-100 h-[34px] rounded-lg border bg-white px-3 text-[13px] font-semibold transition-colors disabled:opacity-50'
 
   return (
     <nav className="flex gap-1.5" aria-label="Navigasi halaman tabel">
       <button
         type="button"
-        className={arah}
-        disabled={halaman <= 1}
-        onClick={() => onGanti(Math.max(1, halaman - 1))}
+        className={direction}
+        disabled={page <= 1}
+        onClick={() => onChange(Math.max(1, page - 1))}
         aria-label="Halaman sebelumnya"
       >
         ‹
       </button>
-      {nomor.map((n) => (
+      {rowNumber.map((n) => (
         <button
           key={n}
           type="button"
-          onClick={() => onGanti(n)}
-          aria-current={n === halaman ? 'page' : undefined}
+          onClick={() => onChange(n)}
+          aria-current={n === page ? 'page' : undefined}
           className={cn(
             'h-[34px] min-w-[34px] rounded-lg border text-[13px] font-bold transition-colors',
-            n === halaman
+            n === page
               ? 'bg-brand border-brand text-white'
               : 'border-line-200 text-ink-700 hover:bg-surface-100 bg-white',
           )}
@@ -334,9 +340,9 @@ function PaginasiTabel({
       ))}
       <button
         type="button"
-        className={arah}
-        disabled={halaman >= totalHalaman}
-        onClick={() => onGanti(Math.min(totalHalaman, halaman + 1))}
+        className={direction}
+        disabled={page >= totalPages}
+        onClick={() => onChange(Math.min(totalPages, page + 1))}
         aria-label="Halaman berikutnya"
       >
         ›
@@ -345,10 +351,15 @@ function PaginasiTabel({
   )
 }
 
-function keTeks(nilai: unknown): string {
-  if (nilai == null) return '—'
-  if (typeof nilai === 'string' || typeof nilai === 'number' || typeof nilai === 'boolean') {
-    return String(nilai)
-  }
-  return JSON.stringify(nilai)
+/**
+ * Nilai sel menjadi teks.
+ *
+ * Isi datastore disimpan sebagai JSONB, jadi tipenya berbeda-beda per kolom dan
+ * tidak bisa diketahui saat kompilasi. `null` dan `undefined` menjadi tanda pisah,
+ * bukan tulisan "null" — sel kosong memang kosong.
+ */
+function toText(value: unknown): string {
+  if (value === null || value === undefined) return '—'
+  if (typeof value === 'object') return JSON.stringify(value)
+  return String(value)
 }

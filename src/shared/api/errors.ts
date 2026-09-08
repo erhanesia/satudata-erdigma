@@ -36,7 +36,7 @@ export class ApiError extends Error {
   }
 }
 
-const PESAN: Record<ApiErrorKind, string> = {
+const MESSAGES: Record<ApiErrorKind, string> = {
   network: 'Tidak dapat terhubung ke server. Periksa koneksi Anda lalu coba lagi.',
   timeout: 'Permintaan terlalu lama. Coba lagi sebentar lagi.',
   unauthorized: 'Sesi Anda tidak sah atau sudah berakhir. Silakan masuk kembali.',
@@ -53,10 +53,10 @@ export function toApiError(error: unknown): ApiError {
 
   if (axios.isAxiosError(error)) {
     if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
-      return new ApiError('timeout', PESAN.timeout, undefined, error.message)
+      return new ApiError('timeout', MESSAGES.timeout, undefined, error.message)
     }
     if (!error.response) {
-      return new ApiError('network', PESAN.network, undefined, error.message)
+      return new ApiError('network', MESSAGES.network, undefined, error.message)
     }
 
     const status = error.response.status
@@ -65,15 +65,15 @@ export function toApiError(error: unknown): ApiError {
     // Pesan dari GlobalExceptionHandler back-end dipakai hanya untuk galat yang
     // memang ditujukan ke pengguna (4xx). Galat 5xx tidak pernah diteruskan apa
     // adanya — isinya bisa membocorkan struktur internal.
-    const pesanServer = kind !== 'server' ? ambilPesanServer(error.response.data) : null
+    const serverMessage = kind !== 'server' ? readServerMessage(error.response.data) : null
 
-    return new ApiError(kind, pesanServer ?? PESAN[kind], status, error.response.data)
+    return new ApiError(kind, serverMessage ?? MESSAGES[kind], status, error.response.data)
   }
 
   if (error instanceof Error) {
-    return new ApiError('unknown', PESAN.unknown, undefined, error.message)
+    return new ApiError('unknown', MESSAGES.unknown, undefined, error.message)
   }
-  return new ApiError('unknown', PESAN.unknown, undefined, error)
+  return new ApiError('unknown', MESSAGES.unknown, undefined, error)
 }
 
 function kindFromStatus(status: number): ApiErrorKind {
@@ -94,15 +94,15 @@ function kindFromStatus(status: number): ApiErrorKind {
  * cadangan: itu bentuk bawaan galat Spring yang tidak lewat handler tersebut,
  * misalnya isian yang gagal divalidasi.
  */
-const KUNCI_PESAN = ['error', 'message'] as const
+const MESSAGE_KEYS = ['error', 'message'] as const
 
-function ambilPesanServer(data: unknown): string | null {
+function readServerMessage(data: unknown): string | null {
   if (typeof data === 'string' && data.length > 0 && data.length <= 300) return data
   if (data && typeof data === 'object') {
-    for (const kunci of KUNCI_PESAN) {
-      const kandidat = (data as Record<string, unknown>)[kunci]
-      if (typeof kandidat === 'string' && kandidat.length > 0 && kandidat.length <= 300) {
-        return kandidat
+    for (const key of MESSAGE_KEYS) {
+      const candidate = (data as Record<string, unknown>)[key]
+      if (typeof candidate === 'string' && candidate.length > 0 && candidate.length <= 300) {
+        return candidate
       }
     }
   }

@@ -2,7 +2,13 @@ import type { ReactNode } from 'react'
 
 import { cn } from '@/shared/lib/cn'
 
-/** Lebar isi seragam di seluruh halaman: 1200px, sesuai desain. */
+/**
+ * Lebar isi seragam di seluruh halaman: 1200px, sesuai desain.
+ *
+ * Padding tepinya menyempit di ponsel. 20px dari desain layar lebar terasa
+ * boros pada layar 360px — hampir 12% lebarnya habis jadi ruang kosong kiri
+ * kanan, dan itu langsung terasa pada tabel serta kartu yang isinya padat.
+ */
 export function PageContainer({
   children,
   className,
@@ -10,7 +16,7 @@ export function PageContainer({
   children: ReactNode
   className?: string
 }) {
-  return <div className={cn('mx-auto max-w-[1200px] px-5', className)}>{children}</div>
+  return <div className={cn('mx-auto max-w-[1200px] px-4 sm:px-5', className)}>{children}</div>
 }
 
 export function PageHeading({

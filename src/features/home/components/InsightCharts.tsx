@@ -16,21 +16,21 @@ const H = 120
 export function MiniBars({ values, colors }: { values: number[]; colors: string[] }) {
   const pad = 8
   const slot = (W - pad * 2) / values.length
-  const lebarBatang = slot * 0.6
-  const jarak = slot * 0.4
+  const barWidth = slot * 0.6
+  const gap = slot * 0.4
   const max = Math.max(...values)
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="block h-full w-full" aria-hidden>
       {values.map((v, i) => {
-        const tinggi = (v / max) * (H - 24)
+        const height = (v / max) * (H - 24)
         return (
           <rect
             key={i}
-            x={pad + i * (lebarBatang + jarak)}
-            y={H - 8 - tinggi}
-            width={lebarBatang}
-            height={tinggi}
+            x={pad + i * (barWidth + gap)}
+            y={H - 8 - height}
+            width={barWidth}
+            height={height}
             rx={2}
             fill={colors[i % colors.length]}
           />
@@ -47,25 +47,25 @@ export function MiniLine({ values, color }: { values: number[]; color: string })
   const min = Math.min(...values)
   // Deretan nilai yang rata — mis. uptime yang selalu 99 — akan membuat
   // pembagian jadi nol. Desain memakai 1 sebagai pengganti; hasilnya garis lurus.
-  const rentang = max - min || 1
+  const range = max - min || 1
 
-  const titik = values.map(
+  const points = values.map(
     (v, i) =>
       [
         pad + i * ((W - pad * 2) / (values.length - 1)),
-        H - 10 - ((v - min) / rentang) * (H - 28),
+        H - 10 - ((v - min) / range) * (H - 28),
       ] as const,
   )
 
-  const garis = 'M' + titik.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join(' L')
-  const akhir = titik[titik.length - 1]!
-  const area = `${garis} L${akhir[0].toFixed(1)} ${H - 10} L${pad} ${H - 10} Z`
+  const line = 'M' + points.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join(' L')
+  const end = points[points.length - 1]!
+  const area = `${line} L${end[0].toFixed(1)} ${H - 10} L${pad} ${H - 10} Z`
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="block h-full w-full" aria-hidden>
       <path d={area} fill={color} opacity={0.12} />
-      <path d={garis} fill="none" stroke={color} strokeWidth={2.4} strokeLinejoin="round" />
-      {titik.map(([x, y], i) => (
+      <path d={line} fill="none" stroke={color} strokeWidth={2.4} strokeLinejoin="round" />
+      {points.map(([x, y], i) => (
         <circle key={i} cx={x} cy={y} r={2.6} fill={color} />
       ))}
     </svg>
@@ -80,20 +80,20 @@ export interface DonutSegment {
 export function MiniDonut({ segments }: { segments: readonly DonutSegment[] }) {
   const R = 44
   const C = 60
-  const tebal = 14
-  const total = segments.reduce((jumlah, s) => jumlah + s.value, 0)
-  const keliling = 2 * Math.PI * R
+  const thickness = 14
+  const total = segments.reduce((count, s) => count + s.value, 0)
+  const circumference = 2 * Math.PI * R
 
   // Panjang tiap potongan diakumulasi jadi `strokeDashoffset` negatif —
   // cara desain menyusun cincin tanpa menghitung sudut busur sendiri.
-  let terpakai = 0
+  let used = 0
 
   return (
     <svg viewBox="0 0 120 120" width={120} height={120} className="mx-auto block" aria-hidden>
-      <circle cx={C} cy={C} r={R} fill="none" stroke="#EEF1F5" strokeWidth={tebal} />
+      <circle cx={C} cy={C} r={R} fill="none" stroke="#EEF1F5" strokeWidth={thickness} />
       {segments.map((s, i) => {
-        const panjang = (s.value / total) * keliling
-        const potongan = (
+        const length = (s.value / total) * circumference
+        const slice = (
           <circle
             key={i}
             cx={C}
@@ -101,14 +101,14 @@ export function MiniDonut({ segments }: { segments: readonly DonutSegment[] }) {
             r={R}
             fill="none"
             stroke={s.color}
-            strokeWidth={tebal}
-            strokeDasharray={`${panjang} ${keliling - panjang}`}
-            strokeDashoffset={-terpakai}
+            strokeWidth={thickness}
+            strokeDasharray={`${length} ${circumference - length}`}
+            strokeDashoffset={-used}
             transform="rotate(-90 60 60)"
           />
         )
-        terpakai += panjang
-        return potongan
+        used += length
+        return slice
       })}
     </svg>
   )

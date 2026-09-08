@@ -1,10 +1,12 @@
 import { useState } from 'react'
+import { Navigate } from 'react-router-dom'
 
+import { paths } from '@/app/router/paths'
 import { useCurrentUser } from '@/features/auth/hooks/useCurrentUser'
 import { EmptyState } from '@/shared/components/feedback/StateViews'
 import { QueryBoundary } from '@/shared/components/feedback/QueryBoundary'
+import { Reveal } from '@/shared/components/motion/Reveal'
 import { Badge } from '@/shared/components/ui/Badge'
-import { PageContainer } from '@/shared/components/ui/PageContainer'
 import { Pagination } from '@/shared/components/ui/Pagination'
 import { SearchField } from '@/shared/components/ui/SearchField'
 import { Skeleton } from '@/shared/components/ui/Skeleton'
@@ -23,11 +25,18 @@ const PERAN: { nilai: PortalRole; label: string }[] = [
 ]
 
 /**
- * Panel manajemen pengguna.
+ * Manajemen pengguna — halaman panel admin.
  *
- * Hanya admin warisan HRIS yang bisa membukanya — server menjawab 403 untuk
- * yang lain, dan pesannya ditampilkan apa adanya oleh QueryBoundary. Menu di
- * header pun disembunyikan, tapi itu kenyamanan, bukan pengamanan.
+ * `AdminRoute` di atasnya hanya memastikan `role === 'ADMIN'`, dan itu belum
+ * cukup di sini: admin yang ditunjuk lewat halaman ini sendiri lolos syarat
+ * itu, padahal ia justru tidak boleh menunjuk admin baru. Gerbang keduanya —
+ * `hrisPermissionLevel === 'ADMIN'` — ditegakkan di bawah, mengikuti cara
+ * `AdminRoute` menolak: dialihkan, bukan diberi layar "akses ditolak". Tidak
+ * ada butir sidebar yang membawa mereka ke sini, jadi yang sampai di halaman
+ * ini mengetik alamatnya sendiri.
+ *
+ * Ini penjaga tampilan, bukan penjaga keamanan. Yang sesungguhnya menolak tetap
+ * `@PreAuthorize("hasRole('HRIS_ADMIN')")` di back-end.
  */
 export default function UserListPage() {
   // Halaman untuk manusia berbasis 1; API berbasis 0. Konversinya di satu
@@ -39,6 +48,8 @@ export default function UserListPage() {
   const { data: saya } = useCurrentUser()
   const ubahPeran = useUpdateUserRole()
   const toast = useToast()
+
+  const adminWarisanHris = saya?.role === 'ADMIN' && saya?.hrisPermissionLevel === 'ADMIN'
 
   function pilihPeran(pengguna: UserAdmin, nilai: string) {
     // Satu-satunya kontrol di halaman ini yang membagikan hak istimewa —
@@ -69,19 +80,20 @@ export default function UserListPage() {
     )
   }
 
+  // Ditunggu sampai identitasnya tiba: `saya` undefined selama /me berjalan,
+  // dan mengalihkan lebih dulu akan menendang keluar admin yang sah.
+  if (saya && !adminWarisanHris) {
+    return <Navigate to={paths.admin} replace />
+  }
+
   return (
-    <PageContainer>
-      <div className="mb-6">
-        <h1 className="text-ink-900 text-2xl font-extrabold tracking-[-0.4px]">
-          Manajemen Pengguna
-        </h1>
-        <p className="text-ink-500 mt-1.5 text-sm">
-          Pengguna yang pernah masuk ke Satu Data. Peran yang ditunjuk di sini bertahan melewati
-          penyegaran data HRIS — dan bukan cuma soal akses ke halaman ini: menunjuk seseorang
-          Publisher atau Admin juga memberinya hak menerbitkan dataset, dan menurunkannya ke Staff
-          mencabut hak itu juga.
-        </p>
-      </div>
+    <Reveal>
+      <p className="text-ink-500 mb-5 max-w-3xl text-sm">
+        Pengguna yang pernah masuk ke Satu Data. Peran yang ditunjuk di sini bertahan melewati
+        penyegaran data HRIS — dan bukan cuma soal akses ke halaman ini: menunjuk seseorang
+        Publisher atau Admin juga memberinya hak menerbitkan dataset, dan menurunkannya ke Staff
+        mencabut hak itu juga.
+      </p>
 
       <SearchField
         value={cari}
@@ -111,7 +123,8 @@ export default function UserListPage() {
           }
           return (
             <>
-              <div className="border-line-200 overflow-x-auto rounded-xl border bg-white">
+              {/* Kartu putih bertepi #E9EBF0, sama seperti halaman admin lain. */}
+              <div className="overflow-x-auto rounded-[14px] border border-[#E9EBF0] bg-white">
                 <table className="w-full min-w-[760px] text-left text-sm">
                   <thead className="border-line-200 text-ink-500 border-b text-[12.5px]">
                     <tr>
@@ -182,6 +195,6 @@ export default function UserListPage() {
           )
         }}
       </QueryBoundary>
-    </PageContainer>
+    </Reveal>
   )
 }

@@ -35,11 +35,18 @@ export function Dialog({
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[#101828]/45" />
+        {/*
+          Radix menunda pelepasan elemen sampai animasinya selesai, jadi
+          `data-[state=closed]` benar-benar sempat diputar — bukan sekadar
+          dilewati begitu dialognya ditutup.
+        */}
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[#101828]/45 data-[state=closed]:animate-[overlay-out_150ms_ease-in_both] data-[state=open]:animate-[overlay-in_200ms_ease_both]" />
         <DialogPrimitive.Content
           className={cn(
             'bg-surface fixed top-1/2 left-1/2 z-50 w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2',
-            'max-h-[85vh] overflow-y-auto rounded-[var(--radius-card)] p-6 shadow-xl',
+            'max-h-[85dvh] overflow-y-auto rounded-[var(--radius-card)] p-4 shadow-xl sm:p-6',
+            'data-[state=open]:animate-[modal-in_240ms_cubic-bezier(0.16,1,0.3,1)_both]',
+            'data-[state=closed]:animate-[modal-out_160ms_cubic-bezier(0.4,0,1,1)_both]',
             className,
           )}
         >

@@ -25,18 +25,24 @@ export function useDatasets(query: DatasetQuery) {
   })
 }
 
-export function useDataset(slug: string) {
+export function useDataset(slug: string, recordView = true) {
   return useQuery({
-    queryKey: queryKeys.dataset.detail(slug),
-    queryFn: ({ signal }) => fetchDataset(slug, signal),
+    queryKey: queryKeys.dataset.detail(slug, recordView),
+    queryFn: ({ signal }) => fetchDataset(slug, recordView, signal),
     enabled: slug.length > 0,
   })
 }
 
-export function useDatastore(slug: string, page: number, size: number, enabled = true) {
+export function useDatastore(
+  slug: string,
+  resourceId: string | undefined,
+  page: number,
+  size: number,
+  enabled = true,
+) {
   return useQuery({
-    queryKey: queryKeys.dataset.datastore(slug, page, size),
-    queryFn: ({ signal }) => fetchDatastore(slug, page, size, signal),
+    queryKey: queryKeys.dataset.datastore(slug, resourceId, page, size),
+    queryFn: ({ signal }) => fetchDatastore(slug, resourceId, page, size, signal),
     enabled: enabled && slug.length > 0,
     placeholderData: keepPreviousData,
   })
@@ -80,11 +86,14 @@ export function useFormats() {
 export function useUploadDataset() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ file, body }: { file: File; body: DatasetUploadBody }) =>
-      uploadDataset(file, body),
+    mutationFn: ({ files, body }: { files: File[]; body: DatasetUploadBody }) =>
+      uploadDataset(files, body),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.dataset.all })
       void queryClient.invalidateQueries({ queryKey: queryKeys.stats })
+      // Menerbitkan dataset menulis baris audit CREATE. Tanpa pembatalan ini,
+      // panel "Aktivitas terakhir" di dasbor berpura-pura tidak terjadi apa-apa.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.log.all })
     },
   })
 }

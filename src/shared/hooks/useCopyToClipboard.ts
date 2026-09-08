@@ -11,20 +11,20 @@ import { useToast } from '@/shared/components/ui/toastStore'
  * bingung tanpa sebab yang jelas.
  */
 export function useCopyToClipboard(resetMs = 1800) {
-  const [kunciTersalin, setKunciTersalin] = useState<string | null>(null)
+  const [copiedKey, setCopiedKey] = useState<string | null>(null)
   const toast = useToast()
 
   const copy = useCallback(
-    async (teks: string, kunci = 'default') => {
+    async (text: string, key = 'default', successMessage = 'Disalin ke clipboard') => {
       if (!navigator.clipboard) {
         toast.error('Penyalinan tidak didukung di konteks ini.')
         return false
       }
       try {
-        await navigator.clipboard.writeText(teks)
-        setKunciTersalin(kunci)
-        window.setTimeout(() => setKunciTersalin(null), resetMs)
-        toast.show('Disalin ke clipboard')
+        await navigator.clipboard.writeText(text)
+        setCopiedKey(key)
+        window.setTimeout(() => setCopiedKey(null), resetMs)
+        toast.show(successMessage)
         return true
       } catch {
         toast.error('Gagal menyalin ke clipboard.')
@@ -34,5 +34,5 @@ export function useCopyToClipboard(resetMs = 1800) {
     [resetMs, toast],
   )
 
-  return { copy, kunciTersalin }
+  return { copy, copiedKey }
 }

@@ -12,9 +12,9 @@ export interface Toast {
 const toastsAtom = atom<Toast[]>([])
 
 /** Lama tampil sebelum menghilang sendiri, mengikuti desain (2,6 detik). */
-const DURASI_MS = 2600
+const DURATION_MS = 2600
 
-let idBerikutnya = 1
+let nextId = 1
 
 export function useToasts() {
   return useAtomValue(toastsAtom)
@@ -30,13 +30,13 @@ export function useToast() {
 
   const show = useCallback(
     (message: string, tone: ToastTone = 'info') => {
-      const id = idBerikutnya
-      idBerikutnya += 1
+      const id = nextId
+      nextId += 1
 
-      setToasts((sebelumnya) => [...sebelumnya, { id, message, tone }])
+      setToasts((previous) => [...previous, { id, message, tone }])
       window.setTimeout(() => {
-        setToasts((sebelumnya) => sebelumnya.filter((t) => t.id !== id))
-      }, DURASI_MS)
+        setToasts((previous) => previous.filter((t) => t.id !== id))
+      }, DURATION_MS)
     },
     [setToasts],
   )

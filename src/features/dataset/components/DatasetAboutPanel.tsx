@@ -8,7 +8,7 @@ import type { Dataset } from '@/shared/types/api'
  * persis seperti di desain. Begitu tiap dataset boleh punya lisensi sendiri,
  * konstanta ini diganti field dari API.
  */
-const LISENSI = 'Open Data Licence v1.0'
+const LICENSE = 'Open Data Licence v1.0'
 
 /**
  * Panel samping halaman detail: metadata terbitan.
@@ -22,17 +22,17 @@ const LISENSI = 'Open Data Licence v1.0'
 export function DatasetAboutPanel({ dataset }: { dataset: Dataset }) {
   const toast = useToast()
 
-  const kode = dataset.division?.code ?? ''
+  const code = dataset.division?.code ?? ''
 
   return (
     <aside className="flex flex-col gap-4">
       <div className="border-line-200 bg-surface rounded-[14px] border px-[18px] pt-1.5 pb-3.5">
         <h3 className="text-ink-900 mt-4 mb-1 text-[15px] font-bold">Tentang dataset</h3>
 
-        <Baris label="Divisi" nilai={dataset.division?.name ?? '—'} />
-        <Baris label="Kontak" nilai={`${kode.toLowerCase()}@erdigma.com`} mono />
-        <Baris label="Dibuat" nilai={formatDate(dataset.createdAt)} />
-        <Baris label="Lisensi" nilai={LISENSI} />
+        <Row label="Divisi" value={dataset.division?.name ?? '—'} />
+        <Row label="Kontak" value={`${code.toLowerCase()}@erdigma.com`} mono />
+        <Row label="Dibuat" value={formatDate(dataset.createdAt)} />
+        <Row label="Lisensi" value={LICENSE} />
 
         <button
           type="button"
@@ -47,7 +47,7 @@ export function DatasetAboutPanel({ dataset }: { dataset: Dataset }) {
   )
 }
 
-function Baris({ label, nilai, mono }: { label: string; nilai: string; mono?: boolean }) {
+function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="border-b border-[#F0F2F5] py-[11px]">
       <div className="text-ink-400 mb-[3px] text-[12px]">{label}</div>
@@ -57,7 +57,7 @@ function Baris({ label, nilai, mono }: { label: string; nilai: string; mono?: bo
           mono && 'font-mono',
         )}
       >
-        {nilai}
+        {value}
       </div>
     </div>
   )

@@ -23,10 +23,10 @@ import { paths } from './paths'
  * kerangka halaman yang isinya pasti gagal dimuat.
  */
 export function ProtectedRoute() {
-  const sudahMasuk = useAuthSession()
+  const signedIn = useAuthSession()
   const location = useLocation()
 
-  if (!sudahMasuk) {
+  if (!signedIn) {
     return (
       <Navigate
         to={paths.login}
@@ -38,7 +38,7 @@ export function ProtectedRoute() {
     )
   }
 
-  return <GerbangIdentitas />
+  return <IdentityGate />
 }
 
 /**
@@ -54,9 +54,9 @@ export function ProtectedRoute() {
  * Permintaannya tidak menambah beban: `/me` memang sudah dipanggil header di
  * setiap halaman, dan react-query menyatukan keduanya dalam satu permintaan.
  */
-function GerbangIdentitas() {
+function IdentityGate() {
   const { isPending, isError, error } = useCurrentUser()
-  const keluar = useSignOut()
+  const signOut = useSignOut()
 
   if (isPending) {
     return <RouteFallback />
@@ -70,7 +70,7 @@ function GerbangIdentitas() {
       return <Navigate to={paths.login} replace />
     }
 
-    const pesan =
+    const message =
       error instanceof ApiError ? error.message : 'Terjadi kesalahan yang tidak diketahui.'
 
     return (
@@ -83,9 +83,9 @@ function GerbangIdentitas() {
           <h1 className="text-ink-900 text-[22px] font-extrabold tracking-[-0.5px]">
             Akun tidak dapat digunakan
           </h1>
-          <p className="text-ink-600 mt-2 text-[14.5px] leading-relaxed font-medium">{pesan}</p>
+          <p className="text-ink-600 mt-2 text-[14.5px] leading-relaxed font-medium">{message}</p>
 
-          <Button variant="secondary" className="mt-6" onClick={keluar}>
+          <Button variant="secondary" className="mt-6" onClick={signOut}>
             Kembali ke halaman masuk
           </Button>
         </div>

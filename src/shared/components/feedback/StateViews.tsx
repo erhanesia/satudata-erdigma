@@ -1,4 +1,4 @@
-import { AlertTriangle, Inbox, RefreshCw } from 'lucide-react'
+import { AlertTriangle, Inbox, RefreshCw, ShieldAlert } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 import { ApiError } from '@/shared/api/errors'
@@ -54,10 +54,40 @@ export function ErrorState({
   onRetry?: () => void
   className?: string
 }) {
-  const pesan =
+  const message =
     error instanceof ApiError
       ? error.message
       : 'Terjadi kesalahan saat memuat data. Coba muat ulang halaman.'
+
+  /*
+   * Penolakan akses BUKAN kegagalan memuat, dan itu bukan soal kata-kata saja.
+   * "Gagal memuat data" beserta tombol "Coba lagi" mengajak orang menekan
+   * ulang sesuatu yang hasilnya tidak akan pernah berubah — lalu menyimpulkan
+   * aplikasinya rusak, dan melapor ke tim IT untuk masalah yang tidak ada.
+   * Yang dibutuhkan justru sebaliknya: keterangan bahwa datanya memang dibatasi,
+   * dan kepada siapa harus meminta.
+   */
+  const ditolak = error instanceof ApiError && error.kind === 'forbidden'
+
+  if (ditolak) {
+    return (
+      <div
+        role="alert"
+        className={cn(
+          'flex flex-col items-center rounded-[var(--radius-card)] border border-[#FDE9CE] bg-[#FFF9F0] px-6 py-12 text-center',
+          className,
+        )}
+      >
+        <ShieldAlert className="size-9 text-[#B45309]" strokeWidth={1.6} />
+        <p className="text-ink-900 mt-4 text-base font-bold">Dataset ini dibatasi</p>
+        <p className="text-ink-600 mt-1.5 max-w-md text-sm">{message}</p>
+        <p className="text-ink-500 mt-3 max-w-md text-xs">
+          Kalau Anda memang seharusnya bisa membukanya, hubungi penerbit datasetnya atau admin
+          portal untuk menyesuaikan akses posisinya.
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div
@@ -69,7 +99,7 @@ export function ErrorState({
     >
       <AlertTriangle className="text-danger size-9" strokeWidth={1.6} />
       <p className="text-ink-900 mt-4 text-base font-bold">Gagal memuat data</p>
-      <p className="text-ink-600 mt-1.5 max-w-md text-sm">{pesan}</p>
+      <p className="text-ink-600 mt-1.5 max-w-md text-sm">{message}</p>
       {onRetry ? (
         <Button variant="secondary" size="sm" className="mt-5" onClick={onRetry}>
           <RefreshCw className="size-4" />

@@ -2,6 +2,7 @@ import { ArrowRight } from 'lucide-react'
 import { Navigate, useLocation } from 'react-router-dom'
 
 import { paths } from '@/app/router/paths'
+import logoErdigma from '@/shared/assets/logo-erdigma-mark.png'
 import { Button } from '@/shared/components/ui/Button'
 import { Toaster } from '@/shared/components/ui/Toaster'
 import { useToast } from '@/shared/components/ui/toastStore'
@@ -43,24 +44,21 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="bg-surface-50 flex min-h-screen flex-col items-center justify-center px-5 py-12">
+    <div className="bg-surface-50 flex min-h-screen flex-col items-center justify-center px-4 py-10 sm:px-5 sm:py-12">
       <div className="w-full max-w-[440px]">
         <div className="flex flex-col items-center text-center">
-          <span className="bg-brand mb-5 flex size-[52px] items-center justify-center rounded-[14px]">
-            <svg
-              width={28}
-              height={28}
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#fff"
-              strokeWidth={2.4}
-              aria-hidden
-            >
-              <path d="M4 19V9M10 19V4M16 19v-7M22 19H2" />
-            </svg>
-          </span>
+          {/* Logo yang sama dengan header, dari berkas — bukan digambar ulang
+              dengan <path>. Dua versi logo yang dipelihara terpisah pasti
+              menyimpang cepat atau lambat. */}
+          <img
+            src={logoErdigma}
+            alt=""
+            width={52}
+            height={52}
+            className="mb-5 size-[52px] shrink-0"
+          />
 
-          <h1 className="text-ink-900 text-[30px] leading-tight font-extrabold tracking-[-1px]">
+          <h1 className="text-ink-900 text-[25px] leading-tight font-extrabold tracking-[-1px] sm:text-[30px]">
             Satu Data <span className="text-brand">Erdigma</span>
           </h1>
           <p className="text-ink-600 mt-2 text-[15px] font-medium">

@@ -167,14 +167,55 @@
     }
   }
 
+  /*
+   * TIDAK ikut memusatkan dialog.
+   *
+   * Dulu keyframe ini memuat translate(-50%, -50%) dan itu bertabrakan dengan
+   * kelas `-translate-x-1/2` di Tailwind v4, yang memakai properti `translate`
+   * dan bukan `transform`. Dua properti terpisah yang saling menumpuk: -50%
+   * dari kelas + -50% dari keyframe = -100%, sehingga dialognya muncul di
+   * pojok kiri atas lalu menyentak ke tengah saat animasi usai dan
+   * `transform`-nya hilang.
+   *
+   * Pemusatan kini sepenuhnya milik properti `translate`. Yang dianimasikan
+   * hanya opacity dan skala, plus dorongan kecil ke atas — dan karena
+   * `transform` dikomposisikan setelah `translate`, dorongan itu dihitung dari
+   * posisi yang memang sudah di tengah.
+   */
   @keyframes modal-in {
     from {
       opacity: 0;
-      transform: translate(-50%, -46%) scale(0.97);
+      transform: translateY(8px) scale(0.97);
     }
     to {
       opacity: 1;
-      transform: translate(-50%, -50%) scale(1);
+      transform: none;
+    }
+  }
+
+  /*
+   * Keluarnya dibuat lebih singkat daripada masuknya, dan kurvanya mempercepat
+   * alih-alih melambat. Begitu seseorang menekan tutup, yang ia inginkan adalah
+   * dialognya pergi; melambat di ujung saat keluar terasa seperti aplikasi yang
+   * enggan.
+   */
+  @keyframes overlay-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+
+  @keyframes modal-out {
+    from {
+      opacity: 1;
+      transform: none;
+    }
+    to {
+      opacity: 0;
+      transform: translateY(6px) scale(0.98);
     }
   }
 
@@ -184,6 +225,77 @@
 
   .animate-modal-in {
     animation: modal-in 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  /*
+   * Panel sisi (drawer) panel admin.
+   *
+   * Masuk dan keluar punya kurva yang BERBEDA, dan itu disengaja. Masuk memakai
+   * ease-out yang melambat di ujung — panel terasa datang lalu bersandar.
+   * Keluar memakai ease-in yang justru mempercepat, karena begitu pengguna
+   * menekan tutup, yang diinginkannya adalah panel itu pergi; melambat di ujung
+   * saat keluar terasa seperti aplikasi yang enggan.
+   *
+   * Keluarnya juga lebih singkat (200ms lawan 260ms) dengan alasan yang sama.
+   */
+  @keyframes drawer-in {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes drawer-out {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(100%);
+    }
+  }
+
+  @keyframes drawer-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes drawer-fade-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+
+  /*
+   * Dropdown yang membuka ke ATAS.
+   *
+   * Titik tumpunya di bawah, jadi panelnya tumbuh dari tepi tombol pemicunya —
+   * bukan muncul di tengah udara lalu bergeser. Skalanya berhenti di 0,98:
+   * cukup untuk terasa tumbuh, tidak cukup untuk membuat teksnya tampak buram
+   * saat animasi berjalan.
+   */
+  @keyframes dropdown-up {
+    from {
+      opacity: 0;
+      transform: translateY(6px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  .animate-dropdown-up {
+    animation: dropdown-up 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+    transform-origin: bottom center;
   }
 
   /*
@@ -197,18 +309,29 @@
     .animate-rise,
     .animate-fade,
     .animate-tab-in,
+    .animate-dropdown-up,
     .animate-overlay-in {
       animation: none;
       opacity: 1;
       transform: none;
     }
 
-    /* Modal tetap butuh transform-nya untuk berada di tengah — yang dimatikan
-       hanya animasinya, bukan posisinya. */
+    /*
+     * Drawer ikut dimatikan lewat nama keyframe-nya, karena kelasnya dirakit
+     * Tailwind di tempat (`animate-[drawer-in_...]`) dan tidak punya nama kelas
+     * tetap untuk dirujuk di sini.
+     */
+    [data-state='open'],
+    [data-state='closed'] {
+      animation-duration: 0.01ms !important;
+    }
+
+    /* Posisinya kini datang dari properti `translate`, bukan dari keyframe,
+       jadi mematikan animasinya tidak lagi ikut menggeser dialognya. */
     .animate-modal-in {
       animation: none;
       opacity: 1;
-      transform: translate(-50%, -50%);
+      transform: none;
     }
   }
 }

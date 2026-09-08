@@ -21,7 +21,15 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5174,
       proxy: {
-        "/api": { target: proxyTarget, changeOrigin: true },
+        // Polanya "/api/", BUKAN "/api". Vite mencocokkan berdasarkan AWALAN,
+        // jadi "/api" ikut menangkap "/api-docs", "/api-keys", dan alamat lain
+        // yang kebetulan berawalan sama -- lalu meneruskannya ke Spring Boot,
+        // yang menjawabnya dengan 401 alih-alih membiarkan router front-end
+        // menampilkan halaman "tidak ditemukan".
+        //
+        // Garis miring di ujung menutup celah itu: hanya yang benar-benar
+        // berada DI BAWAH /api yang diteruskan.
+        "^/api/": { target: proxyTarget, changeOrigin: true },
       },
     },
     build: {

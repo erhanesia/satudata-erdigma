@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
 import { paths } from '@/app/router/paths'
+import logoErdigma from '@/shared/assets/logo-erdigma-mark.png'
 import { useToast } from '@/shared/components/ui/toastStore'
 
 /**
@@ -13,7 +14,7 @@ import { useToast } from '@/shared/components/ui/toastStore'
  */
 export function SiteFooter() {
   const toast = useToast()
-  const beriTahu = () => toast.show('Fitur ini tersedia pada versi lengkap.')
+  const notify = () => toast.show('Fitur ini tersedia pada versi lengkap.')
 
   return (
     <footer className="mt-auto bg-[#14213D] text-[#9FB0CC]">
@@ -21,11 +22,10 @@ export function SiteFooter() {
         <div className="flex flex-wrap justify-between gap-[30px]">
           <div className="max-w-[300px]">
             <div className="mb-3 flex items-center gap-2.5">
-              <span className="bg-brand flex size-8 items-center justify-center rounded-lg">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.4} aria-hidden>
-                  <path d="M4 19V9M10 19V4M16 19v-7M22 19H2" />
-                </svg>
-              </span>
+              {/* Logo yang sama dengan header, dari berkas — bukan digambar
+                  ulang dengan <path>. Dua versi logo yang dipelihara terpisah
+                  pasti menyimpang cepat atau lambat. */}
+              <img src={logoErdigma} alt="" width={32} height={32} className="size-8 shrink-0" />
               <span className="text-[17px] font-extrabold text-white">Satu Data Erdigma</span>
             </div>
             <p className="text-[13.5px] leading-relaxed">
@@ -41,9 +41,9 @@ export function SiteFooter() {
             </FooterColumn>
 
             <FooterColumn title="Legal">
-              <FooterAction onClick={beriTahu}>Kebijakan Data Internal</FooterAction>
-              <FooterAction onClick={beriTahu}>Privasi &amp; Keamanan</FooterAction>
-              <FooterAction onClick={beriTahu}>Umpan Balik</FooterAction>
+              <FooterAction onClick={notify}>Kebijakan Data Internal</FooterAction>
+              <FooterAction onClick={notify}>Privasi &amp; Keamanan</FooterAction>
+              <FooterAction onClick={notify}>Umpan Balik</FooterAction>
             </FooterColumn>
           </div>
         </div>
