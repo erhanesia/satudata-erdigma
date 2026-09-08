@@ -26,6 +26,7 @@ export const paths = {
   admin: '/admin',
   adminDatasets: '/admin/dataset',
   adminDatasetNew: '/admin/dataset/tambah',
+  adminDatasetEdit: (slug: string) => `/admin/dataset/${encodeURIComponent(slug)}/edit`,
   adminLog: '/admin/log',
   adminUsers: '/admin/pengguna',
 } as const
@@ -46,6 +47,11 @@ export const routePatterns = {
   // berparameter agar tidak pernah tertangkap sebagai nilai parameter.
   adminDatasets: 'dataset',
   adminDatasetNew: 'dataset/tambah',
+  // Akhiran 'edit' dipakai supaya polanya tidak pernah bertabrakan dengan
+  // 'dataset/tambah': yang satu tiga ruas, yang satu dua ruas. Tanpa akhiran
+  // itu, 'dataset/:slug' akan ikut menangkap '/admin/dataset/tambah' dan
+  // halaman terbit tidak pernah tampil.
+  adminDatasetEdit: 'dataset/:slug/edit',
   adminLog: 'log',
   adminUsers: 'pengguna',
 } as const

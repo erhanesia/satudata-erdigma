@@ -1,28 +1,27 @@
-import { Check, Loader2, Plus, Upload, User } from "lucide-react";
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Check, Loader2, Plus, Save, User } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 
 import { paths } from "@/app/router/paths";
-import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser";
-import {
-  MAX_FILES,
-  fileBlocker,
-  newFileRow,
-  type FileRowState,
-} from "@/features/admin/lib/datasetFormState";
-
-import {
-  useTopics,
-  useUploadDataset,
-} from "@/features/dataset/hooks/useDatasets";
+import { useDataset, useTopics } from "@/features/dataset/hooks/useDatasets";
 import { ApiError } from "@/shared/api/errors";
+import { QueryBoundary } from "@/shared/components/feedback/QueryBoundary";
 import { Reveal } from "@/shared/components/motion/Reveal";
 import { Dialog } from "@/shared/components/ui/Dialog";
 import { useToast } from "@/shared/components/ui/toastStore";
 import { RichTextEditor } from "@/shared/components/ui/RichTextEditor";
 import { formatNumber } from "@/shared/lib/format";
 import { richTextToPlain } from "@/shared/lib/richText";
-import type { AccessRule, Dataset } from "@/shared/types/api";
+import type { AccessRule, Dataset, DatasetUpdate } from "@/shared/types/api";
+
+import { AccessRulePicker } from "../components/AccessRulePicker";
+import {
+  MAX_FILES,
+  existingFileRow,
+  fileBlocker,
+  newFileRow,
+  type FileRowState,
+} from "@/features/admin/lib/datasetFormState";
 
 import {
   Card,
@@ -33,46 +32,98 @@ import {
   TextInput,
 } from "../components/DatasetFormParts";
 import { FormatBadge } from "../components/FormatBadge";
-import { AccessRulePicker } from "../components/AccessRulePicker";
+import { useDatasetAdmin } from "../hooks/useDatasetAdmin";
 
 /**
- * Terbitkan dataset baru, mengikuti desain "Tambah dataset".
+ * Menyunting dataset yang sudah terbit.
  *
- * **Satu dataset, beberapa berkas.** Tiap berkas diberi nama versi manusia dan
- * jenisnya sendiri. Yang dibaca isinya menjadi tabel hanya CSV pertama; sisanya
- * tersimpan sebagai berkas pendamping yang bisa diunduh — sama seperti XLSX dan
- * PDF pada dataset contoh.
+ * <h2>Sengaja kembar dengan layar penerbitan</h2>
  *
- * **Jenis berkas terbaca sendiri dari ekstensinya dan TIDAK bisa diubah.**
- * Desain menaruh kotak pilih di sini, tapi itu menyerahkan sebuah fakta kepada
- * pendapat: selama bisa dipilih tangan, seseorang bisa menandai berkas .csv
- * sebagai PDF. Server memang menolaknya, tapi penolakan yang baru datang
- * setelah unggahan selesai hanya membuang waktu untuk kesalahan yang
- * seharusnya tidak bisa terjadi. Kotaknya kini bacaan, bukan pilihan.
+ * Susunan kartunya sama, nama ruasnya sama, baris berkasnya komponen yang sama,
+ * dan pemilih aksesnya komponen yang sama. Orang yang sudah pernah menerbitkan
+ * dataset tidak semestinya perlu belajar ulang untuk menyuntingnya, dan
+ * kesamaan itu dijaga dengan MEMAKAI potongan yang sama lewat
+ * `DatasetFormParts` — bukan dengan menyalinnya lalu berharap keduanya tidak
+ * menyimpang.
  *
- * **Topik tidak ada di desain** dan ditambahkan atas permintaan, dengan gaya
- * kartu yang sama.
+ * Yang membedakan hanya arahnya: layar ini berangkat dari keadaan yang sudah
+ * ada, dan menyimpan berarti mengubah sesuatu yang sudah dibaca orang.
  *
- * **Disclaimer dan cakupan periode dibuang** dari formulir ini, mengikuti
- * desain. Kolomnya masih ada di database dan di API — dataset lama masih
- * memegang isinya, dan menghapus kolomnya berarti membuang data yang sudah
- * terlanjur ditulis orang. Yang hilang hanya cara mengisinya lewat layar ini.
+ * <h2>Yang bisa dilakukan pada berkas</h2>
+ *
+ * Sama dengan layar penerbitan, ditambah yang hanya masuk akal di sini:
+ * menambah, mengganti nama, mengganti isinya, dan membuang. Semuanya berangkat
+ * dalam SATU permintaan sebagai keadaan akhir yang diinginkan, bukan rentetan
+ * perintah — sehingga tidak ada keadaan setengah jalan tempat berkas lama sudah
+ * hilang tetapi penggantinya belum masuk.
+ *
+ * <h2>Yang tetap tidak bisa diubah dari sini</h2>
+ *
+ * <b>Slug.</b> Ia tidak ikut berganti meski judulnya diganti, dan itu disebut
+ * terang di layar — kalau tidak, penyunting akan menduga alamatnya ikut
+ * menyesuaikan lalu membagikan tautan yang tidak pernah ada.
+ *
+ * <b>Pengunggah.</b> Kartunya menyebut penerbit ASLINYA, bukan orang yang
+ * sedang menyunting. Kolom itu jejak siapa yang bertanggung jawab atas dataset
+ * ini; yang mencatat siapa menyunting apa adalah log audit.
  */
+export default function AdminDatasetEditPage() {
+  const { slug = "" } = useParams();
+  // `recordView` mati: membuka layar pengelolaan bukan mengunjungi datasetnya,
+  // dan penyuntingnya tidak seharusnya menaikkan sendiri angka kunjungannya.
+  const query = useDataset(slug, false);
 
-export default function AdminDatasetNewPage() {
-  const { data: user } = useCurrentUser();
+  return (
+    <QueryBoundary
+      query={query}
+      loading={
+        <div className="h-[60dvh] animate-pulse rounded-lg bg-white shadow-[0_1px_2px_rgba(16,24,40,.06)]" />
+      }
+    >
+      {(dataset) => <EditForm key={dataset.slug} dataset={dataset} />}
+    </QueryBoundary>
+  );
+}
+
+function EditForm({ dataset }: { dataset: Dataset }) {
+  const slug = dataset.slug ?? "";
   const topics = useTopics();
-  const upload = useUploadDataset();
+  const { update } = useDatasetAdmin();
   const toast = useToast();
   const navigate = useNavigate();
 
-  const [files, setFiles] = useState<FileRowState[]>([]);
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
-  const [accessRules, setAccessRules] = useState<AccessRule[]>([]);
-  // Dataset yang baru terbit, penanda sekaligus isi pop-up berhasil.
-  const [published, setPublished] = useState<Dataset | null>(null);
+  const [files, setFiles] = useState<FileRowState[]>(() =>
+    (dataset.resources ?? []).map(existingFileRow),
+  );
+  const [title, setTitle] = useState(dataset.title ?? "");
+  const [description, setDescription] = useState(dataset.notes ?? "");
+  const [selectedTopics, setSelectedTopics] = useState<string[]>(() => [
+    ...(dataset.topics ?? []),
+  ]);
+  const [accessRules, setAccessRules] = useState<AccessRule[]>(
+    () => (dataset.accessRules ?? []) as AccessRule[],
+  );
+  // Dataset yang baru tersimpan: penanda sekaligus isi pop-up berhasil.
+  const [saved, setSaved] = useState<Dataset | null>(null);
+
+  /*
+    Isian disegarkan kalau datasetnya berganti.
+
+    Perpindahan antar dataset sudah ditangani `key` pada pemanggilnya, jadi yang
+    benar-benar dijaga di sini keadaan yang lebih halus: respons penyimpanan
+    membawa daftar berkas yang BARU, dan id berkas pengganti berbeda dari
+    pendahulunya. Tanpa penyegaran ini formulir masih memegang id yang sudah
+    tidak ada, dan menekan Simpan sekali lagi akan ditolak back-end dengan
+    "berkas bukan milik dataset ini" — galat yang tidak masuk akal bagi orang
+    yang cuma menyimpan dua kali.
+  */
+  useEffect(() => {
+    setFiles((dataset.resources ?? []).map(existingFileRow));
+    setTitle(dataset.title ?? "");
+    setDescription(dataset.notes ?? "");
+    setSelectedTopics([...(dataset.topics ?? [])]);
+    setAccessRules((dataset.accessRules ?? []) as AccessRule[]);
+  }, [dataset]);
 
   function change(rowKey: number, ubahan: Partial<FileRowState>) {
     setFiles((previous) =>
@@ -81,13 +132,9 @@ export default function AdminDatasetNewPage() {
   }
 
   /**
-   * Alasan tombol Unggah belum bisa ditekan, atau null kalau sudah siap.
+   * Alasan tombol Simpan belum bisa ditekan, atau null kalau sudah siap.
    *
-   * Dikembalikan sebagai kalimat, bukan boolean. Tombol mati tanpa keterangan
-   * memaksa orang menebak apa yang kurang — dan pada formulir sepanjang ini,
-   * yang kurang biasanya sedang berada di luar layar.
-   *
-   * Syarat berkasnya dipakai bersama formulir sunting, supaya penolakan yang
+   * Syarat berkasnya dipakai bersama formulir terbit, supaya penolakan yang
    * sama tidak berbunyi berbeda di dua layar yang sengaja dibuat kembar.
    */
   const blocker: string | null =
@@ -96,35 +143,44 @@ export default function AdminDatasetNewPage() {
   function submit() {
     if (blocker) return;
 
-    upload.mutate(
+    /*
+      Baris yang memegang berkas baru dikirim sebagai berkas BARU, termasuk
+      baris yang berasal dari berkas lama.
+
+      Itulah cara "ganti file" bekerja tanpa endpoint tersendiri: id lamanya
+      cukup tidak ikut disebutkan, sehingga back-end melepasnya, dan
+      penggantinya masuk sebagai entri tanpa id. Keduanya dalam satu transaksi.
+    */
+    const body: DatasetUpdate = {
+      title: title.trim(),
+      // Dikirim apa adanya, termasuk saat kosong. String kosong berarti
+      // "kosongkan" di back-end, dan itu memang yang dimaksud penyunting kalau
+      // ia menghapus isinya.
+      notes: description,
+      topics: selectedTopics,
+      // Selalu disertakan, bahkan saat kosong. Ruas keamanan yang hilang
+      // ditolak back-end dengan 400 — disengaja, supaya "lupa mengirim" tidak
+      // pernah berakibat sama dengan "sengaja membuka".
+      accessRules,
+      files: files.map((b) =>
+        b.file
+          ? { label: b.label.trim(), format: b.kind }
+          : { id: b.id, label: b.label.trim() },
+      ),
+    };
+
+    // Urutannya SAMA dengan urutan entri tanpa `id` di atas, karena back-end
+    // memasangkan keduanya menurut urutan itu.
+    const uploads = files.filter((b) => b.file).map((b) => b.file as File);
+
+    update.mutate(
+      { slug, body, files: uploads },
       {
-        files: files.map((b) => b.file as File),
-        body: {
-          title: title.trim(),
-          notes: description.trim() || undefined,
-          topics: selectedTopics.length ? selectedTopics : undefined,
-          accessRules: accessRules.length ? accessRules : undefined,
-          // Urutannya sama dengan urutan `files` di atas — back-end
-          // memasangkan keduanya menurut urutan itu.
-          files: files.map((b) => ({ label: b.label.trim(), format: b.kind })),
-        },
-      },
-      {
-        onSuccess: (dataset) => {
-          // Sengaja TIDAK langsung berpindah halaman. Menerbitkan dataset itu
-          // tindakan yang tidak bisa dibatalkan dan memakan beberapa detik;
-          // pindah begitu saja membuat orang bertanya-tanya apakah berkasnya
-          // benar-benar masuk — apalagi kalau daftar di halaman tujuan belum
-          // sempat menyegarkan diri.
-          setPublished(dataset);
-        },
-        onError: (error) => {
+        onSuccess: (next) => setSaved(next),
+        onError: (error) =>
           toast.error(
-            error instanceof ApiError
-              ? error.message
-              : "Dataset gagal diterbitkan.",
-          );
-        },
+            error instanceof ApiError ? error.message : "Dataset gagal disimpan.",
+          ),
       },
     );
   }
@@ -135,7 +191,7 @@ export default function AdminDatasetNewPage() {
         <Card>
           <CardHeader
             title="File"
-            description="Tambahkan satu atau beberapa file. Tiap file diberi nama sendiri; jenisnya terbaca dari file yang dipilih."
+            description="Berkas yang sudah tersimpan dimuat di bawah. Tambahkan, ganti namanya, ganti isinya, atau buang."
           />
 
           {files.map((b, i) => (
@@ -155,9 +211,7 @@ export default function AdminDatasetNewPage() {
           {files.length < MAX_FILES ? (
             <button
               type="button"
-              onClick={() =>
-                setFiles((previous) => [...previous, newFileRow()])
-              }
+              onClick={() => setFiles((previous) => [...previous, newFileRow()])}
               className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-[#CBD2DC] py-4 text-[16px] font-bold text-[#4B5563] transition-colors hover:border-[#4F6BED] hover:bg-[#F7F9FF] hover:text-[#4F6BED]"
             >
               <Plus className="size-[18px]" />
@@ -179,6 +233,17 @@ export default function AdminDatasetNewPage() {
               onChange={setTitle}
               placeholder="Contoh: Rekap Capaian Kinerja Unit"
             />
+            {/*
+              Disebut terang-terangan tepat di bawah isian judulnya, bukan
+              disembunyikan di kartu lain. Kalau tidak, penyunting yang mengganti
+              judul akan menduga alamatnya ikut menyesuaikan, lalu membagikan
+              tautan yang tidak pernah ada.
+            */}
+            <p className="mt-2 text-[13px] leading-relaxed text-[#9CA3AF]">
+              Alamat dataset tetap{" "}
+              <span className="font-mono text-[#6B7280]">{slug}</span> meski
+              judulnya diganti, supaya tautan yang sudah dibagikan tidak mati.
+            </p>
           </Field>
 
           <Field label="Deskripsi dataset">
@@ -188,18 +253,6 @@ export default function AdminDatasetNewPage() {
               placeholder="Jelaskan isi dataset ini dan untuk apa dipakai."
               ariaLabel="Deskripsi dataset"
             />
-            {/*
-              Penghitungnya dipertahankan meski batasnya dicabut.
-
-              Angka tanpa pembagi tidak lagi terbaca sebagai jatah yang menipis,
-              tetapi tetap memberi tahu penulis seberapa panjang tulisannya --
-              berguna untuk menakar apakah deskripsinya sudah bertele-tele.
-
-              Batas 500 dicabut karena tidak ada lapisan lain yang memaksanya:
-              kolom `dataset.notes` bertipe `text`, dan DTO di back-end tidak
-              memasang @Size. Jadi batas itu hanya ada di layar ini, dan
-              satu-satunya akibatnya adalah ketikan yang terpotong diam-diam.
-            */}
             {/*
               Yang dihitung teksnya, bukan HTML-nya.
 
@@ -213,8 +266,6 @@ export default function AdminDatasetNewPage() {
             </div>
           </Field>
 
-          {/* Tidak ada di desain — ditambahkan atas permintaan, gayanya
-              mengikuti kartu di sekitarnya. */}
           <Field
             label="Topik"
             hint="Menentukan dataset ini muncul di penyaring topik yang mana. Boleh lebih dari satu."
@@ -240,24 +291,12 @@ export default function AdminDatasetNewPage() {
         </Card>
       </Reveal>
 
-      {/*
-        `minmax(0, 1fr)`, bukan `1fr` — dan `min-w-0` pada tiap itemnya.
-
-        `1fr` sebenarnya berarti `minmax(auto, 1fr)`, dan `auto` itulah yang
-        menolak menyusut di bawah lebar min-content isinya. Di dalam kartu ada
-        teks ber-`truncate`, yang berarti `white-space: nowrap`, sehingga
-        min-content-nya adalah panjang PENUH kalimat itu — sekitar 350px untuk
-        "Project Manager Data & IT · DNA · Project Manager".
-        Kolomnya lalu melar melewati layar ponsel dan menyeret seluruh kartu
-        keluar, sementara `truncate`-nya sendiri tidak pernah sempat bekerja
-        karena tidak ada yang memaksanya sempit.
-      */}
       <div className="grid gap-3.5 lg:grid-cols-[repeat(2,minmax(0,1fr))]">
         <Reveal delay={140} className="h-full min-w-0">
           <Card full>
             <CardHeader
               title="Diunggah oleh"
-              description="Terbaca dari akun yang sedang masuk. Tidak bisa diubah."
+              description="Penerbit aslinya, dicatat sekali saat dataset terbit. Tidak berpindah ke penyunting."
             />
             <div className="flex items-center gap-3.5 rounded-[10px] border border-[#E9EBF0] px-4 py-3.5">
               <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[#E9EBF0]">
@@ -265,10 +304,13 @@ export default function AdminDatasetNewPage() {
               </span>
               <span className="min-w-0">
                 <span className="block truncate text-[16px] font-semibold text-[#2E3646]">
-                  {user?.name ?? "—"}
+                  {dataset.uploadedBy?.name ?? "—"}
                 </span>
                 <span className="block truncate text-[13.5px] text-[#6B7280]">
-                  {[user?.position, user?.division?.code, user?.jobLevel]
+                  {[
+                    dataset.uploadedBy?.position,
+                    dataset.uploadedBy?.divisionCode,
+                  ]
                     .filter(Boolean)
                     .join(" · ") || "—"}
                 </span>
@@ -286,13 +328,16 @@ export default function AdminDatasetNewPage() {
             </div>
 
             {/*
-              Pembungkusnya tidak lagi butuh `relative z-30`. Pemilih lama berupa
-              dropdown yang tumbuh melewati batas kartunya, sehingga bilah kaki
-              "Unggah" — yang berada setelahnya di DOM — tergambar di atasnya dan
-              menutupi pilihan sampai tidak bisa diklik. Pemilih sekarang tumbuh
-              di dalam kartunya sendiri, jadi tidak ada yang saling menutup.
+              Sudah menyala sesuai aturan yang berlaku sekarang. Itu syarat,
+              bukan kenyamanan: daftar yang dikirim MENGGANTI, bukan menambah,
+              jadi pemilih yang dibuka kosong akan diam-diam membuka dataset ini
+              untuk seluruh karyawan begitu Simpan ditekan.
             */}
-            <AccessRulePicker value={accessRules} onChange={setAccessRules} />
+            <AccessRulePicker
+              value={accessRules}
+              onChange={setAccessRules}
+              disabled={update.isPending}
+            />
           </Card>
         </Reveal>
       </div>
@@ -311,7 +356,7 @@ export default function AdminDatasetNewPage() {
             <span
               className={[
                 "text-center text-[14px] sm:text-left",
-                upload.isPending
+                update.isPending
                   ? "text-[#4B5563]"
                   : blocker
                     ? "text-[#B45309]"
@@ -319,48 +364,43 @@ export default function AdminDatasetNewPage() {
               ].join(" ")}
             >
               {/*
-                Saat unggahan berjalan, baris ini berhenti melaporkan kesiapan
-                dan mulai melaporkan kemajuan.
-
-                Unggahan besar memakan puluhan detik — satu XLSX berisi 61.876
-                baris terukur 64 detik — dan sebagian besar waktu itu dihabiskan
-                SETELAH byte terakhir terkirim, saat back-end membaca berkasnya
-                lalu memasukkan barisnya. Tanpa kalimat yang berganti di sini,
-                yang terlihat penerbit hanya tombol berputar tanpa akhir, dan
-                dugaan pertamanya selalu "gagal".
+                Saat penyimpanan berjalan, baris ini berhenti melaporkan
+                kesiapan dan mulai melaporkan kemajuan — sama seperti pada
+                penerbitan, dan karena alasan yang sama: sebagian besar waktunya
+                dihabiskan SETELAH byte terakhir terkirim, saat back-end membaca
+                berkasnya lalu memasukkan barisnya.
               */}
-              {upload.isPending
-                ? upload.progress < 100
-                  ? `Mengunggah berkas… ${upload.progress}%`
-                  : "Berkas terkirim. Sedang membaca isinya, mohon tunggu — jangan tutup halaman ini."
-                : (blocker ?? `${files.length} file siap diunggah`)}
+              {update.isPending
+                ? update.progress < 100
+                  ? `Mengunggah berkas… ${update.progress}%`
+                  : "Berkas terkirim. Sedang menyimpan, mohon tunggu — jangan tutup halaman ini."
+                : (blocker ?? "Perubahan berlaku seketika setelah disimpan.")}
             </span>
             <button
               type="button"
-              disabled={Boolean(blocker) || upload.isPending}
+              disabled={Boolean(blocker) || update.isPending}
               onClick={submit}
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#1F2A37] px-7 py-3 text-[16px] font-bold text-white transition-colors hover:bg-[#111A24] disabled:cursor-not-allowed disabled:bg-[#E9EBF0] disabled:text-[#9CA3AF] sm:w-auto"
             >
-              {upload.isPending ? (
+              {update.isPending ? (
                 <Loader2 className="size-[18px] animate-spin" />
               ) : (
-                <Upload className="size-[18px]" />
+                <Save className="size-[18px]" />
               )}
-              Unggah
+              Simpan perubahan
             </button>
           </div>
         </div>
       </Reveal>
 
-      <PublishedDialog
-        dataset={published}
+      <SavedDialog
+        dataset={saved}
         onClose={() => {
-          setPublished(null);
+          setSaved(null);
           void navigate(paths.adminDatasets);
         }}
         onOpenDetail={() => {
-          const slug = published?.slug ?? "";
-          setPublished(null);
+          setSaved(null);
           void navigate(slug ? paths.datasetDetail(slug) : paths.adminDatasets);
         }}
       />
@@ -369,17 +409,19 @@ export default function AdminDatasetNewPage() {
 }
 
 /**
- * Pop-up setelah dataset terbit.
+ * Pop-up setelah perubahan tersimpan.
  *
- * Menutupnya membawa ke daftar dataset — jadi tidak ada jalan buntu: apa pun
- * yang ditekan, orangnya berpindah ke tempat yang masuk akal.
+ * Sekeluarga dengan pop-up setelah penerbitan, dengan alasan yang sama:
+ * perubahan aturan akses berlaku seketika dan menyentuh siapa yang bisa membuka
+ * data. Kabar semacam itu tidak boleh lewat toast yang hilang sendiri sebelum
+ * sempat dibaca.
  *
- * Angkanya diambil dari respons unggah, bukan dari isian formulir. Jumlah baris
- * dan kolom baru diketahui setelah berkasnya dibaca server, dan menampilkan
- * apa yang benar-benar tersimpan adalah satu-satunya cara pop-up ini menjadi
- * konfirmasi, bukan sekadar ucapan selamat.
+ * Angkanya diambil dari respons penyimpanan, bukan dari isian formulir. Jumlah
+ * baris dan kolom baru diketahui setelah berkasnya dibaca server, dan
+ * menampilkan apa yang benar-benar tersimpan adalah satu-satunya cara pop-up
+ * ini menjadi konfirmasi, bukan sekadar ucapan selamat.
  */
-function PublishedDialog({
+function SavedDialog({
   dataset,
   onClose,
   onOpenDetail,
@@ -394,7 +436,7 @@ function PublishedDialog({
     <Dialog
       open={dataset !== null}
       onOpenChange={(next) => !next && onClose()}
-      title="Dataset berhasil diterbitkan"
+      title="Perubahan tersimpan"
       description={dataset?.title ?? ""}
     >
       <div className="flex items-center gap-3.5 rounded-[10px] border border-[#CDE9D8] bg-[#F2FBF6] px-4 py-3.5">
@@ -402,7 +444,8 @@ function PublishedDialog({
           <Check className="size-5 text-[#137A46]" strokeWidth={3} />
         </span>
         <div className="min-w-0 text-[13.5px] leading-relaxed text-[#137A46]">
-          Dataset sudah masuk katalog dan bisa dibuka karyawan yang berhak.
+          Perubahannya berlaku sekarang. Karyawan di luar aturan akses yang baru
+          langsung kehilangan akses membuka dan mengunduh dataset ini.
         </div>
       </div>
 

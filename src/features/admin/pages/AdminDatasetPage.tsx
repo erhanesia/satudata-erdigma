@@ -6,11 +6,11 @@ import {
   Plus,
   RotateCcw,
   Search,
-  ShieldQuestion,
+  Pencil,
   Trash2,
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { paths } from "@/app/router/paths";
 import { useDatasets, useFormats } from "@/features/dataset/hooks/useDatasets";
@@ -18,12 +18,12 @@ import { useDivisions } from "@/features/division/hooks/useDivisions";
 import { Reveal } from "@/shared/components/motion/Reveal";
 import { Dialog } from "@/shared/components/ui/Dialog";
 import { Pagination } from "@/shared/components/ui/Pagination";
+import { SelectMenu } from "@/shared/components/ui/SelectMenu";
 import { formatBytes, formatNumber } from "@/shared/lib/format";
 import type { AccessRule, DatasetLite } from "@/shared/types/api";
 
 import { DatasetDrawer } from "../components/DatasetDrawer";
 import { FormatBadge } from "../components/FormatBadge";
-import { AccessRulePicker } from "../components/AccessRulePicker";
 import { useJobLevels } from "../hooks/useAccessOptions";
 import { useDatasetAdmin } from "../hooks/useDatasetAdmin";
 
@@ -35,12 +35,16 @@ const PAGE_SIZE = 10;
  *
  * Kolomnya sama dengan desain, termasuk kotak centang dan kolom akses.
  *
- * **Tentang kotak centangnya.** Sebelumnya sengaja tidak dibuat karena kedua
- * tindakan massal pada desain — ubah akses dan hapus — tidak punya endpoint,
- * dan kotak centang yang tidak menghasilkan apa-apa lebih buruk daripada tidak
- * ada. Endpoint-nya kini ada (`PATCH /{slug}/access-rules` dan
- * `DELETE /{slug}`), keduanya menulis jejak audit, jadi kotak centangnya
- * benar-benar bekerja.
+ * **Tentang kotak centangnya.** Dua tindakan yang bergantung padanya berbeda
+ * jangkauan, dan bedanya disengaja. Hapus berlaku untuk semua yang tercentang;
+ * Edit dataset baru menyala kalau yang tercentang tepat satu, karena formulir
+ * suntingnya mengurus judul dan deskripsi yang memang milik satu dataset saja.
+ *
+ * Ubah akses massal dulu ada di sini dan kini dilepas. Pengaturan siapa yang
+ * boleh melihat pindah ke formulir sunting, tempat yang sama dengan formulir
+ * terbit — jadi aturan akses hanya punya satu layar, bukan dua yang harus
+ * dijaga tetap sepakat. Endpoint `PATCH /{slug}/access-rules` di sisi server
+ * tidak ikut dicabut; yang hilang cuma jalan pintas massalnya.
  *
  * **Tentang kolom aksesnya.** Aturannya berlaku sungguhan: daftar, detail, isi
  * tabel, dan unduhan semuanya melewati {@code DatasetAccessGuard}. Baris "Semua
@@ -59,9 +63,11 @@ export default function AdminDatasetPage() {
   const [jobLevel, setJobLevel] = useState("");
   const [page, setPage] = useState(0);
 
+  const navigate = useNavigate();
+
   const [openSlug, setOpenSlug] = useState<string | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
-  const [dialog, setDialog] = useState<"hapus" | "akses" | null>(null);
+  const [dialog, setDialog] = useState<"hapus" | null>(null);
 
   /*
     Hasil tindakan massal yang baru selesai, ditampilkan sebagai pop-up.
@@ -93,7 +99,7 @@ export default function AdminDatasetPage() {
   const divisions = useDivisions();
   const formats = useFormats();
   const jobLevels = useJobLevels();
-  const { remove, updateAccessRules } = useDatasetAdmin();
+  const { remove } = useDatasetAdmin();
 
   const datasets = useDatasets({
     search: search || undefined,
@@ -122,19 +128,7 @@ export default function AdminDatasetPage() {
   }, [page, search, division, format, jobLevel]);
 
   const allChecked = rows.length > 0 && selected.length === rows.length;
-  const busy = remove.isPending || updateAccessRules.isPending;
-
-  // Aturan yang sedang berlaku pada dataset-dataset yang dicentang, dipakai
-  // dialog untuk menyalakan pilihan awalnya. Aman diambil dari `rows` karena
-  // pilihan selalu direset saat berpindah halaman — jadi setiap slug yang
-  // tercentang pasti ada di halaman yang sedang tampil.
-  const selectedRules = useMemo(
-    () =>
-      rows
-        .filter((d) => selected.includes(d.slug ?? ""))
-        .map((d) => (d.accessRules ?? []) as AccessRule[]),
-    [rows, selected],
-  );
+  const busy = remove.isPending;
 
   function toggleSelection(slug: string) {
     setSelected((previous) =>
@@ -154,6 +148,23 @@ export default function AdminDatasetPage() {
     <div>
       <Reveal>
         {/*
+          DUA kelompok, bukan satu baris berisi semuanya.
+
+          Penyaring dan tombol Tambah dataset dulu jadi anak dari satu
+          `flex-wrap` yang sama, dengan `ml-auto` pada tombolnya. Selama semuanya
+          muat sebaris itu terlihat benar. Begitu ruangnya menipis — di tablet,
+          atau di jendela desktop yang dikecilkan — Reset jatuh ke baris kedua
+          dan `ml-auto` melemparkan tombolnya ke ujung kanan baris yang sama,
+          menyisakan celah kosong lebar di antara keduanya. Yang terbaca bukan
+          susunan yang menyesuaikan diri, melainkan tata letak yang rusak.
+
+          Penyakit yang sama sudah dibetulkan di bilah pilihan tepat di bawah,
+          dan catatannya masih ada di sana. Yang membedakan obatnya: di sana
+          tombolnya harus tetap menempel ke tepi BILAH, jadi yang dipakai
+          `w-full`. Di sini tombolnya memang milik kelompoknya sendiri, jadi
+          memisahkannya jadi dua kelompok justru yang benar — penyaring boleh
+          membungkus sesukanya tanpa pernah menyeret tombolnya ikut berpindah.
+
           Di ponsel penyaringnya disusun grid dua kolom, bukan dibiarkan
           membungkus sendiri. `flex-wrap` menempatkan tiap anak sesuai sisa ruang
           baris sebelumnya, sehingga tiga pilihan dan tombol Reset jatuh dengan
@@ -161,7 +172,8 @@ export default function AdminDatasetPage() {
           setiap anak lebar yang sama, jadi susunannya bisa diramalkan tanpa
           mengunci lebar satu per satu.
         */}
-        <div className="mb-5 grid grid-cols-2 gap-2.5 sm:flex sm:flex-wrap sm:items-center">
+        <div className="mb-5 flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+          <div className="grid grid-cols-2 gap-2.5 sm:flex sm:flex-wrap sm:items-center">
           <div className="relative col-span-2 sm:w-[300px] sm:min-w-[240px]">
             <input
               value={search}
@@ -175,50 +187,52 @@ export default function AdminDatasetPage() {
             <Search className="pointer-events-none absolute top-1/2 right-4 size-[19px] -translate-y-1/2 text-[#2E3646]" />
           </div>
 
-          <Select
+          {/*
+            Pilihan bernilai kosong DIBUANG, bukan dikirim apa adanya.
+
+            Kode divisi dan nama format datang dari HRIS dan dari basis data,
+            dan keduanya bertipe opsional. Satu baris tanpa kode akan menjadi
+            pilihan bernilai kosong, dan pilihan seperti itu tidak bisa
+            dibedakan dari "semua" -- menekannya justru akan membersihkan
+            penyaringnya. Membuangnya lebih jujur daripada menampilkan baris
+            yang tidak menyaring apa pun.
+          */}
+          <SelectMenu
             value={division}
             onChange={(v) => {
               setDivision(v);
               resetPage();
             }}
-            all="Semua divisi"
-          >
-            {(divisions.data ?? []).map((d) => (
-              <option key={d.id} value={d.code ?? ""}>
-                {d.code}
-              </option>
-            ))}
-          </Select>
+            placeholder="Semua divisi"
+            options={(divisions.data ?? [])
+              .filter((d) => d.code)
+              .map((d) => ({ value: d.code as string, label: d.code as string }))}
+          />
 
-          <Select
+          <SelectMenu
             value={format}
             onChange={(v) => {
               setFormat(v);
               resetPage();
             }}
-            all="Semua jenis file"
-          >
-            {(formats.data ?? []).map((f) => (
-              <option key={f.id} value={f.name ?? ""}>
-                {f.name}
-              </option>
-            ))}
-          </Select>
+            placeholder="Semua jenis file"
+            options={(formats.data ?? [])
+              .filter((f) => f.name)
+              .map((f) => ({ value: f.name as string, label: f.name as string }))}
+          />
 
-          <Select
+          <SelectMenu
             value={jobLevel}
             onChange={(v) => {
               setJobLevel(v);
               resetPage();
             }}
-            all="Semua job level"
-          >
-            {(jobLevels.data ?? []).map((level) => (
-              <option key={level} value={level}>
-                {level}
-              </option>
-            ))}
-          </Select>
+            placeholder="Semua job level"
+            options={(jobLevels.data ?? []).map((level) => ({
+              value: level,
+              label: level,
+            }))}
+          />
 
           <button
             type="button"
@@ -235,10 +249,14 @@ export default function AdminDatasetPage() {
             <RotateCcw className="size-4" />
             Reset
           </button>
+          </div>
 
+          {/* `shrink-0` supaya tombolnya tidak ikut menyempit saat penyaring di
+              sebelahnya melebar. Tombol utama yang hurufnya terpotong lebih buruk
+              daripada penyaring yang membungkus satu baris lebih banyak. */}
           <Link
             to={paths.adminDatasetNew}
-            className="col-span-2 flex h-[52px] w-full items-center justify-center gap-2 rounded-lg bg-[#22C55E] px-6 text-[16px] font-bold text-white transition-colors hover:bg-[#1BA851] sm:ml-auto sm:w-auto"
+            className="flex h-[52px] w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[#22C55E] px-6 text-[16px] font-bold text-white transition-colors hover:bg-[#1BA851] sm:w-auto"
           >
             <Plus className="size-[18px]" />
             Tambah dataset
@@ -268,14 +286,29 @@ export default function AdminDatasetPage() {
               <span className="w-full text-[14.5px] font-semibold text-[#2E3646] sm:w-auto">
                 {selected.length} dataset dipilih
               </span>
+              {/*
+                Menyala hanya kalau yang tercentang TEPAT SATU.
+
+                Formulir sunting mengurus judul, deskripsi, dan berkas -- semuanya
+                milik satu dataset tertentu. Tidak ada bentuk masuk akal dari
+                "sunting lima dataset sekaligus" untuk ruas-ruas itu.
+
+                Tombolnya dimatikan, bukan disembunyikan, dan alasannya disebut di
+                keterangan bawah. Tombol yang menghilang membuat orang mengira
+                fiturnya tidak ada.
+
+                Mengubah aturan akses kini juga lewat sini, bukan lagi lewat dialog
+                massal tersendiri -- pemilih yang sama sudah jadi bagian formulirnya,
+                lengkap dengan aturan yang sedang berlaku.
+              */}
               <button
                 type="button"
-                disabled={busy}
-                onClick={() => setDialog("akses")}
-                className="flex items-center gap-1.5 rounded-lg border border-[#E9EBF0] bg-white px-3.5 py-2 text-[13.5px] font-semibold text-[#4B5563] transition-colors hover:bg-[#F8FAFC] disabled:opacity-40"
+                disabled={busy || selected.length !== 1}
+                onClick={() => void navigate(paths.adminDatasetEdit(selected[0] ?? ""))}
+                className="flex items-center gap-1.5 rounded-lg border border-[#E9EBF0] bg-white px-3.5 py-2 text-[13.5px] font-semibold text-[#4B5563] transition-colors hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-40"
               >
-                <ShieldQuestion className="size-4" />
-                Ubah akses
+                <Pencil className="size-4" />
+                Edit dataset
               </button>
               <button
                 type="button"
@@ -286,6 +319,11 @@ export default function AdminDatasetPage() {
                 <Trash2 className="size-4" />
                 Hapus
               </button>
+              {selected.length > 1 ? (
+                <span className="text-[13px] text-[#9CA3AF]">
+                  Pilih satu dataset saja untuk menyuntingnya.
+                </span>
+              ) : null}
               <button
                 type="button"
                 onClick={() => setSelected([])}
@@ -324,7 +362,7 @@ export default function AdminDatasetPage() {
             mulus karena durasi dan easing-nya sama untuk kedua arah.
           */}
           {/*
-            Di ponsel tabelnya diganti daftar kartu, bukan digulung menyamping.
+            Sampai `lg`, tabelnya diganti daftar kartu — bukan digulung menyamping.
 
             Tabelnya butuh 1120px untuk tujuh kolomnya. Di layar 390px yang
             terlihat cuma kolom pertama, dan enam kolom sisanya — termasuk akses
@@ -333,12 +371,24 @@ export default function AdminDatasetPage() {
             yang juga bergulung tegak adalah gerakan yang paling sering salah
             kena.
 
+            Ambangnya `lg`, bukan `md`. Di tablet 820px ruang isinya sekitar
+            790px — masih jauh dari 1120px, dan yang terjadi persis keluhan yang
+            dilaporkan: kolom terpotong di tepi kanan, judul kolom membungkus, dan
+            nama pengunggah menumpuk tiga baris. Ambang ini juga menyamakan diri
+            dengan sidebar panel, yang sudah lebih dulu berganti di `lg` dengan
+            alasan yang sama persis.
+
+            Di atas `lg` tabelnya memang masih perlu digeser mendatar, dan itu
+            dibiarkan: di sana ada penunjuk dan roda gulir, gerakan yang sudah
+            wajar untuk tabel data lebar. Yang tidak wajar adalah menuntutnya
+            dari jari di layar sentuh.
+
             Kartunya menyusun data yang sama secara menurun, jadi tidak ada yang
             hilang. Yang berbeda cuma urutan bacanya.
           */}
           <div
             className={[
-              "transition-opacity duration-[220ms] ease-out md:hidden",
+              "transition-opacity duration-[220ms] ease-out lg:hidden",
               datasets.isFetching && !datasets.isPending
                 ? "opacity-40"
                 : "opacity-100",
@@ -439,7 +489,7 @@ export default function AdminDatasetPage() {
 
           <div
             className={[
-              "hidden overflow-x-auto transition-opacity duration-[220ms] ease-out md:block",
+              "hidden overflow-x-auto transition-opacity duration-[220ms] ease-out lg:block",
               datasets.isFetching && !datasets.isPending
                 ? "opacity-40"
                 : "opacity-100",
@@ -628,34 +678,6 @@ export default function AdminDatasetPage() {
         </div>
       </Dialog>
 
-      <AccessRuleDialog
-        open={dialog === "akses"}
-        count={selected.length}
-        currentRules={selectedRules}
-        busy={updateAccessRules.isPending}
-        onClose={() => setDialog(null)}
-        onSave={(rules) =>
-          updateAccessRules.mutate(
-            /*
-              Payloadnya disusun per dataset, meski isinya sama untuk semua.
-
-              Bentuk itu datang dari hook-nya, dan sengaja dipertahankan: yang
-              memutuskan "semua yang terpilih dapat aturan yang sama" adalah
-              dialog ini, bukan lapisan datanya. Kalau suatu saat ada layar yang
-              hanya bisa menyunting sebagian sumbu, ia bisa memakai hook yang
-              sama sambil membawa serta aturan yang tidak ia tampilkan.
-
-              Penggantian menyeluruh di sini aman justru karena pemilihnya
-              menampilkan ketiga sumbu: tidak ada aturan yang tersembunyi dari
-              admin, dan yang hanya dipunyai sebagian sudah diperingatkan di
-              dialognya sebelum disimpan.
-            */
-            selected.map((slug) => ({ slug, accessRules: rules })),
-            { onSuccess: (h) => report(h, "diperbarui") },
-          )
-        }
-      />
-
       <ActionResultDialog
         result={actionResult}
         onClose={() => setActionResult(null)}
@@ -668,12 +690,12 @@ export default function AdminDatasetPage() {
 interface ActionResult {
   total: number;
   failed: string[];
-  /** Kata kerja yang sudah dilakukan, mis. "dihapus" atau "diperbarui". */
+  /** Kata kerja yang sudah dilakukan, mis. "dihapus". */
   verb: string;
 }
 
 /**
- * Pop-up hasil setelah menghapus atau mengubah akses banyak dataset.
+ * Pop-up hasil setelah menghapus banyak dataset sekaligus.
  *
  * <h2>Kenapa pop-up, bukan toast</h2>
  *
@@ -684,7 +706,7 @@ interface ActionResult {
  * habis, apalagi dicatat.
  *
  * Bentuknya sengaja dibuat sekeluarga dengan pop-up setelah unggah, supaya
- * ketiga tindakan yang mengubah katalog — terbit, hapus, ubah akses — berakhir
+ * ketiga tindakan yang mengubah katalog — terbit, sunting, hapus — berakhir
  * dengan cara yang sama dan sama-sama minta ditutup dengan sadar.
  *
  * <h2>Sebagian gagal bukan kegagalan, dan bukan keberhasilan</h2>
@@ -785,161 +807,6 @@ function ActionResultDialog({
       </div>
     </Dialog>
   );
-}
-
-/**
- * Dialog ganti aturan "siapa boleh melihat" untuk banyak dataset sekaligus.
- *
- * **Pilihan awalnya menyala sesuai keadaan sekarang.** Ini bukan kenyamanan
- * tambahan melainkan syarat supaya dialognya aman: daftar yang dikirim
- * MENGGANTI, bukan menambah. Kalau dibuka dalam keadaan kosong, orang yang
- * sekadar ingin menambah satu aturan akan menekan Simpan dan diam-diam
- * membuka dataset itu untuk seluruh karyawan.
- *
- * **Saat banyak dataset dipilih**, aturan mereka bisa berbeda-beda. Yang
- * dinyalakan hanya IRISANNYA — aturan yang dipunyai semuanya. Aturan yang cuma
- * dipunyai sebagian disebutkan di peringatan bawah, karena menyimpan berarti
- * melepasnya dari dataset yang tadinya punya, dan itu keputusan yang harus
- * diambil sadar, bukan efek samping.
- *
- * Berbeda dari versi sebelumnya, pilihannya tidak lagi bisa menampilkan keadaan
- * "sebagian" per lencana: pemilihnya kini dipakai bersama halaman unggah, dan
- * menambahkan keadaan ketiga ke sana hanya demi dialog ini membuat komponen yang
- * sama berperilaku beda di dua tempat. Peringatan tertulis mengerjakan tugas yang
- * sama tanpa membebani pemilihnya.
- */
-function AccessRuleDialog({
-  open,
-  count,
-  currentRules,
-  busy,
-  onClose,
-  onSave,
-}: {
-  open: boolean;
-  count: number;
-  /** Aturan yang berlaku pada tiap dataset terpilih — satu larik per dataset. */
-  currentRules: AccessRule[][];
-  busy: boolean;
-  onClose: () => void;
-  onSave: (rules: AccessRule[]) => void;
-}) {
-  const [chosen, setChosen] = useState<AccessRule[]>([]);
-
-  // Dimiliki SEMUA dataset terpilih (irisan) versus hanya sebagian.
-  const { shared, partial } = useMemo(() => {
-    if (currentRules.length === 0)
-      return { shared: [] as AccessRule[], partial: [] as AccessRule[] };
-
-    const byKey = new Map<string, AccessRule>();
-    currentRules.flat().forEach((rule) => byKey.set(ruleKey(rule), rule));
-
-    const shared: AccessRule[] = [];
-    const partial: AccessRule[] = [];
-    byKey.forEach((rule, key) => {
-      const owned = currentRules.every((rules) =>
-        rules.some((r) => ruleKey(r) === key),
-      );
-      (owned ? shared : partial).push(rule);
-    });
-    return { shared, partial };
-  }, [currentRules]);
-
-  // Disetel ulang setiap kali dibuka, bukan sekali saja: pilihan barisnya bisa
-  // berubah di antara dua kali membuka dialog yang sama.
-  useEffect(() => {
-    if (open) setChosen(shared);
-    // `shared` sengaja tidak jadi dependensi — nilainya ikut berubah saat
-    // pengguna sedang menyunting, dan itu akan membatalkan suntingannya.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
-
-  const chosenKeys = new Set(chosen.map(ruleKey));
-  const dropped = partial.filter((rule) => !chosenKeys.has(ruleKey(rule)));
-  const changed =
-    chosen.length !== shared.length ||
-    shared.some((rule) => !chosenKeys.has(ruleKey(rule))) ||
-    partial.length > 0;
-
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(o) => !o && onClose()}
-      title={`Ubah akses ${count} dataset`}
-      description="Daftar ini MENGGANTI aturan yang sudah ada, bukan menambah. Yang berlaku pada semuanya sudah dinyalakan di bawah."
-    >
-      {/* Pemilihnya sudah mengunci tingginya sendiri, jadi dialognya tidak
-          perlu wadah bergulung lagi di luar. */}
-      <AccessRulePicker value={chosen} onChange={setChosen} disabled={busy} />
-
-      {/*
-        Ringkasan hasil akhir. Dialog yang MENGGANTI harus menyatakan apa yang
-        akan berlaku setelah ditekan, bukan membiarkan orang menyimpulkannya
-        dari deretan lencana.
-      */}
-      <p className="mt-4 rounded-[8px] bg-[#F8FAFC] px-3.5 py-2.5 text-[13px] leading-relaxed text-[#4B5563]">
-        Setelah disimpan, {count === 1 ? "dataset ini" : `${count} dataset ini`}{" "}
-        {chosen.length === 0 ? (
-          <strong className="font-semibold text-[#B4231B]">
-            terbuka untuk seluruh karyawan
-          </strong>
-        ) : (
-          <>
-            dibatasi oleh{" "}
-            <strong className="font-semibold text-[#2E3646]">
-              {chosen.length} aturan
-            </strong>
-          </>
-        )}
-        .
-        {dropped.length > 0 ? (
-          <span className="mt-1 block text-[#B45309]">
-            {dropped.length} aturan yang kini hanya dipunyai sebagian dataset
-            akan dilepas dari semuanya.
-          </span>
-        ) : null}
-      </p>
-
-      <p className="mt-2.5 rounded-[8px] border border-[#CDE9D8] bg-[#F2FBF6] px-3 py-2 text-[12.5px] leading-relaxed text-[#137A46]">
-        <strong className="font-semibold">
-          Perubahan ini berlaku seketika.
-        </strong>{" "}
-        Karyawan di luar aturan yang Anda pilih langsung kehilangan akses
-        membuka, membaca, dan mengunduh dataset tersebut. Admin portal dan
-        pengunggahnya sendiri tidak terpengaruh.
-      </p>
-
-      <div className="mt-5 flex justify-end gap-3">
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-lg border border-[#E9EBF0] px-4 py-2.5 text-[14px] font-semibold text-[#4B5563] transition-colors hover:bg-[#F8FAFC]"
-        >
-          Batal
-        </button>
-        {/*
-          Simpan dimatikan kalau tidak ada yang berubah. Menekan tombol lalu
-          mendapat "1 dataset diperbarui" padahal tidak ada yang bergeser
-          membuat orang ragu apakah tindakannya benar-benar tersimpan — dan
-          tetap meninggalkan baris UPDATE di log audit untuk perubahan kosong.
-        */}
-        <button
-          type="button"
-          disabled={busy || !changed}
-          onClick={() => onSave(chosen)}
-          className="flex items-center gap-2 rounded-lg bg-[#2E3646] px-4 py-2.5 text-[14px] font-bold text-white transition-colors hover:bg-[#1F2A37] disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {busy ? <Loader2 className="size-4 animate-spin" /> : null}
-          Simpan
-        </button>
-      </div>
-    </Dialog>
-  );
-}
-
-/** Kunci pembanding: jenis dan nilai harus cocok berpasangan, bukan salah satunya. */
-function ruleKey(rule: AccessRule): string {
-  return `${rule.ruleType}:${rule.ruleValue}`;
 }
 
 /** Lencana jenis berkas plus rangkuman "2 file · 420 KB + 96 KB", seperti desain. */
@@ -1077,29 +944,6 @@ function HeadCell({ children }: { children: ReactNode }) {
     <th className="border-b border-[#E9EBF0] p-6 text-left text-[16px] font-medium text-[#6B7280]">
       {children}
     </th>
-  );
-}
-
-function Select({
-  value,
-  onChange,
-  all,
-  children,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  all: string;
-  children: ReactNode;
-}) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="h-[52px] rounded-lg border border-[#E9EBF0] bg-white px-3.5 text-[16px] text-[#4B5563] outline-none transition-colors focus:border-[#4F6BED]"
-    >
-      <option value="">{all}</option>
-      {children}
-    </select>
   );
 }
 

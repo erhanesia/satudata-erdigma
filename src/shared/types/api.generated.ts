@@ -140,6 +140,90 @@ export interface paths {
         patch: operations["ubahPeran"];
         trace?: never;
     };
+    "/api/v1/datasets/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ambil metadata lengkap satu dataset
+         * @description Semua keterangan tentang satu dataset: judul, divisi penerbit, catatan, disclaimer,
+         *     koleksi induk, daftar topik dan format, jumlah baris dan kolom, serta **skema kolomnya**
+         *     (nama mesin, nama tampilan, tipe data, satuan).
+         *
+         *     Dipakai halaman detail dataset di portal untuk mengisi tab Ringkasan dan tab Kolom.
+         *
+         *     Perhatikan `resources` — kalau kosong, dataset itu tidak punya berkas untuk diunduh.
+         *
+         *     **Endpoint ini menaikkan penghitung kunjungan** setiap kali dipanggil. Untuk membaca
+         *     tanpa ikut menghitung — misalnya dari panel pengelolaan — isi `recordView` dengan
+         *     `false`.
+         */
+        get: operations["getById"];
+        put?: never;
+        post?: never;
+        /**
+         * Hapus dataset dari katalog
+         * @description Penghapusan bersifat **soft delete**: barisnya tetap ada di database dengan penanda
+         *     `deleted_at`, tapi hilang dari seluruh daftar dan tidak bisa dibuka lagi.
+         *
+         *     Slug-nya TIDAK dilepas dan tidak bisa dipakai ulang. Itu disengaja — kalau slug bekas
+         *     bisa diambil dataset lain, tautan lama di laporan orang akan diam-diam menunjuk ke data
+         *     yang berbeda.
+         *
+         *     Penghapusannya tercatat di `GET /api/v1/audit-logs`.
+         */
+        delete: operations["delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Menyunting dataset
+         * @description Mengubah dataset yang sudah terbit: judul, deskripsi, disclaimer, cakupan, topik,
+         *     koleksi, aturan akses, **dan berkasnya**.
+         *
+         *     Permintaan berupa **multipart**, sama seperti penerbitan:
+         *     - `body` — perubahan dalam JSON
+         *     - `files` — berkas BARU saja, boleh tidak ada sama sekali
+         *
+         *     **Slug TIDAK ikut berubah** meski judulnya diganti. Slug dipakai orang membagikan
+         *     tautan, dan mengubahnya mematikan setiap tautan yang sudah beredar. Akibatnya slug bisa
+         *     terlihat sedikit ketinggalan dari judulnya, dan itu pertukaran yang disengaja.
+         *
+         *     **Divisi dan pengunggah tidak bisa diubah di sini.** Keduanya jejak siapa yang
+         *     bertanggung jawab atas dataset ini, dicatat sekali saat penerbitan; yang mencatat siapa
+         *     menyunting apa adalah log audit.
+         *
+         *     ### Cara kerja `body.files`
+         *
+         *     Ruas itu adalah **keadaan akhir** yang diinginkan, bukan daftar perintah:
+         *
+         *     | Entri | Artinya |
+         *     |---|---|
+         *     | ber-`id` | berkas lama dipertahankan; `label` boleh dirapikan |
+         *     | tanpa `id` | berkas baru, dipasangkan menurut urutan dengan bagian `files` |
+         *     | berkas lama yang tidak disebut | **dilepas**, beserta isi tabelnya |
+         *
+         *     **Hilangkan `body.files` sama sekali kalau tidak ingin menyentuh berkas.** Klien yang
+         *     cuma memperbaiki salah ketik pada judul tidak boleh kehilangan seluruh berkasnya
+         *     karena lupa menyebutkannya.
+         *
+         *     Dataset tidak boleh berakhir tanpa berkas sama sekali; permintaan seperti itu ditolak
+         *     400. Untuk menghilangkan dataset dari katalog, pakai `DELETE /{slug}`.
+         *
+         *     Batasnya sama dengan penerbitan: maksimal 10 MB per berkas, 40 MB seluruhnya, dan
+         *     paling banyak 10 berkas — berkas lama yang dipertahankan ikut dihitung.
+         *
+         *     Ruas keterangan yang **dihilangkan** berarti "jangan diubah"; string **kosong** berarti
+         *     "kosongkan". `accessRules` dikecualikan dan wajib disertakan — ruas keamanan yang lupa
+         *     dikirim tidak boleh berakibat sama dengan permintaan yang sengaja membuka.
+         *
+         *     Menulis jejak audit yang menyebut apa saja yang berubah, bukan sekadar "disunting".
+         */
+        patch: operations["update"];
+        trace?: never;
+    };
     "/api/v1/datasets/{slug}/access-rules": {
         parameters: {
             query?: never;
@@ -624,47 +708,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/datasets/{slug}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Ambil metadata lengkap satu dataset
-         * @description Semua keterangan tentang satu dataset: judul, divisi penerbit, catatan, disclaimer,
-         *     koleksi induk, daftar topik dan format, jumlah baris dan kolom, serta **skema kolomnya**
-         *     (nama mesin, nama tampilan, tipe data, satuan).
-         *
-         *     Dipakai halaman detail dataset di portal untuk mengisi tab Ringkasan dan tab Kolom.
-         *
-         *     Perhatikan `resources` — kalau kosong, dataset itu tidak punya berkas untuk diunduh.
-         *
-         *     **Endpoint ini menaikkan penghitung kunjungan** setiap kali dipanggil. Untuk membaca
-         *     tanpa ikut menghitung — misalnya dari panel pengelolaan — isi `recordView` dengan
-         *     `false`.
-         */
-        get: operations["getById"];
-        put?: never;
-        post?: never;
-        /**
-         * Hapus dataset dari katalog
-         * @description Penghapusan bersifat **soft delete**: barisnya tetap ada di database dengan penanda
-         *     `deleted_at`, tapi hilang dari seluruh daftar dan tidak bisa dibuka lagi.
-         *
-         *     Slug-nya TIDAK dilepas dan tidak bisa dipakai ulang. Itu disengaja — kalau slug bekas
-         *     bisa diambil dataset lain, tautan lama di laporan orang akan diam-diam menunjuk ke data
-         *     yang berbeda.
-         *
-         *     Penghapusannya tercatat di `GET /api/v1/audit-logs`.
-         */
-        delete: operations["delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/datasets/{slug}/summary": {
         parameters: {
             query?: never;
@@ -715,16 +758,19 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Tampilkan berkas PDF di halaman
-         * @description Mengalirkan berkas **PDF** dengan `Content-Disposition: inline`, supaya peramban
-         *     menggambarnya sendiri di dalam halaman alih-alih menyimpannya ke disk.
+         * Tampilkan berkas PDF atau Word di halaman
+         * @description Mengalirkan berkas **PDF** dan **DOCX** dengan `Content-Disposition: inline`.
+         *
+         *     PDF digambar peramban sendiri. DOCX diurai front-end di sisi klien sehingga tabel,
+         *     gambar, dan tata letaknya ikut tampil — yang dibutuhkan dari sini cuma byte-nya.
          *
          *     **Pratinjau tetap tercatat** di log dengan `accessType = PREVIEW`. Ia tidak melewati
          *     modal persetujuan, tapi byte-nya tetap keluar dan isinya tetap terbaca utuh — berkas
          *     rahasia yang bisa dibaca tanpa jejak membuat seluruh guna log itu hilang.
          *
-         *     Untuk dokumen Word, pakai `/preview/text`. Untuk CSV dan XLSX tidak perlu: isinya
-         *     sudah menjadi tabel dataset.
+         *     `/preview/text` masih ada dan mengirim teks paragraf DOCX saja, untuk pemanggil yang
+         *     cuma butuh isinya sebagai teks. Untuk CSV dan XLSX tidak perlu keduanya: isinya sudah
+         *     menjadi tabel dataset.
          */
         get: operations["preview"];
         put?: never;
@@ -939,8 +985,8 @@ export interface components {
              */
             slug?: string;
             /**
-             * @description Penjelasan isi dataset dan cara membacanya.
-             * @example Transaksi penjualan furnitur ritel sepanjang 2025 per pesanan.
+             * @description Penjelasan isi dataset dan cara membacanya, berupa **HTML terbatas** dari editor teks kaya. Yang dipertahankan hanya p, br, strong, em, b, i, u, s, ul, ol, li, blockquote, h2, h3, dan a[href]; selebihnya DIBUANG saat disimpan, termasuk atribut style, gambar, dan penangan kejadian. Teks polos tetap diterima apa adanya.
+             * @example <p>Transaksi penjualan furnitur ritel sepanjang 2025 per pesanan.</p>
              */
             notes?: string;
             /**
@@ -1109,6 +1155,55 @@ export interface components {
             /** Format: date-time */
             roleOverrideAt?: string;
         };
+        DatasetRequestUpdateDTO: {
+            /**
+             * @description Judul dataset. Slug TIDAK ikut berubah meski judulnya diganti, supaya tautan yang sudah beredar tetap hidup.
+             * @example Penjualan Furnitur Ritel 2025
+             */
+            title: string;
+            /** @description Deskripsi dataset, berupa **HTML terbatas** dari editor teks kaya. Yang dipertahankan hanya p, br, strong, em, b, i, u, s, ul, ol, li, blockquote, h2, h3, dan a[href]; selebihnya DIBUANG saat disimpan, termasuk atribut style, gambar, dan penangan kejadian. Teks polos tetap diterima apa adanya. Kirim string kosong untuk mengosongkannya; hilangkan ruasnya kalau tidak ingin mengubahnya. */
+            notes?: string;
+            /** @description Peringatan yang tampil sebelum unduhan. Kirim string kosong untuk mengosongkannya; hilangkan ruasnya kalau tidak ingin mengubahnya. */
+            disclaimer?: string;
+            /**
+             * @description Periode yang dicakup data.
+             * @example Jan - Des 2025
+             */
+            coverage?: string;
+            /**
+             * @description Nama topik, ambil dari GET /api/v1/topics. Menggantikan daftar lama, bukan menambah. Hilangkan ruasnya kalau tidak ingin mengubahnya.
+             * @example [
+             *       "Penjualan"
+             *     ]
+             */
+            topics?: string[];
+            /**
+             * @description Slug koleksi induk, ambil dari GET /api/v1/collections. Kirim string kosong untuk melepas dataset dari koleksinya.
+             * @example komersial
+             */
+            collectionSlug?: string;
+            /** @description Aturan siapa yang boleh melihat, MENGGANTIKAN yang lama. Ruas ini WAJIB ADA. Kirim daftar kosong untuk membuka dataset ini bagi seluruh karyawan; menghilangkan ruasnya ditolak dengan 400. */
+            accessRules: components["schemas"]["AccessRuleDTO"][];
+            /** @description Keadaan akhir daftar berkas. HILANGKAN ruas ini kalau tidak ingin menyentuh berkas sama sekali. Kalau dikirim, berkas lama yang TIDAK disebut di sini akan dihapus. Entri ber-`id` menunjuk berkas yang sudah ada; entri tanpa `id` adalah berkas baru dan dipasangkan menurut urutan dengan bagian `files` pada multipart. */
+            files?: components["schemas"]["FileEdit"][];
+        };
+        FileEdit: {
+            /**
+             * @description Id berkas yang sudah ada, dalam bentuk berawalan seperti yang dikirim GET /api/v1/datasets/{slug}. Kosongkan untuk berkas baru.
+             * @example dres-e0000000-0000-4000-8000-000000000009
+             */
+            id?: string;
+            /**
+             * @description Nama berkas versi manusia.
+             * @example Kamus Kolom
+             */
+            label?: string;
+            /**
+             * @description Jenis berkas baru: CSV, XLSX, PDF, atau DOCX. Harus cocok dengan ekstensi berkas yang dikirim. Diabaikan untuk entri ber-`id`, karena jenis berkas yang sudah tersimpan tidak bisa berubah tanpa mengganti isinya.
+             * @example CSV
+             */
+            format?: string;
+        };
         DatasetAccessRuleUpdateDTO: {
             /** @description Aturan yang berlaku setelah perubahan. Ruas ini WAJIB ADA. Kirim daftar kosong untuk membuka dataset ini bagi seluruh karyawan; menghilangkan ruasnya ditolak dengan 400. */
             accessRules: components["schemas"]["AccessRuleDTO"][];
@@ -1135,17 +1230,17 @@ export interface components {
             /** Format: int64 */
             offset?: number;
             sort?: components["schemas"]["SortObject"];
+            unpaged?: boolean;
             paged?: boolean;
             /** Format: int32 */
             pageNumber?: number;
             /** Format: int32 */
             pageSize?: number;
-            unpaged?: boolean;
         };
         SortObject: {
             empty?: boolean;
-            sorted?: boolean;
             unsorted?: boolean;
+            sorted?: boolean;
         };
         TopicResponse: {
             /** Format: uuid */
@@ -1636,6 +1731,154 @@ export interface operations {
             };
         };
     };
+    getById: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Apakah pemanggilan ini dihitung sebagai kunjungan. Biarkan `true` untuk
+                 *     halaman detail portal; isi `false` untuk pembacaan pengelolaan, supaya angka
+                 *     "Total kunjungan" tidak naik setiap kali admin menengok datanya sendiri.
+                 * @example true
+                 */
+                recordView?: boolean;
+            };
+            header?: never;
+            path: {
+                /**
+                 * @description Identitas dataset di URL — berupa **slug**, bukan UUID.
+                 *
+                 *     Slug adalah versi judul yang aman dipakai di URL: huruf kecil, spasi diganti
+                 *     tanda hubung. Contoh: judul "Penjualan Furnitur Ritel 2025" berslug
+                 *     `penjualan-furnitur-2025`.
+                 *
+                 *     Daftar slug yang tersedia bisa dilihat dari `GET /api/v1/datasets`.
+                 * @example penjualan-furnitur-2025
+                 */
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dataset ditemukan */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DatasetResponse"];
+                };
+            };
+            /** @description Slug tidak dikenal */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        error?: string;
+                    };
+                };
+            };
+        };
+    };
+    delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description Slug dataset.
+                 * @example penjualan-bulanan
+                 */
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dataset dihapus */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bukan ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Slug tidak dikenal */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description Slug dataset.
+                 * @example penjualan-bulanan
+                 */
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    body: components["schemas"]["DatasetRequestUpdateDTO"];
+                    /** @description Berkas BARU saja. Ulangi bagian `files` untuk tiap berkas. */
+                    files?: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Dataset tersimpan, berikut daftar berkasnya yang terbaru */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DatasetResponse"];
+                };
+            };
+            /** @description Isian tidak sah, berkas melebihi batas, jumlah keterangan berkas tidak sama dengan jumlah berkas, atau seluruh berkas dilepas */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        error?: string;
+                    };
+                };
+            };
+            /** @description Bukan ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Slug tidak dikenal */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     updateAccessRules: {
         parameters: {
             query?: never;
@@ -2062,95 +2305,6 @@ export interface operations {
                 content: {
                     "*/*": components["schemas"]["DivisionResponse"][];
                 };
-            };
-        };
-    };
-    getById: {
-        parameters: {
-            query?: {
-                /**
-                 * @description Apakah pemanggilan ini dihitung sebagai kunjungan. Biarkan `true` untuk
-                 *     halaman detail portal; isi `false` untuk pembacaan pengelolaan, supaya angka
-                 *     "Total kunjungan" tidak naik setiap kali admin menengok datanya sendiri.
-                 * @example true
-                 */
-                recordView?: boolean;
-            };
-            header?: never;
-            path: {
-                /**
-                 * @description Identitas dataset di URL — berupa **slug**, bukan UUID.
-                 *
-                 *     Slug adalah versi judul yang aman dipakai di URL: huruf kecil, spasi diganti
-                 *     tanda hubung. Contoh: judul "Penjualan Furnitur Ritel 2025" berslug
-                 *     `penjualan-furnitur-2025`.
-                 *
-                 *     Daftar slug yang tersedia bisa dilihat dari `GET /api/v1/datasets`.
-                 * @example penjualan-furnitur-2025
-                 */
-                slug: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Dataset ditemukan */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["DatasetResponse"];
-                };
-            };
-            /** @description Slug tidak dikenal */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": {
-                        error?: string;
-                    };
-                };
-            };
-        };
-    };
-    delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /**
-                 * @description Slug dataset.
-                 * @example penjualan-bulanan
-                 */
-                slug: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Dataset dihapus */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Bukan ADMIN */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Slug tidak dikenal */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };

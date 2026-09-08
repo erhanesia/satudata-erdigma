@@ -45,4 +45,35 @@ export default tseslint.config(
       ],
     },
   },
+
+  /*
+    Satu-satunya berkas yang boleh menyisipkan HTML, dan daftarnya sengaja
+    sepanjang satu baris.
+
+    Larangan di atas tetap berlaku di seluruh berkas lain, dan memang harus:
+    menyisipkan teks dari API apa adanya persis bentuk masalah yang membuat XSS
+    ada. Deskripsi dataset kini ditulis lewat editor teks kaya, jadi ia HARUS
+    digambar sebagai HTML -- tidak ada cara lain menampilkan tebal, daftar, dan
+    tautan.
+
+    Yang membuat pengecualian ini bisa dipertanggungjawabkan bukan pengecualian
+    itu sendiri, melainkan tiga hal di sekelilingnya:
+
+      1. RichText membersihkan isinya lewat DOMPurify dengan daftar putih,
+         tepat sebelum menggambar. Tidak ada jalan masuk lain ke elemen itu.
+      2. Back-end membersihkannya lagi saat MENYIMPAN, dengan daftar putih yang
+         sama. Itu penjagaan yang sesungguhnya, karena peramban bisa dilewati
+         siapa pun yang memanggil API-nya langsung.
+      3. Editornya membatasi format yang bisa masuk, termasuk saat menempel.
+
+    Mempersempitnya ke satu berkas -- bukan ke satu folder, apalagi mematikan
+    aturannya -- membuat setiap penambahan penyisipan HTML baru harus melewati
+    penyuntingan berkas ini, dan karena itu terlihat di review.
+  */
+  {
+    files: ['src/shared/components/ui/RichText.tsx'],
+    rules: {
+      'no-restricted-syntax': 'off',
+    },
+  },
 )

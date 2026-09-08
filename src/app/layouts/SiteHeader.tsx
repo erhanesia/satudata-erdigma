@@ -23,6 +23,23 @@ const NAV = [
   { to: paths.divisions, label: 'Divisi' },
 ] as const
 
+/*
+  Bilah ini melewati DUA ambang, bukan satu.
+
+  Dulu hanya `md` (768px): di bawahnya laci, di atasnya seluruh isi sekaligus.
+  Akibatnya di tablet semua muncul berdesakan di lebar yang tidak cukup, lalu
+  membungkus -- "Panel Admin" pecah dua baris dan nama pengguna pecah tiga
+  sampai kotaknya meluber keluar bilah.
+
+  Sekarang `md` memunculkan barisnya, dan `lg` (1024px) memunculkan
+  KETERANGANNYA. Di antara keduanya yang tampil ikon dan avatar saja: tetap
+  bisa ditekan, tetap punya nama lewat `title` dan `aria-label`, tetapi tidak
+  menuntut lebar yang tidak ada.
+
+  Yang menahan tampilan tetap rapi bukan cuma penyembunyian itu, melainkan juga
+  `whitespace-nowrap` di tiap butir. Tanpa itu, satu nama panjang atau satu
+  jabatan panjang cukup untuk mengulang persoalan yang sama di lebar mana pun.
+*/
 export function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false)
   const toast = useToast()
@@ -55,7 +72,7 @@ export function SiteHeader() {
               to={item.to}
               className={({ isActive }) =>
                 cn(
-                  'rounded-lg px-[13px] py-[9px] text-sm transition-colors',
+                  'rounded-lg px-[13px] py-[9px] text-sm whitespace-nowrap transition-colors',
                   isActive
                     ? 'bg-brand-tint text-brand font-bold'
                     : 'text-ink-600 hover:bg-surface-100 font-semibold',
@@ -75,10 +92,15 @@ export function SiteHeader() {
               harus mengetik URL-nya sendiri. Hanya muncul untuk ADMIN — bagi
               yang lain tautannya cuma akan berujung pengalihan balik. */}
           <AdminPanelLink />
+          {/* Yang pertama menyingkir saat lebarnya menipis, karena ia yang
+              paling sedikit kehilangannya: tombol ini belum melakukan apa pun
+              selain memunculkan pesan "tersedia pada versi lengkap". Menyingkirkan
+              tautan yang benar-benar membawa orang ke suatu tempat jelas lebih
+              merugikan. Di ponsel ia memang belum ada sejak dulu. */}
           <button
             type="button"
             onClick={() => toast.show('Fitur ini tersedia pada versi lengkap.')}
-            className="text-ink-600 hover:bg-surface-100 rounded-lg px-2.5 py-2 text-sm font-semibold transition-colors"
+            className="text-ink-600 hover:bg-surface-100 hidden rounded-lg px-2.5 py-2 text-sm font-semibold whitespace-nowrap transition-colors lg:block"
           >
             Feedback
           </button>
@@ -88,7 +110,7 @@ export function SiteHeader() {
             onClick={signOut}
             aria-label="Keluar"
             title="Keluar"
-            className="text-ink-500 hover:bg-surface-100 hover:text-ink-900 flex size-9 items-center justify-center rounded-lg transition-colors"
+            className="text-ink-500 hover:bg-surface-100 hover:text-ink-900 flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors"
           >
             <LogOut className="size-[18px]" strokeWidth={2.2} />
           </button>
@@ -218,7 +240,16 @@ function UserPill({ mobile = false }: { mobile?: boolean }) {
   const { data: user, isPending, isError } = useCurrentUser()
 
   if (isPending) {
-    return <Skeleton className={mobile ? 'h-14 w-full rounded-[10px]' : 'h-11 w-52 rounded-full'} />
+    // Bentuk rangkanya mengikuti bentuk akhirnya, termasuk penyusutan di tablet.
+    // Rangka selebar 208px yang berganti jadi lingkaran 44px membuat seluruh
+    // bilah bergeser tepat saat namanya selesai dimuat.
+    return (
+      <Skeleton
+        className={
+          mobile ? 'h-14 w-full rounded-[10px]' : 'h-11 w-11 rounded-full lg:w-52'
+        }
+      />
+    )
   }
 
   if (isError || !user) {
@@ -233,22 +264,49 @@ function UserPill({ mobile = false }: { mobile?: boolean }) {
     // Dulu menaut ke Dasbor Akun. Sejak fitur API key dibuang, tidak ada
     // halaman akun untuk dituju, jadi pil ini murni penanda identitas.
     <div
+      title={mobile ? undefined : `${user.name} — ${user.position}`}
       className={cn(
-        'bg-surface-100 border-line-200 flex items-center gap-2.5 border text-left',
-        mobile ? 'rounded-[10px] p-2.5' : 'rounded-full py-[5px] pr-4 pl-[6px]',
+        'bg-surface-100 border-line-200 flex shrink-0 items-center gap-2.5 border text-left',
+        mobile
+          ? 'rounded-[10px] p-2.5'
+          : 'rounded-full p-[5px] lg:py-[5px] lg:pr-4 lg:pl-[6px]',
       )}
     >
       <UserAvatar
         src={user.profileImageUrl}
         initials={user.initials ?? '?'}
         name={user.name}
-        className="size-[34px] text-[13px] font-bold"
+        className="size-[34px] shrink-0 text-[13px] font-bold"
       />
-      <span className="leading-tight">
-        <span className={cn('text-ink-900 block font-bold', mobile ? 'text-sm' : 'text-[13.5px]')}>
+      {/*
+        Di tablet yang tersisa avatarnya saja. Namanya tidak hilang begitu saja:
+        ia pindah ke `title` pada pembungkusnya, jadi tetap bisa dibaca dengan
+        menahan kursor -- dan avatar itu sendiri sudah membawa inisial.
+
+        `min-w-0` dan `truncate` wajib berpasangan. Tanpa `min-w-0`, elemen flex
+        menolak menyusut di bawah lebar isinya, sehingga `truncate` tidak pernah
+        sempat bekerja dan yang terjadi justru bilahnya yang melebar.
+      */}
+      <span
+        className={cn(
+          'min-w-0 leading-tight',
+          mobile ? 'block' : 'hidden lg:block lg:max-w-[190px]',
+        )}
+      >
+        <span
+          className={cn(
+            'text-ink-900 block truncate font-bold',
+            mobile ? 'text-sm' : 'text-[13.5px]',
+          )}
+        >
           {user.name}
         </span>
-        <span className={cn('text-ink-500 block', mobile ? 'text-xs' : 'text-[11.5px]')}>
+        <span
+          className={cn(
+            'text-ink-500 block truncate',
+            mobile ? 'text-xs' : 'text-[11.5px]',
+          )}
+        >
           {user.position}
         </span>
       </span>
@@ -264,13 +322,22 @@ function AdminPanelLink({ mobile = false }: { mobile?: boolean }) {
   return (
     <Link
       to={paths.admin}
+      title={mobile ? undefined : 'Panel Admin'}
+      aria-label={mobile ? undefined : 'Panel Admin'}
       className={cn(
-        'text-ink-600 hover:bg-surface-100 flex items-center gap-1.5 rounded-lg transition-colors',
-        mobile ? 'px-2 py-[13px] text-[15px] font-semibold' : 'px-2.5 py-2 text-sm font-semibold',
+        'text-ink-600 hover:bg-surface-100 flex shrink-0 items-center gap-1.5 rounded-lg whitespace-nowrap transition-colors',
+        mobile
+          ? 'px-2 py-[13px] text-[15px] font-semibold'
+          : 'size-9 justify-center text-sm font-semibold lg:size-auto lg:justify-start lg:px-2.5 lg:py-2',
       )}
     >
-      <Shield className="size-4" />
-      Panel Admin
+      <Shield className="size-4 shrink-0" />
+      {/*
+        Tulisannya menyingkir di tablet, ikonnya tidak. Yang hilang cuma
+        keterangan, sementara `aria-label` menjaga tautan ini tetap punya nama
+        bagi pembaca layar -- ikon perisai sendirian tidak menyebutkan apa pun.
+      */}
+      <span className={mobile ? undefined : 'hidden lg:inline'}>Panel Admin</span>
     </Link>
   )
 }

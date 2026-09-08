@@ -6,6 +6,7 @@ import { paths } from '@/app/router/paths'
 import { DownloadDialog } from '@/features/download/components/DownloadDialog'
 import { QueryBoundary } from '@/shared/components/feedback/QueryBoundary'
 import { Reveal } from '@/shared/components/motion/Reveal'
+import { RichText } from '@/shared/components/ui/RichText'
 import { SkeletonCardList } from '@/shared/components/ui/Skeleton'
 import { useCopyToClipboard } from '@/shared/hooks/useCopyToClipboard'
 import { formatDateTime } from '@/shared/lib/format'
@@ -62,7 +63,11 @@ function DetailBody({ dataset }: { dataset: Dataset }) {
             Berkas yang isinya sudah dibaca menjadi tabel menampilkan tabelnya;
             PDF dan Word menampilkan dokumennya.
           */}
-          <DataExplorer slug={dataset.slug ?? ''} files={dataset.resources ?? []} />
+          <DataExplorer
+            slug={dataset.slug ?? ''}
+            files={dataset.resources ?? []}
+            onRequestDownload={() => setDownloadOpen(true)}
+          />
         </div>
       </Reveal>
 
@@ -229,9 +234,16 @@ function AboutCard({ dataset }: { dataset: Dataset }) {
   return (
     <div className="border-line-200 bg-surface rounded-[14px] border p-4 sm:p-[22px]">
       <h3 className="text-ink-900 mb-2.5 text-base font-bold">Tentang dataset ini</h3>
-      <p className="text-ink-600 text-[14.5px] leading-[1.65]">
-        {dataset.notes || 'Belum ada deskripsi untuk dataset ini.'}
-      </p>
+      {/* Deskripsi kini bisa memuat penekanan, daftar, dan tautan. Yang
+          digambar tetap melewati pembersih di dalam RichText, apa pun asal
+          barisnya dan kapan pun ia ditulis. */}
+      {dataset.notes ? (
+        <RichText html={dataset.notes} />
+      ) : (
+        <p className="text-ink-600 text-[14.5px] leading-[1.65]">
+          Belum ada deskripsi untuk dataset ini.
+        </p>
+      )}
     </div>
   )
 }

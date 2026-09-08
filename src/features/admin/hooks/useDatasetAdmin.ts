@@ -1,8 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 
-import { deleteDataset, updateDatasetAccessRules } from '@/features/dataset/api/datasetApi'
+import { deleteDataset, updateDataset } from '@/features/dataset/api/datasetApi'
 import { queryKeys } from '@/shared/api/queryKeys'
-import type { AccessRule } from '@/shared/types/api'
+import type { DatasetUpdate } from '@/shared/types/api'
 
 /**
  * Tindakan pengelolaan dataset dari panel admin.
@@ -13,10 +14,10 @@ import type { AccessRule } from '@/shared/types/api'
  * tindakan ini berhasil. Tanpa pembatalan itu, admin mengubah sesuatu lalu
  * melihat dasbor yang berpura-pura tidak terjadi apa-apa.
  *
- * Dijalankan berurutan, bukan serentak. Menghapus sepuluh dataset dengan
- * sepuluh permintaan sekaligus membuat kegagalan di tengah menyisakan keadaan
- * yang tidak bisa diceritakan kepada pengguna — berurutan membuat "berhasil 4
- * dari 7" menjadi kalimat yang benar.
+ * Penghapusan dijalankan berurutan, bukan serentak. Menghapus sepuluh dataset
+ * dengan sepuluh permintaan sekaligus membuat kegagalan di tengah menyisakan
+ * keadaan yang tidak bisa diceritakan kepada pengguna — berurutan membuat
+ * "berhasil 4 dari 7" menjadi kalimat yang benar.
  */
 export function useDatasetAdmin() {
   const queryClient = useQueryClient()
@@ -43,30 +44,61 @@ export function useDatasetAdmin() {
   })
 
   /*
-    Payload per slug, bukan satu daftar untuk semua sekaligus.
+    Kemajuan pengiriman berkas, 0-100.
 
-    Bentuk ini menjaga hook tetap bebas dari kebijakan antarmuka. "Semua yang
-    terpilih dapat aturan yang sama" adalah keputusan dialognya, bukan keputusan
-    lapisan data; di sini cukup "terapkan aturan ini pada dataset ini".
-
-    Kelonggarannya juga berguna: pemanggil yang hanya bisa menyunting sebagian
-    sumbu dapat membawa serta aturan yang tidak ia tampilkan, alih-alih
-    menghapusnya hanya karena layarnya tidak bisa menunjukkannya.
+    Sama persis dengan yang ada di penerbitan, dan karena alasan yang sama: ada
+    dua babak yang dilihat penyunting sebagai satu tombol menunggu — byte
+    berkasnya dikirim, lalu back-end membacanya dan memasukkan tiap barisnya.
+    Hanya babak pertama yang bisa diukur browser; angka ini berhenti di 100 dan
+    diam di situ selama babak kedua berlangsung.
   */
-  const updateAccessRules = useMutation({
-    mutationFn: async (items: { slug: string; accessRules: AccessRule[] }[]) => {
-      const failed: string[] = []
-      for (const { slug, accessRules } of items) {
-        try {
-          await updateDatasetAccessRules(slug, accessRules)
-        } catch {
-          failed.push(slug)
-        }
-      }
-      return { total: items.length, failed }
+  const [progress, setProgress] = useState(0)
+
+  /*
+    Menyunting satu dataset.
+
+    Satu dataset per panggilan, tidak berbentuk daftar seperti `remove` di
+    atas: menyunting judul dan deskripsi memang tidak punya bentuk massal, dan
+    memaksakannya jadi daftar hanya menambah lapisan yang tidak pernah dipakai.
+
+    Aturan akses ikut lewat sini. Sebelumnya ada mutasi tersendiri untuk ubah
+    akses massal dari tabel dataset, dan itu dilepas bersama dialognya: siapa
+    yang boleh melihat kini disetel di formulir sunting, satu layar yang sama
+    dengan formulir terbit. Endpoint `PATCH /{slug}/access-rules` di sisi server
+    tetap ada, hanya tidak lagi punya pemanggil di sini.
+
+    Berkas juga lewat sini, sehingga menambah, mengganti, dan membuang berkas
+    berangkat dalam permintaan yang SAMA dengan perubahan judul dan aturan
+    akses. Memecahnya jadi beberapa permintaan berarti sebagiannya bisa
+    berhasil dan sebagiannya gagal, dan penyuntingnya tidak punya cara
+    mengembalikan keadaan.
+  */
+  const update = useMutation({
+    mutationFn: ({
+      slug,
+      body,
+      files,
+    }: {
+      slug: string
+      body: DatasetUpdate
+      files?: File[]
+    }) => {
+      setProgress(0)
+      return updateDataset(slug, body, files ?? [], setProgress)
     },
     onSuccess: refresh,
   })
 
-  return { remove, updateAccessRules }
+  /*
+    Objek baru untuk `update`, bukan `Object.assign`.
+
+    `useMutation` mengembalikan `observer.getCurrentResult()`, dan itu objek
+    INTERNAL milik React Query yang dikembalikan apa adanya. Objek itu hanya
+    dibuat ulang saat status mutation berubah, sehingga selama penyimpanan
+    berjalan statusnya tetap `pending` dan objeknya tidak pernah berganti.
+    Menempelkan `progress` ke situ berarti menimpa isi milik pustaka berulang
+    kali, dan nilainya ikut terlihat oleh siapa pun yang berlangganan observer
+    yang sama.
+  */
+  return { remove, update: { ...update, progress } }
 }

@@ -299,6 +299,34 @@
   }
 
   /*
+   * Kembarannya yang membuka ke BAWAH.
+   *
+   * Titik tumpunya dibalik ke atas, dan itu yang membuat panelnya terasa
+   * tumbuh dari tepi bawah pemicunya. Memakai `dropdown-up` apa adanya untuk
+   * arah ini menghasilkan gerakan yang berlawanan dengan arah munculnya:
+   * panelnya turun sambil bergerak naik.
+   *
+   * Durasi dan easing-nya sengaja sama persis dengan kembarannya. Dua arah
+   * dari satu jenis kontrol yang terasa berbeda cepatnya terbaca sebagai
+   * ketidakkonsistenan, meski tidak ada yang bisa menunjuk sebabnya.
+   */
+  @keyframes dropdown-down {
+    from {
+      opacity: 0;
+      transform: translateY(-6px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  .animate-dropdown-down {
+    animation: dropdown-down 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+    transform-origin: top center;
+  }
+
+  /*
    * Peredam gerak khusus hero.
    *
    * Aturan global di @layer base memotong durasi jadi 0,01ms, yang membuat
@@ -310,6 +338,7 @@
     .animate-fade,
     .animate-tab-in,
     .animate-dropdown-up,
+    .animate-dropdown-down,
     .animate-overlay-in {
       animation: none;
       opacity: 1;
@@ -333,5 +362,241 @@
       opacity: 1;
       transform: none;
     }
+  }
+}
+
+/*
+ * Editor teks kaya dan hasil gambarnya.
+ *
+ * Quill membawa lembar gayanya sendiri (tema Snow), dan bawaannya berdiri
+ * sendiri: sudut siku, garis abu-abu terang, dan bilah alat bergaya aplikasi
+ * desktop tahun 2010-an. Dibiarkan begitu, satu-satunya bagian antarmuka yang
+ * terlihat berasal dari tempat lain justru ada di tengah formulir.
+ *
+ * Yang ditulis di bawah menimpanya dengan token yang sama dengan sisa aplikasi,
+ * bukan dengan angka yang mirip. Jadi kalau suatu saat warna garis berubah di
+ * @theme, editor ini ikut berubah tanpa ada yang perlu mengingatnya.
+ *
+ * Semuanya dikurung di bawah `.satudata-editor` dan `.satudata-prose`. Tanpa
+ * pengurungan itu, aturan seperti `.ql-editor h2` akan mengambang bebas dan
+ * menyentuh apa pun yang kebetulan bernama sama di kemudian hari.
+ */
+/*
+ * Penimpa gaya bawaan Quill. SENGAJA di luar @layer.
+ *
+ * Quill membawa lembar gayanya sendiri, dan lembar itu diimpor dari berkas
+ * komponennya sehingga masuk sebagai CSS TANPA layer. Dalam kaskade CSS,
+ * aturan tanpa layer selalu mengalahkan aturan ber-layer — berapa pun
+ * spesifisitasnya. Selama blok ini berada di dalam @layer components, satu pun
+ * barisnya tidak pernah berlaku, dan gejalanya halus: bilah alatnya tampak
+ * hampir benar, tetapi teks bantunya tetap miring dan sudutnya tetap siku
+ * seperti bawaan Quill.
+ *
+ * Jadi jangan bungkus blok ini ke dalam layer mana pun. Yang di bawahnya
+ * (.satudata-prose) justru tetap di dalam layer, karena ia tidak bersaing
+ * dengan Quill dan memang harus bisa ditimpa kelas Tailwind dari pemanggilnya.
+ *
+ * <h2>Kenapa nama kelasnya ditulis dua kali</h2>
+ *
+ * Keluar dari @layer saja belum cukup. CSS Quill ikut terbawa sebagai stylesheet
+ * chunk tersendiri, dan chunk itu dimuat SETELAH berkas ini — jadi pada
+ * spesifisitas yang seri, yang menang Quill. Gejalanya persis satu baris yang
+ * sulit dilacak: teks bantu editor tetap miring, karena aturan Quill untuk
+ * ::before punya spesifisitas yang sama persis dengan aturan di sini.
+ *
+ * Menulis `.satudata-editor.satudata-editor` menaikkan spesifisitasnya satu
+ * tingkat tanpa mengubah elemen mana yang kena. Terlihat aneh, dan memang
+ * disengaja — supaya siapa pun yang merapikannya menjadi satu berhenti dulu dan
+ * membaca alasannya.
+ */
+.satudata-editor.satudata-editor .ql-toolbar.ql-snow {
+  border: 1px solid var(--color-line-200);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  background: var(--color-surface-50);
+  padding: 8px 10px;
+  font-family: inherit;
+}
+
+.satudata-editor.satudata-editor .ql-container.ql-snow {
+  border: 1px solid var(--color-line-200);
+  border-radius: 0 0 8px 8px;
+  background: var(--color-surface);
+  font-family: inherit;
+  font-size: 16px;
+}
+
+/*
+ * Tepi biru saat editornya sedang dipakai, sama seperti isian teks lain di
+ * formulir ini. Dipasang lewat `:focus-within` pada pembungkusnya, karena
+ * yang menerima fokus adalah area tulisnya sedangkan yang perlu berubah
+ * warnanya kotak di sekelilingnya.
+ */
+.satudata-editor.satudata-editor:focus-within .ql-toolbar.ql-snow,
+.satudata-editor.satudata-editor:focus-within .ql-container.ql-snow {
+  border-color: #4f6bed;
+}
+
+.satudata-editor.satudata-editor .ql-editor {
+  min-height: 180px;
+  padding: 14px;
+  line-height: 1.7;
+  color: #3c4a56;
+}
+
+/* Teks bantu saat masih kosong: redup, dan TIDAK miring seperti bawaan Quill
+   — huruf miring di sini terbaca seperti isi yang sudah diketik. */
+/*
+ * Tangga judul di dalam editor.
+ *
+ * <h2>Yang disamakan PERBANDINGANNYA, bukan angkanya</h2>
+ *
+ * Isi editor 16px, sementara isi di halaman baca 14,5px. Bedanya disengaja:
+ * seluruh isian formulir di aplikasi ini 16px supaya iOS tidak memperbesar
+ * halaman sendiri saat kotaknya difokus — perilaku yang menyerang setiap isian
+ * berukuran di bawah 16px.
+ *
+ * Karena itu memakai angka halaman baca apa adanya di sini justru merusak:
+ * judulnya jadi LEBIH KECIL daripada tulisan biasa di bawahnya, dan urutannya
+ * terbaca terbalik. Yang dipertahankan perbandingannya, jadi hierarki yang
+ * dilihat penerbit sambil mengetik sama dengan yang nanti terbit meski angka
+ * mutlaknya berbeda.
+ *
+ * Tangganya di sini: 17px judul > 16px biasa isi.
+ * Padanannya di halaman baca: 15,5px judul > 14,5px biasa isi.
+ *
+ * Kalau salah satu tangga diubah, ubah keduanya.
+ */
+.satudata-editor.satudata-editor .ql-editor h2 {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--color-ink-900);
+}
+
+
+.satudata-editor.satudata-editor .ql-editor blockquote {
+  border-left: 3px solid var(--color-line-200);
+  padding-left: 0.9em;
+  color: var(--color-ink-500);
+}
+
+.satudata-editor.satudata-editor .ql-editor.ql-blank::before {
+  color: var(--color-ink-400);
+  font-style: normal;
+  left: 14px;
+  right: 14px;
+}
+
+/* Tombol bilah alat: kotak sentuh yang cukup besar, dan penanda aktif yang
+   memakai warna merek alih-alih biru bawaan Quill. */
+.satudata-editor.satudata-editor .ql-snow.ql-toolbar button,
+.satudata-editor.satudata-editor .ql-snow .ql-toolbar button {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+}
+
+.satudata-editor.satudata-editor .ql-snow.ql-toolbar button:hover {
+  background: var(--color-brand-tint);
+}
+
+.satudata-editor.satudata-editor .ql-snow.ql-toolbar button.ql-active {
+  background: var(--color-brand-tint);
+}
+
+.satudata-editor.satudata-editor .ql-snow.ql-toolbar button:hover .ql-stroke,
+.satudata-editor.satudata-editor .ql-snow.ql-toolbar button.ql-active .ql-stroke {
+  stroke: var(--color-brand);
+}
+
+.satudata-editor.satudata-editor .ql-snow.ql-toolbar button:hover .ql-fill,
+.satudata-editor.satudata-editor .ql-snow.ql-toolbar button.ql-active .ql-fill {
+  fill: var(--color-brand);
+}
+
+@layer components {
+  /*
+   * Isi deskripsi yang sudah tergambar, di halaman detail.
+   *
+   * Ditulis terpisah dari editor dengan sengaja: yang satu kotak isian, yang
+   * satu bagian dari halaman baca. Menyatukan keduanya berarti setiap
+   * penyesuaian tampilan baca ikut mengubah rupa editor, dan sebaliknya.
+   */
+  .satudata-prose {
+    color: var(--color-ink-600);
+    font-size: 14.5px;
+    line-height: 1.65;
+  }
+
+  .satudata-prose > :first-child {
+    margin-top: 0;
+  }
+
+  .satudata-prose > :last-child {
+    margin-bottom: 0;
+  }
+
+  .satudata-prose p {
+    margin: 0 0 0.75em;
+  }
+
+  /*
+   * Judul di dalam deskripsi selalu DI BAWAH judul kartunya, dan selalu DI ATAS
+   * tulisan biasa. Dua-duanya syarat, dan ruangnya sempit.
+   *
+   * Kartu "Tentang dataset ini" berjudul 16px, dan ukuran itu dipakai bersama
+   * Data Explorer serta Metadata kolom di halaman yang sama — jadi tidak bisa
+   * dibesarkan sendirian. Isi biasa 14,5px. Yang tersisa untuk dua tingkat
+   * judul cuma celah di antara keduanya.
+   *
+   * Karena itu editornya hanya menawarkan SATU tingkat judul. Dengan dua
+   * tingkat, yang kedua harus dijejalkan ke sisa celah yang tinggal sepersekian
+   * piksel dan berhenti bisa dibedakan dari tulisan biasa. Tangganya jadi:
+   *
+   *   16px tebal   judul kartu
+   *   15,5px tebal judul di dalam deskripsi
+   *   14,5px biasa isi, dan warnanya lebih redup
+   */
+  .satudata-prose h2 {
+    margin: 1.25em 0 0.5em;
+    color: var(--color-ink-900);
+    font-size: 15.5px;
+    font-weight: 700;
+  }
+
+
+  .satudata-prose ul,
+  .satudata-prose ol {
+    margin: 0 0 0.75em;
+    padding-left: 1.4em;
+  }
+
+  .satudata-prose ul {
+    list-style: disc;
+  }
+
+  .satudata-prose ol {
+    list-style: decimal;
+  }
+
+  .satudata-prose li {
+    margin-bottom: 0.25em;
+  }
+
+  .satudata-prose blockquote {
+    margin: 0 0 0.75em;
+    border-left: 3px solid var(--color-line-200);
+    padding-left: 0.9em;
+    color: var(--color-ink-500);
+  }
+
+  .satudata-prose a {
+    color: var(--color-brand);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .satudata-prose a:hover {
+    color: var(--color-brand-hover);
   }
 }
