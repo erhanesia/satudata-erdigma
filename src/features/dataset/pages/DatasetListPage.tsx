@@ -307,10 +307,22 @@ function DatasetCardItem({ dataset }: { dataset: DatasetLite }) {
 
       <div className="text-ink-900 text-lg leading-[1.25] font-bold">{dataset.title}</div>
 
-      {/* Sama seperti di kartu: yang tampil ringkasannya, bukan tampilan
-          penuhnya. */}
+      {/*
+        Sama seperti di kartu: yang tampil ringkasannya, bukan tampilan penuhnya.
+
+        `line-clamp-3` bukan kerapian belaka. Deskripsi dataset tidak punya batas
+        panjang: kolom `notes` bertipe `text`, dan penerbit memang menulis laporan
+        utuh di sana. Tanpa pemotongan, satu dataset bisa memakan seluruh layar
+        dan mendorong hasil pencarian lain jauh ke bawah -- daftar yang gunanya
+        justru membandingkan beberapa dataset sekaligus berhenti bisa dipakai
+        membandingkan.
+
+        Tiga baris, bukan dua seperti di kartu: baris di sini jauh lebih lebar,
+        jadi tiga baris di sini kira-kira sepadan dengan dua baris di kartu yang
+        sempit.
+      */}
       {dataset.notes ? (
-        <p className="text-ink-500 text-sm leading-[1.5]">
+        <p className="text-ink-500 line-clamp-3 text-sm leading-[1.5]">
           {richTextToPlain(dataset.notes)}
         </p>
       ) : null}
