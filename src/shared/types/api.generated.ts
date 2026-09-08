@@ -985,8 +985,8 @@ export interface components {
              */
             slug?: string;
             /**
-             * @description Penjelasan isi dataset dan cara membacanya.
-             * @example Transaksi penjualan furnitur ritel sepanjang 2025 per pesanan.
+             * @description Penjelasan isi dataset dan cara membacanya, berupa **HTML terbatas** dari editor teks kaya. Yang dipertahankan hanya p, br, strong, em, b, i, u, s, ul, ol, li, blockquote, h2, h3, dan a[href]; selebihnya DIBUANG saat disimpan, termasuk atribut style, gambar, dan penangan kejadian. Teks polos tetap diterima apa adanya.
+             * @example <p>Transaksi penjualan furnitur ritel sepanjang 2025 per pesanan.</p>
              */
             notes?: string;
             /**
@@ -1161,7 +1161,7 @@ export interface components {
              * @example Penjualan Furnitur Ritel 2025
              */
             title: string;
-            /** @description Deskripsi dataset. Kirim string kosong untuk mengosongkannya; hilangkan ruasnya kalau tidak ingin mengubahnya. */
+            /** @description Deskripsi dataset, berupa **HTML terbatas** dari editor teks kaya. Yang dipertahankan hanya p, br, strong, em, b, i, u, s, ul, ol, li, blockquote, h2, h3, dan a[href]; selebihnya DIBUANG saat disimpan, termasuk atribut style, gambar, dan penangan kejadian. Teks polos tetap diterima apa adanya. Kirim string kosong untuk mengosongkannya; hilangkan ruasnya kalau tidak ingin mengubahnya. */
             notes?: string;
             /** @description Peringatan yang tampil sebelum unduhan. Kirim string kosong untuk mengosongkannya; hilangkan ruasnya kalau tidak ingin mengubahnya. */
             disclaimer?: string;
@@ -1230,17 +1230,17 @@ export interface components {
             /** Format: int64 */
             offset?: number;
             sort?: components["schemas"]["SortObject"];
+            unpaged?: boolean;
             paged?: boolean;
             /** Format: int32 */
             pageNumber?: number;
             /** Format: int32 */
             pageSize?: number;
-            unpaged?: boolean;
         };
         SortObject: {
             empty?: boolean;
-            sorted?: boolean;
             unsorted?: boolean;
+            sorted?: boolean;
         };
         TopicResponse: {
             /** Format: uuid */

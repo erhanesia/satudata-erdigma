@@ -19,7 +19,9 @@ import { ApiError } from "@/shared/api/errors";
 import { Reveal } from "@/shared/components/motion/Reveal";
 import { Dialog } from "@/shared/components/ui/Dialog";
 import { useToast } from "@/shared/components/ui/toastStore";
+import { RichTextEditor } from "@/shared/components/ui/RichTextEditor";
 import { formatNumber } from "@/shared/lib/format";
+import { richTextToPlain } from "@/shared/lib/richText";
 import type { AccessRule, Dataset } from "@/shared/types/api";
 
 import {
@@ -180,12 +182,11 @@ export default function AdminDatasetNewPage() {
           </Field>
 
           <Field label="Deskripsi dataset">
-            <textarea
+            <RichTextEditor
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={4}
+              onChange={setDescription}
               placeholder="Jelaskan isi dataset ini dan untuk apa dipakai."
-              className="w-full resize-y rounded-lg border border-[#E9EBF0] px-3.5 py-3 text-[16px] leading-relaxed text-[#3C4A56] outline-none transition-colors focus:border-[#4F6BED] placeholder:text-[#9CA3AF]"
+              ariaLabel="Deskripsi dataset"
             />
             {/*
               Penghitungnya dipertahankan meski batasnya dicabut.
@@ -199,8 +200,16 @@ export default function AdminDatasetNewPage() {
               memasang @Size. Jadi batas itu hanya ada di layar ini, dan
               satu-satunya akibatnya adalah ketikan yang terpotong diam-diam.
             */}
+            {/*
+              Yang dihitung teksnya, bukan HTML-nya.
+
+              Sejak deskripsi ditulis lewat editor teks kaya, `description`
+              memuat tag. Menghitung panjangnya apa adanya membuat satu kata
+              yang ditebalkan menambah dua puluh karakter, dan angkanya
+              berhenti berarti apa-apa bagi penulisnya.
+            */}
             <div className="mt-1.5 text-[13px] text-[#9CA3AF]">
-              {formatNumber(description.length)} karakter
+              {formatNumber(richTextToPlain(description).length)} karakter
             </div>
           </Field>
 

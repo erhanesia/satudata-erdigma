@@ -10,7 +10,8 @@ import { SearchField } from '@/shared/components/ui/SearchField'
 import { Skeleton } from '@/shared/components/ui/Skeleton'
 import { cn } from '@/shared/lib/cn'
 import { formatRelative } from '@/shared/lib/format'
-import type { DatasetLite } from '@/shared/types/api'
+import type { DatasetLite } from '@/shared/types/api'
+import { richTextToPlain } from '@/shared/lib/richText'
 
 import { useDatasetFilters } from '../hooks/useDatasetFilters'
 import { useDatasets, useTopics } from '../hooks/useDatasets'
@@ -306,8 +307,12 @@ function DatasetCardItem({ dataset }: { dataset: DatasetLite }) {
 
       <div className="text-ink-900 text-lg leading-[1.25] font-bold">{dataset.title}</div>
 
+      {/* Sama seperti di kartu: yang tampil ringkasannya, bukan tampilan
+          penuhnya. */}
       {dataset.notes ? (
-        <p className="text-ink-500 text-sm leading-[1.5]">{dataset.notes}</p>
+        <p className="text-ink-500 text-sm leading-[1.5]">
+          {richTextToPlain(dataset.notes)}
+        </p>
       ) : null}
 
       <div className="mt-0.5 flex flex-wrap items-center gap-2">

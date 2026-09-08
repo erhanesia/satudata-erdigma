@@ -5,7 +5,8 @@ import { paths } from '@/app/router/paths'
 import { DivisionAvatar } from '@/shared/components/ui/DivisionAvatar'
 import { Badge } from '@/shared/components/ui/Badge'
 import { formatCompact, formatRelative } from '@/shared/lib/format'
-import type { DatasetLite } from '@/shared/types/api'
+import type { DatasetLite } from '@/shared/types/api'
+import { richTextToPlain } from '@/shared/lib/richText'
 
 export function DatasetCard({ dataset }: { dataset: DatasetLite }) {
   const slug = dataset.slug ?? ''
@@ -26,9 +27,12 @@ export function DatasetCard({ dataset }: { dataset: DatasetLite }) {
 
           <p className="text-ink-500 mt-1 text-[13px]">{dataset.division?.name}</p>
 
+          {/* Teks polos, bukan HTML: kartu harus seragam, dan `line-clamp`
+              menghitung baris hasil gambar sehingga daftar bernomor di dalam
+              deskripsi membuat potongannya jadi tak terduga. */}
           {dataset.notes ? (
             <p className="text-ink-600 mt-2.5 line-clamp-2 text-[13.5px] leading-relaxed">
-              {dataset.notes}
+              {richTextToPlain(dataset.notes)}
             </p>
           ) : null}
 

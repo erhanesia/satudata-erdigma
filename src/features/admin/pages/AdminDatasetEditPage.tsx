@@ -9,7 +9,9 @@ import { QueryBoundary } from "@/shared/components/feedback/QueryBoundary";
 import { Reveal } from "@/shared/components/motion/Reveal";
 import { Dialog } from "@/shared/components/ui/Dialog";
 import { useToast } from "@/shared/components/ui/toastStore";
+import { RichTextEditor } from "@/shared/components/ui/RichTextEditor";
 import { formatNumber } from "@/shared/lib/format";
+import { richTextToPlain } from "@/shared/lib/richText";
 import type { AccessRule, Dataset, DatasetUpdate } from "@/shared/types/api";
 
 import { AccessRulePicker } from "../components/AccessRulePicker";
@@ -245,15 +247,22 @@ function EditForm({ dataset }: { dataset: Dataset }) {
           </Field>
 
           <Field label="Deskripsi dataset">
-            <textarea
+            <RichTextEditor
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={4}
+              onChange={setDescription}
               placeholder="Jelaskan isi dataset ini dan untuk apa dipakai."
-              className="w-full resize-y rounded-lg border border-[#E9EBF0] px-3.5 py-3 text-[16px] leading-relaxed text-[#3C4A56] outline-none transition-colors focus:border-[#4F6BED] placeholder:text-[#9CA3AF]"
+              ariaLabel="Deskripsi dataset"
             />
+            {/*
+              Yang dihitung teksnya, bukan HTML-nya.
+
+              Sejak deskripsi ditulis lewat editor teks kaya, `description`
+              memuat tag. Menghitung panjangnya apa adanya membuat satu kata
+              yang ditebalkan menambah dua puluh karakter, dan angkanya
+              berhenti berarti apa-apa bagi penulisnya.
+            */}
             <div className="mt-1.5 text-[13px] text-[#9CA3AF]">
-              {formatNumber(description.length)} karakter
+              {formatNumber(richTextToPlain(description).length)} karakter
             </div>
           </Field>
 
