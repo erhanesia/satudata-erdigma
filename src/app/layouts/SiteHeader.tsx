@@ -26,6 +26,18 @@ export function SiteHeader() {
   const [menuTerbuka, setMenuTerbuka] = useState(false)
   const toast = useToast()
   const keluar = useSignOut()
+  const { data: pengguna } = useCurrentUser()
+
+  // Manajemen pengguna hanya untuk admin warisan HRIS. Syaratnya konjungsi,
+  // sama persis dengan gerbang di server — admin tunjukan punya role ADMIN
+  // tetapi tingkat izin HRIS-nya bukan ADMIN. Penyembunyian ini kenyamanan;
+  // yang menegakkan tetap server, yang menjawab 403.
+  const bolehKelolaPengguna =
+    pengguna?.role === 'ADMIN' && pengguna?.hrisPermissionLevel === 'ADMIN'
+
+  const nav = bolehKelolaPengguna
+    ? [...NAV, { to: paths.users, label: 'Pengguna' }]
+    : [...NAV]
 
   return (
     <header className="border-line-200 bg-surface sticky top-0 z-40 border-b">
@@ -48,7 +60,7 @@ export function SiteHeader() {
         </Link>
 
         <nav className="ml-2 hidden items-center gap-0.5 md:flex" aria-label="Navigasi utama">
-          {NAV.map((item) => (
+          {nav.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -105,7 +117,7 @@ export function SiteHeader() {
 
       {menuTerbuka ? (
         <div className="border-line-200 flex flex-col gap-0.5 border-t px-4 pt-2 pb-4 md:hidden">
-          {NAV.map((item) => (
+          {nav.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
