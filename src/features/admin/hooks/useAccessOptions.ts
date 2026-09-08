@@ -27,9 +27,17 @@ export function useJobLevels() {
 /**
  * Posisi dari HRIS, diteruskan back-end saat dipanggil.
  *
- * `staleTime` jauh lebih pendek daripada jenjang jabatan: ini data hidup milik
- * HRIS yang bisa bertambah kapan saja, bukan enum yang butuh deploy untuk
- * berubah.
+ * Sumbernya HRIS dan diteruskan saat diminta, bukan disalin ke konstanta atau
+ * ke database portal, supaya perubahan di sana tidak pernah basi di sini.
+ *
+ * **`id` yang diisikan ke `ruleValue`** sebuah aturan bertipe `POSITION`;
+ * `name` cuma untuk ditampilkan. Nama posisi di HRIS memuat salah ketik yang
+ * suatu saat diperbaiki, dan pembatasan berbasis nama akan putus diam-diam
+ * begitu itu terjadi.
+ *
+ * `staleTime` panjang karena daftarnya jarang berubah, dan setiap pemanggilan
+ * di sini berujung satu permintaan ke HRIS lewat back-end. Memperpendeknya
+ * berarti membebani sistem tetangga untuk data yang praktis diam.
  */
 export function usePositions(search: string, enabled = true) {
   return useQuery({
@@ -40,7 +48,7 @@ export function usePositions(search: string, enabled = true) {
         { signal },
       ),
     enabled,
-    staleTime: 5 * 60_000,
+    staleTime: 30 * 60_000,
   })
 }
 

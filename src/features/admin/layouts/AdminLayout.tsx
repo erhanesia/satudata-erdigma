@@ -1,4 +1,4 @@
-import { Database, ExternalLink, FileText, LayoutGrid, LogOut, Menu, X } from 'lucide-react'
+import { Database, ExternalLink, FileText, LayoutGrid, LogOut, Menu, Users, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 
@@ -82,6 +82,10 @@ const TITLES: Record<string, { title: string; crumb: Crumb[] }> = {
     title: 'Log',
     crumb: [{ label: 'Satu Data', to: paths.admin }, { label: 'Log' }],
   },
+  [paths.adminUsers]: {
+    title: 'Pengguna',
+    crumb: [{ label: 'Satu Data', to: paths.admin }, { label: 'Pengguna' }],
+  },
 }
 
 export function AdminLayout() {
@@ -99,6 +103,16 @@ export function AdminLayout() {
   }, [pathname])
 
   const page = TITLES[pathname] ?? { title: 'Dashboard', crumb: [{ label: 'Satu Data' }] }
+
+  // Manajemen pengguna hanya untuk admin warisan HRIS. Syaratnya konjungsi,
+  // sama persis dengan gerbang di server: admin yang ditunjuk lewat panel ini
+  // punya role ADMIN — cukup untuk masuk panel admin lewat AdminRoute — tetapi
+  // tingkat izin HRIS-nya bukan ADMIN, dan ia tidak boleh menunjuk admin baru.
+  // Menyembunyikan butirnya kenyamanan saja; yang menolak tetap server.
+  const nav =
+    user?.role === 'ADMIN' && user?.hrisPermissionLevel === 'ADMIN'
+      ? [...NAV, { label: 'PENGGUNA', items: [{ to: paths.adminUsers, label: 'Pengguna', icon: Users, end: true }] }]
+      : NAV
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#F1F3F7]">
@@ -139,7 +153,7 @@ export function AdminLayout() {
         </div>
 
         <nav className="px-3.5 pb-10">
-          {NAV.map((group) => (
+          {nav.map((group) => (
             <div key={group.label}>
               <div className="px-3 pb-3 text-[11.5px] font-bold tracking-[1.1px] text-[#7E8798]">
                 {group.label}

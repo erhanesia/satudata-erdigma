@@ -1,8 +1,8 @@
-import type { AccessRule } from '@/shared/types/api'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { deleteDataset, updateDatasetAccessRules } from '@/features/dataset/api/datasetApi'
 import { queryKeys } from '@/shared/api/queryKeys'
+import type { AccessRule } from '@/shared/types/api'
 
 /**
  * Tindakan pengelolaan dataset dari panel admin.
@@ -42,17 +42,28 @@ export function useDatasetAdmin() {
     onSuccess: refresh,
   })
 
+  /*
+    Payload per slug, bukan satu daftar untuk semua sekaligus.
+
+    Bentuk ini menjaga hook tetap bebas dari kebijakan antarmuka. "Semua yang
+    terpilih dapat aturan yang sama" adalah keputusan dialognya, bukan keputusan
+    lapisan data; di sini cukup "terapkan aturan ini pada dataset ini".
+
+    Kelonggarannya juga berguna: pemanggil yang hanya bisa menyunting sebagian
+    sumbu dapat membawa serta aturan yang tidak ia tampilkan, alih-alih
+    menghapusnya hanya karena layarnya tidak bisa menunjukkannya.
+  */
   const updateAccessRules = useMutation({
-    mutationFn: async ({ slugs, accessRules }: { slugs: string[]; accessRules: AccessRule[] }) => {
+    mutationFn: async (items: { slug: string; accessRules: AccessRule[] }[]) => {
       const failed: string[] = []
-      for (const slug of slugs) {
+      for (const { slug, accessRules } of items) {
         try {
           await updateDatasetAccessRules(slug, accessRules)
         } catch {
           failed.push(slug)
         }
       }
-      return { total: slugs.length, failed }
+      return { total: items.length, failed }
     },
     onSuccess: refresh,
   })

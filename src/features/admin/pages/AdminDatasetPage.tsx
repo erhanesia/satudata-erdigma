@@ -636,7 +636,21 @@ export default function AdminDatasetPage() {
         onClose={() => setDialog(null)}
         onSave={(rules) =>
           updateAccessRules.mutate(
-            { slugs: selected, accessRules: rules },
+            /*
+              Payloadnya disusun per dataset, meski isinya sama untuk semua.
+
+              Bentuk itu datang dari hook-nya, dan sengaja dipertahankan: yang
+              memutuskan "semua yang terpilih dapat aturan yang sama" adalah
+              dialog ini, bukan lapisan datanya. Kalau suatu saat ada layar yang
+              hanya bisa menyunting sebagian sumbu, ia bisa memakai hook yang
+              sama sambil membawa serta aturan yang tidak ia tampilkan.
+
+              Penggantian menyeluruh di sini aman justru karena pemilihnya
+              menampilkan ketiga sumbu: tidak ada aturan yang tersembunyi dari
+              admin, dan yang hanya dipunyai sebagian sudah diperingatkan di
+              dialognya sebelum disimpan.
+            */
+            selected.map((slug) => ({ slug, accessRules: rules })),
             { onSuccess: (h) => report(h, "diperbarui") },
           )
         }
