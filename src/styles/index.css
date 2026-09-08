@@ -299,6 +299,34 @@
   }
 
   /*
+   * Kembarannya yang membuka ke BAWAH.
+   *
+   * Titik tumpunya dibalik ke atas, dan itu yang membuat panelnya terasa
+   * tumbuh dari tepi bawah pemicunya. Memakai `dropdown-up` apa adanya untuk
+   * arah ini menghasilkan gerakan yang berlawanan dengan arah munculnya:
+   * panelnya turun sambil bergerak naik.
+   *
+   * Durasi dan easing-nya sengaja sama persis dengan kembarannya. Dua arah
+   * dari satu jenis kontrol yang terasa berbeda cepatnya terbaca sebagai
+   * ketidakkonsistenan, meski tidak ada yang bisa menunjuk sebabnya.
+   */
+  @keyframes dropdown-down {
+    from {
+      opacity: 0;
+      transform: translateY(-6px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  .animate-dropdown-down {
+    animation: dropdown-down 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+    transform-origin: top center;
+  }
+
+  /*
    * Peredam gerak khusus hero.
    *
    * Aturan global di @layer base memotong durasi jadi 0,01ms, yang membuat
@@ -310,6 +338,7 @@
     .animate-fade,
     .animate-tab-in,
     .animate-dropdown-up,
+    .animate-dropdown-down,
     .animate-overlay-in {
       animation: none;
       opacity: 1;

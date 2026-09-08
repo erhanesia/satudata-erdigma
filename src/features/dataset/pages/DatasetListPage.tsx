@@ -4,7 +4,8 @@ import { Link } from 'react-router-dom'
 import { paths } from '@/app/router/paths'
 import { QueryBoundary } from '@/shared/components/feedback/QueryBoundary'
 import { Reveal } from '@/shared/components/motion/Reveal'
-import { Pagination } from '@/shared/components/ui/Pagination'
+import { Pagination } from '@/shared/components/ui/Pagination'
+import { SelectMenu } from '@/shared/components/ui/SelectMenu'
 import { SearchField } from '@/shared/components/ui/SearchField'
 import { Skeleton } from '@/shared/components/ui/Skeleton'
 import { cn } from '@/shared/lib/cn'
@@ -50,18 +51,32 @@ export default function DatasetListPage() {
         <div className="mb-[22px] flex flex-wrap gap-2.5">
           <SearchBox initialValue={filters.search} onSearch={(search) => setFilter({ search })} />
 
-          <div className="border-line-300 focus-within:border-brand flex items-center gap-2 rounded-[10px] border bg-white px-3 transition-colors">
-            <span className="text-ink-500 text-[13px] font-semibold">Urutkan</span>
-            <select
+          {/*
+            Labelnya tetap di luar pemicunya, bukan dijadikan placeholder.
+
+            Pemilih ini SELALU punya nilai, jadi placeholder tidak pernah tampil
+            dan kata "Urutkan" tidak akan pernah terbaca kalau ditaruh di sana.
+            Yang tampil cuma "Relevansi" -- sebuah kata yang tidak menjelaskan
+            dirinya sendiri di tengah bilah penyaring.
+          */}
+          <div className="border-line-300 focus-within:border-brand flex items-center gap-1 rounded-[10px] border bg-white pl-3 transition-colors">
+            <span className="text-ink-500 shrink-0 text-[13px] font-semibold">Urutkan</span>
+            <SelectMenu
               value={filters.sort}
-              onChange={(e) => setFilter({ sort: e.target.value as typeof filters.sort })}
-              aria-label="Urutkan hasil"
-              className="text-ink-900 border-none bg-transparent px-1 py-3 text-sm font-semibold outline-none"
-            >
-              <option value="relevance">Relevansi</option>
-              <option value="downloads">Unduhan terbanyak</option>
-              <option value="updated">Terbaru diperbarui</option>
-            </select>
+              onChange={(v) => setFilter({ sort: v as typeof filters.sort })}
+              placeholder="Urutkan hasil"
+              ariaLabel="Urutkan hasil"
+              includeAll={false}
+              options={[
+                { value: 'relevance', label: 'Relevansi' },
+                { value: 'downloads', label: 'Unduhan terbanyak' },
+                { value: 'updated', label: 'Terbaru diperbarui' },
+              ]}
+              // Pinggiran dan latarnya datang dari pembungkus di atas, jadi
+              // pemicunya sendiri dibuat polos supaya tidak ada kotak di
+              // dalam kotak.
+              className="text-ink-900 h-11 border-none bg-transparent pr-3 pl-1 text-sm font-semibold hover:border-none data-[state=open]:border-none"
+            />
           </div>
         </div>
       </Reveal>
