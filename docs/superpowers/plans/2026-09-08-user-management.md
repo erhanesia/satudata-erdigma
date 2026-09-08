@@ -697,7 +697,7 @@ class UserAdminAuthorizationTest {
 
 - [ ] **Step 3: Jalankan kedua test, pastikan gagal**
 
-Run: `./mvnw.cmd test -Dtest=UserAdminServiceTest+UserAdminAuthorizationTest`
+Run: `./mvnw.cmd test -Dtest=UserAdminServiceTest,UserAdminAuthorizationTest`
 Expected: FAIL saat kompilasi — `UserAdminService`, `UserAdminResponse`, dan `UserAdminController` belum ada.
 
 - [ ] **Step 4: Tambah kueri di repository**
@@ -898,7 +898,7 @@ public class UserAdminController {
 
 - [ ] **Step 8: Jalankan kedua test, pastikan lulus**
 
-Run: `./mvnw.cmd test -Dtest=UserAdminServiceTest+UserAdminAuthorizationTest`
+Run: `./mvnw.cmd test -Dtest=UserAdminServiceTest,UserAdminAuthorizationTest`
 Expected: PASS, empat test.
 
 - [ ] **Step 9: Commit**
@@ -1004,7 +1004,7 @@ memanggilnya dapat menunjuk admin baru (impor tambahan:
 
 - [ ] **Step 2: Jalankan test, pastikan gagal**
 
-Run: `./mvnw.cmd test -Dtest=UserAdminServiceTest+UserAdminAuthorizationTest`
+Run: `./mvnw.cmd test -Dtest=UserAdminServiceTest,UserAdminAuthorizationTest`
 Expected: FAIL saat kompilasi — method `ubahPeran` dan `UserRoleUpdateRequest` belum ada.
 
 - [ ] **Step 3: Buat DTO permintaan**
@@ -1105,7 +1105,7 @@ Di `UserAdminController`, tambahkan (impor: `org.springframework.web.bind.annota
 
 - [ ] **Step 6: Jalankan test, pastikan lulus**
 
-Run: `./mvnw.cmd test -Dtest=UserAdminServiceTest+UserAdminAuthorizationTest`
+Run: `./mvnw.cmd test -Dtest=UserAdminServiceTest,UserAdminAuthorizationTest`
 Expected: PASS, delapan test.
 
 - [ ] **Step 7: Jalankan seluruh suite back-end**
