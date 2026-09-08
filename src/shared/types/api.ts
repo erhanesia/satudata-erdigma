@@ -31,6 +31,8 @@ export type StatusComponent = Schemas['Component']
 export type SummaryGroup = Schemas['SummaryGroup']
 export type Topic = Schemas['TopicResponse']
 export type CurrentUser = Schemas['UserResponse']
+export type UserAdmin = Schemas['UserAdminResponse']
+export type PageOfUsers = Schemas['PageUserAdminResponse']
 
 /** Halaman Spring Data. `number` berbasis 0 — perhatikan saat menampilkannya. */
 export type PageOfDatasets = Schemas['PageDatasetResponseLite']

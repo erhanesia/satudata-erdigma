@@ -115,6 +115,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/{id}/role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Tunjuk peran seorang pengguna
+         * @description Menetapkan peran portal seseorang, menahannya dari penyegaran data HRIS.
+         *
+         *     Kirim `{"role": null}` untuk mengembalikannya mengikuti HRIS — peran akan dihitung
+         *     ulang dari tingkat izin HRIS terakhir yang tercatat, tanpa memanggil hris-api.
+         *
+         *     Peran sendiri tidak bisa diubah. Batasan itu yang menjamin selalu tersisa satu admin
+         *     warisan HRIS yang aktif.
+         */
+        patch: operations["ubahPeran"];
+        trace?: never;
+    };
+    "/api/v1/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Daftar pengguna portal
+         * @description Pengguna yang **pernah masuk** ke Satu Data. Orang yang belum pernah membuka portal
+         *     belum punya baris di sini dan karenanya belum bisa ditunjuk.
+         *
+         *     `q` mencocokkan sebagian nama atau email tanpa peduli besar-kecil huruf. Halaman
+         *     berbasis 0 mengikuti Spring Data, sama seperti `GET /api/v1/datasets`.
+         *
+         *     Bedakan dua kolom peran pada hasilnya: `role` adalah peran efektif, `roleOverride`
+         *     berisi nilai hanya bila peran itu ditunjuk manusia.
+         */
+        get: operations["index_2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/topics": {
         parameters: {
             query?: never;
@@ -162,7 +215,7 @@ export interface paths {
          *     Endpoint ini berbeda dari `/actuator/health` bawaan Spring: yang ini memakai bahasa dan
          *     pengelompokan sesuai desain halaman Status, sedangkan actuator untuk pemantauan mesin.
          */
-        get: operations["index_2"];
+        get: operations["index_3"];
         put?: never;
         post?: never;
         delete?: never;
@@ -188,7 +241,7 @@ export interface paths {
          *     Nama endpoint ini sudah jamak sejak awal karena `stats` memang bentuk jamak dari
          *     *statistic*, bukan pengecualian dari konvensi.
          */
-        get: operations["index_3"];
+        get: operations["index_4"];
         put?: never;
         post?: never;
         delete?: never;
@@ -228,7 +281,7 @@ export interface paths {
          *     Itu masih aman karena seluruh endpoint bersifat baca atau sudah dibatasi per-pengguna,
          *     tapi penegakan role wajib ada sebelum sisi admin dibangun.
          */
-        get: operations["index_4"];
+        get: operations["index_5"];
         put?: never;
         post?: never;
         delete?: never;
@@ -285,7 +338,7 @@ export interface paths {
          *     Mengisi parameter itu dengan nama panjang seperti `Divisi Penjualan` tidak akan
          *     menyaring apa pun — yang dipakai kodenya.
          */
-        get: operations["index_5"];
+        get: operations["index_6"];
         put?: never;
         post?: never;
         delete?: never;
@@ -436,7 +489,7 @@ export interface paths {
          *
          *     Ambil nilai `slug` dari sini untuk membuka detailnya.
          */
-        get: operations["index_6"];
+        get: operations["index_7"];
         put?: never;
         post?: never;
         delete?: never;
@@ -665,6 +718,63 @@ export interface components {
             /** Format: date-time */
             createdAt?: string;
         };
+        UserRoleUpdateRequest: {
+            /**
+             * @description Peran yang ditunjuk. null berarti kembali mengikuti HRIS.
+             * @enum {string|null}
+             */
+            role?: "ADMIN" | "PUBLISHER" | "STAFF" | null;
+        };
+        UserAdminResponse: {
+            /** Format: uuid */
+            id?: string;
+            name?: string;
+            email?: string;
+            position?: string;
+            division?: components["schemas"]["DivisionResponseLite"];
+            /** @enum {string} */
+            role?: "ADMIN" | "PUBLISHER" | "STAFF";
+            /** @enum {string} */
+            hrisPermissionLevel?: "ADMIN" | "DIRECTOR" | "CORPORATE_SECRETARY" | "MANAGER" | "STAFF";
+            /** @enum {string} */
+            roleOverride?: "ADMIN" | "PUBLISHER" | "STAFF";
+            /** Format: date-time */
+            roleOverrideAt?: string;
+        };
+        PageUserAdminResponse: {
+            /** Format: int32 */
+            totalPages?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            size?: number;
+            content?: components["schemas"]["UserAdminResponse"][];
+            /** Format: int32 */
+            number?: number;
+            sort?: components["schemas"]["SortObject"];
+            pageable?: components["schemas"]["PageableObject"];
+            /** Format: int32 */
+            numberOfElements?: number;
+            first?: boolean;
+            last?: boolean;
+            empty?: boolean;
+        };
+        PageableObject: {
+            /** Format: int64 */
+            offset?: number;
+            sort?: components["schemas"]["SortObject"];
+            unpaged?: boolean;
+            paged?: boolean;
+            /** Format: int32 */
+            pageSize?: number;
+            /** Format: int32 */
+            pageNumber?: number;
+        };
+        SortObject: {
+            empty?: boolean;
+            unsorted?: boolean;
+            sorted?: boolean;
+        };
         TopicResponse: {
             /** Format: uuid */
             id?: string;
@@ -787,22 +897,6 @@ export interface components {
             first?: boolean;
             last?: boolean;
             empty?: boolean;
-        };
-        PageableObject: {
-            /** Format: int64 */
-            offset?: number;
-            sort?: components["schemas"]["SortObject"];
-            paged?: boolean;
-            /** Format: int32 */
-            pageNumber?: number;
-            /** Format: int32 */
-            pageSize?: number;
-            unpaged?: boolean;
-        };
-        SortObject: {
-            empty?: boolean;
-            sorted?: boolean;
-            unsorted?: boolean;
         };
         DatasetSummaryResponse: {
             slug?: string;
@@ -1014,6 +1108,93 @@ export interface operations {
             };
         };
     };
+    ubahPeran: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description Id pengguna dalam bentuk `usr-<uuid>` seperti yang muncul di GET /api/v1/users. UUID telanjang tanpa awalan juga diterima.
+                 * @example usr-3fa85f64-5717-4562-b3fc-2c963f66afa6
+                 */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserRoleUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Peran berhasil ditunjuk */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["UserAdminResponse"];
+                };
+            };
+            /** @description Mencoba mengubah peran sendiri, atau id tidak berbentuk benar */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        error?: string;
+                    };
+                };
+            };
+            /** @description Bukan admin warisan HRIS */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        error?: string;
+                    };
+                };
+            };
+            /** @description Pengguna tidak ditemukan */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        error?: string;
+                    };
+                };
+            };
+        };
+    };
+    index_2: {
+        parameters: {
+            query?: {
+                q?: string;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Daftar pengguna berhasil diambil */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PageUserAdminResponse"];
+                };
+            };
+        };
+    };
     indexTopic: {
         parameters: {
             query?: never;
@@ -1034,7 +1215,7 @@ export interface operations {
             };
         };
     };
-    index_2: {
+    index_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -1054,7 +1235,7 @@ export interface operations {
             };
         };
     };
-    index_3: {
+    index_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -1074,7 +1255,7 @@ export interface operations {
             };
         };
     };
-    index_4: {
+    index_5: {
         parameters: {
             query?: never;
             header?: never;
@@ -1136,7 +1317,7 @@ export interface operations {
             };
         };
     };
-    index_5: {
+    index_6: {
         parameters: {
             query?: never;
             header?: never;
@@ -1371,7 +1552,7 @@ export interface operations {
             };
         };
     };
-    index_6: {
+    index_7: {
         parameters: {
             query?: never;
             header?: never;
