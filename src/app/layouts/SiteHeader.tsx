@@ -8,6 +8,7 @@ import { useCurrentUser } from '@/features/auth/hooks/useCurrentUser'
 import { useSignOut } from '@/features/auth/hooks/useSignOut'
 import { Skeleton } from '@/shared/components/ui/Skeleton'
 import { useToast } from '@/shared/components/ui/toastStore'
+import { UserAvatar } from '@/shared/components/ui/UserAvatar'
 import { cn } from '@/shared/lib/cn'
 
 /**
@@ -237,9 +238,12 @@ function UserPill({ mobile = false }: { mobile?: boolean }) {
         mobile ? 'rounded-[10px] p-2.5' : 'rounded-full py-[5px] pr-4 pl-[6px]',
       )}
     >
-      <span className="bg-brand flex size-[34px] shrink-0 items-center justify-center rounded-full text-[13px] font-bold text-white">
-        {user.initials}
-      </span>
+      <UserAvatar
+        src={user.profileImageUrl}
+        initials={user.initials ?? '?'}
+        name={user.name}
+        className="size-[34px] text-[13px] font-bold"
+      />
       <span className="leading-tight">
         <span className={cn('text-ink-900 block font-bold', mobile ? 'text-sm' : 'text-[13.5px]')}>
           {user.name}

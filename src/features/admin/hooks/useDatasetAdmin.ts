@@ -42,10 +42,17 @@ export function useDatasetAdmin() {
     onSuccess: refresh,
   })
 
-  // Per slug, bukan satu daftar untuk semuanya: tiap dataset punya aturan
-  // sendiri (termasuk JOB_LEVEL/EMPLOYEE yang mungkin sudah dibuat lewat API),
-  // jadi pemanggil yang menyusun payload akhirnya per dataset — lihat
-  // `AdminDatasetPage`.
+  /*
+    Payload per slug, bukan satu daftar untuk semua sekaligus.
+
+    Bentuk ini menjaga hook tetap bebas dari kebijakan antarmuka. "Semua yang
+    terpilih dapat aturan yang sama" adalah keputusan dialognya, bukan keputusan
+    lapisan data; di sini cukup "terapkan aturan ini pada dataset ini".
+
+    Kelonggarannya juga berguna: pemanggil yang hanya bisa menyunting sebagian
+    sumbu dapat membawa serta aturan yang tidak ia tampilkan, alih-alih
+    menghapusnya hanya karena layarnya tidak bisa menunjukkannya.
+  */
   const updateAccessRules = useMutation({
     mutationFn: async (items: { slug: string; accessRules: AccessRule[] }[]) => {
       const failed: string[] = []

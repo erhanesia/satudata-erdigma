@@ -181,15 +181,10 @@ function ShareButton({ dataset }: { dataset: Dataset }) {
   const { copy, copiedKey } = useCopyToClipboard()
   const copied = copiedKey === 'share'
 
-  // Dataset berpagar aturan akses tidak terbuka untuk semua orang. Penyalinnya
-  // tetap bekerja, tapi pesannya menyebut batasan itu — mengira sudah
-  // membagikan sesuatu lalu penerimanya melihat 403 adalah kebingungan yang
-  // bisa dicegah dengan satu kalimat.
-  //
-  // Disebut "yang berhak", bukan "posisi yang berhak": layar ini hanya
-  // membuat aturan POSITION, tapi `accessRules` bisa juga berisi JOB_LEVEL
-  // atau EMPLOYEE yang dibuat lewat API, dan menyebut "posisi" akan salah
-  // untuk dataset yang dibatasi lewat jalur itu.
+  // Dataset beraturan akses tidak terbuka untuk semua orang. Penyalinnya tetap
+  // bekerja, tapi pesannya menyebut batasan itu — mengira sudah membagikan
+  // sesuatu lalu penerimanya melihat 403 adalah kebingungan yang bisa dicegah
+  // dengan satu kalimat.
   const restricted = (dataset.accessRules?.length ?? 0) > 0
   const message = restricted
     ? 'Tautan disalin. Hanya yang berhak bisa membukanya.'

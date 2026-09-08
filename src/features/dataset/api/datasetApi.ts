@@ -1,6 +1,5 @@
 import { apiDelete, apiDownload, apiGet, apiPatch, apiPost } from '@/shared/api/httpClient'
-import type {
-  AccessRule,
+import type { AccessRule,
   Dataset,
   DocumentText,
   DatasetSummary,
@@ -26,8 +25,13 @@ export interface DatasetQuery {
   topics?: string[]
   formats?: string[]
   divisions?: string[]
-  /** Tag posisi. Disaring di database, bukan di layar — lihat catatan di panel admin. */
-  positions?: string[]
+  /**
+   * Menyaring menurut jenjang jabatan yang tercantum di aturan akses dataset.
+   *
+   * Hanya jenjang, bukan ketiga jenis aturan: posisi dan karyawan tersimpan
+   * sebagai UUID, dan penyaring berisi UUID tidak bisa dibaca siapa pun.
+   */
+  jobLevels?: string[]
   sort?: 'relevance' | 'downloads' | 'updated' | 'created'
   /** Berbasis 0, mengikuti Spring Data. */
   page?: number
@@ -132,10 +136,11 @@ export interface DatasetUploadBody {
   topics?: string[]
   collectionSlug?: string
   /**
-   * Aturan siapa yang boleh melihat. Dikosongkan berarti terbuka untuk
-   * seluruh karyawan; diisi berarti dibatasi — dan pembatasannya berlaku.
-   * Layar ini hanya membuat aturan bertipe `POSITION`; `JOB_LEVEL` dan
-   * `EMPLOYEE` berdiri sejajar di API tapi belum punya pemilih di sini.
+   * Aturan siapa yang boleh melihat. Dikosongkan berarti terbuka untuk seluruh
+   * karyawan; diisi berarti dibatasi — dan pembatasannya berlaku.
+   *
+   * Ketiga jenisnya berdiri sejajar: dataset terlihat bila SALAH SATU aturan
+   * cocok, bukan bila semuanya cocok.
    */
   accessRules?: AccessRule[]
   /**
@@ -156,23 +161,62 @@ export interface DatasetUploadBody {
  * `Content-Type` sengaja TIDAK diisi sendiri: axios harus menyusunnya bersama
  * boundary multipart, dan menuliskannya manual justru membuat boundary hilang.
  */
-export function uploadDataset(files: File[], body: DatasetUploadBody): Promise<Dataset> {
+/**
+ * Ambang waktu khusus unggahan, jauh di atas ambang 20 detik milik permintaan
+ * biasa.
+ *
+ * Unggahan bukan permintaan biasa. Satu berkas XLSX 4,4 MB berisi 61.876 baris
+ * terukur **64 detik** dari awal permintaan sampai jejak auditnya tertulis:
+ * berkasnya dikirim ke S3, dibaca, lalu tiap barisnya dimasukkan ke
+ * `dataset_row`. Dengan ambang 20 detik, browser menyerah di tengah jalan dan
+ * memunculkan "Permintaan terlalu lama" — padahal back-end terus bekerja sampai
+ * selesai dan datasetnya benar-benar terbit.
+ *
+ * Itu keadaan yang paling buruk dari keduanya: penerbit mengira gagal, lalu
+ * mencoba lagi, dan unggahan kedua berebut slug dengan yang pertama.
+ *
+ * Sepuluh menit, bukan tanpa batas. Permintaan yang benar-benar menggantung
+ * harus tetap punya akhir; yang tidak boleh terjadi adalah menyerah pada
+ * pekerjaan yang masih berjalan normal.
+ *
+ * Ini menambal, bukan menyembuhkan. Yang benar adalah memisahkan impor isi
+ * berkas dari permintaan HTTP-nya, sehingga unggahan selesai begitu berkasnya
+ * tersimpan dan pengisian barisnya berjalan di belakang. Itu pekerjaan
+ * tersendiri, dan sudah dicatat di PLANNING.md.
+ */
+const UPLOAD_TIMEOUT_MS = 10 * 60_000
+
+export function uploadDataset(
+  files: File[],
+  body: DatasetUploadBody,
+  onProgress?: (percent: number) => void,
+): Promise<Dataset> {
   const form = new FormData()
   // Bagian `files` diulang, bukan dikirim sebagai satu larik. Urutan
   // penambahannya SAMA dengan urutan `body.files`, dan back-end memasangkan
   // keduanya berdasarkan urutan itu.
   files.forEach((file) => form.append('files', file))
   form.append('body', new Blob([JSON.stringify(body)], { type: 'application/json' }))
-  return apiPost<Dataset>(BASE, form)
+
+  return apiPost<Dataset>(BASE, form, {
+    timeout: UPLOAD_TIMEOUT_MS,
+    onUploadProgress: (event) => {
+      if (!onProgress || !event.total) return
+      // Berhenti di 100 saat byte terakhir terkirim. Sesudah itu back-end masih
+      // membaca dan memasukkan barisnya, dan tidak ada satu pun angka yang bisa
+      // dilaporkan browser tentang bagian itu — yang menjelaskannya teks di
+      // layar, bukan bilah ini.
+      onProgress(Math.round((event.loaded / event.total) * 100))
+    },
+  })
 }
 
 /**
  * Mengganti SELURUH aturan akses sebuah dataset — bukan menambah.
  *
  * Mengirim daftar utuh, bukan selisihnya, supaya dua admin yang menyunting
- * bersamaan tidak menghasilkan gabungan yang tidak dikehendaki siapa pun.
- *
- * Menggantikan `PATCH /{slug}/positions` yang sudah tidak ada di back-end.
+ * bersamaan tidak menghasilkan gabungan yang tidak dikehendaki siapa pun. Itu
+ * pula yang membuat penghapusan satu aturan tidak butuh endpoint tersendiri.
  */
 export function updateDatasetAccessRules(
   slug: string,
