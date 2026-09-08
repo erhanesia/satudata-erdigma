@@ -19,6 +19,7 @@ export const paths = {
   divisions: '/divisions',
   apiDocs: '/api-docs',
   status: '/status',
+  users: '/users',
   datasetUpload: '/datasets/unggah',
 } as const
 
@@ -33,6 +34,7 @@ export const routePatterns = {
   divisions: 'divisions',
   apiDocs: 'api-docs',
   status: 'status',
+  users: 'users',
   // Didaftarkan SEBELUM 'datasets/:slug' di router, kalau tidak
   // "unggah" akan ditangkap sebagai slug dataset.
   datasetUpload: 'datasets/unggah',

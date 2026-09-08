@@ -25,6 +25,7 @@ const DivisionListPage = lazy(() => import('@/features/division/pages/DivisionLi
 const ApiDocsPage = lazy(() => import('@/features/apiDocs/pages/ApiDocsPage'))
 const StatusPage = lazy(() => import('@/features/status/pages/StatusPage'))
 const LoginPage = lazy(() => import('@/features/auth/pages/LoginPage'))
+const UserListPage = lazy(() => import('@/features/userManagement/pages/UserListPage'))
 
 function halaman(element: React.ReactNode) {
   return <Suspense fallback={<RouteFallback />}>{element}</Suspense>
@@ -59,6 +60,7 @@ export const router = createBrowserRouter([
           { path: routePatterns.divisions, element: halaman(<DivisionListPage />) },
           { path: routePatterns.apiDocs, element: halaman(<ApiDocsPage />) },
           { path: routePatterns.status, element: halaman(<StatusPage />) },
+          { path: routePatterns.users, element: halaman(<UserListPage />) },
           { path: '*', element: <NotFoundPage /> },
         ],
       },
