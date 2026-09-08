@@ -1,5 +1,6 @@
 import { apiDelete, apiDownload, apiGet, apiPatch, apiPost } from '@/shared/api/httpClient'
 import type { AccessRule,
+  DatasetUpdate,
   Dataset,
   DocumentText,
   DatasetSummary,
@@ -212,6 +213,48 @@ export function uploadDataset(
 }
 
 /**
+ * Menyunting dataset yang sudah terbit.
+ *
+ * Slug TIDAK ikut berubah meski judulnya diganti — itu keputusan back-end, dan
+ * disebut di sini supaya pemanggilnya tidak menduga sebaliknya lalu mengarahkan
+ * pengguna ke alamat yang tidak ada.
+ *
+ * Ruas keterangan yang dihilangkan berarti "jangan diubah"; string kosong
+ * berarti "kosongkan". `accessRules` dikecualikan dan wajib disertakan.
+ *
+ * Berbentuk multipart, sama seperti penerbitan, karena berkasnya ikut bisa
+ * disunting. `body.files` adalah keadaan AKHIR yang diinginkan: entri ber-`id`
+ * mempertahankan berkas lama, entri tanpa `id` adalah berkas baru, dan berkas
+ * lama yang tidak disebut akan dilepas.
+ *
+ * Menghilangkan `body.files` sama sekali berarti berkasnya tidak disentuh.
+ */
+export function updateDataset(
+  slug: string,
+  body: DatasetUpdate,
+  files: File[] = [],
+  onProgress?: (percent: number) => void,
+): Promise<Dataset> {
+  const form = new FormData()
+  // Bagian `files` diulang, bukan dikirim sebagai satu larik, dan hanya memuat
+  // berkas BARU. Urutan penambahannya sama dengan urutan entri tanpa `id` di
+  // `body.files`, dan back-end memasangkan keduanya berdasarkan urutan itu.
+  files.forEach((file) => form.append('files', file))
+  form.append('body', new Blob([JSON.stringify(body)], { type: 'application/json' }))
+
+  return apiPatch<Dataset>(`${BASE}/${encodeURIComponent(slug)}`, form, {
+    // Batas waktu yang sama dengan penerbitan, dan alasannya sama: setelah byte
+    // terakhir terkirim, back-end masih membaca berkasnya lalu memasukkan tiap
+    // barisnya. Batas bawaan menyerah jauh sebelum bagian itu selesai.
+    timeout: UPLOAD_TIMEOUT_MS,
+    onUploadProgress: (event) => {
+      if (!onProgress || !event.total) return
+      onProgress(Math.round((event.loaded / event.total) * 100))
+    },
+  })
+}
+
+/**
  * Mengganti SELURUH aturan akses sebuah dataset — bukan menambah.
  *
  * Mengirim daftar utuh, bukan selisihnya, supaya dua admin yang menyunting
@@ -245,14 +288,19 @@ export function fetchDocumentText(
 }
 
 /**
- * Mengambil PDF untuk digambar peramban di dalam halaman.
+ * Mengambil isi berkas untuk ditampilkan di dalam halaman.
+ *
+ * Melayani PDF dan DOCX. PDF digambar peramban sendiri lewat blob URL; DOCX
+ * diurai di sisi klien menjadi HTML. Keduanya butuh hal yang sama dari sini:
+ * byte-nya.
  *
  * Lewat XHR, bukan `<iframe src="/api/...">` langsung: navigasi iframe tidak
- * membawa header autentikasi, jadi server akan menjawab 401. Hasilnya dibungkus
- * jadi blob URL — dan pemanggil WAJIB mencabutnya, karena setiap blob menahan
- * seluruh isi berkas di memori sampai dicabut.
+ * membawa header autentikasi, jadi server akan menjawab 401.
+ *
+ * Pemanggil yang membungkusnya jadi blob URL WAJIB mencabutnya, karena setiap
+ * blob menahan seluruh isi berkas di memori sampai dicabut.
  */
-export function fetchPdfPreview(slug: string, resourceId: string): Promise<Blob> {
+export function fetchPreviewFile(slug: string, resourceId: string): Promise<Blob> {
   return apiDownload(`${BASE}/${encodeURIComponent(slug)}/preview`, {
     params: { resourceId },
     timeout: 120_000,

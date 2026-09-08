@@ -30,6 +30,7 @@ const LoginPage = lazy(() => import('@/features/auth/pages/LoginPage'))
 const AdminDashboardPage = lazy(() => import('@/features/admin/pages/AdminDashboardPage'))
 const AdminDatasetPage = lazy(() => import('@/features/admin/pages/AdminDatasetPage'))
 const AdminDatasetNewPage = lazy(() => import('@/features/admin/pages/AdminDatasetNewPage'))
+const AdminDatasetEditPage = lazy(() => import('@/features/admin/pages/AdminDatasetEditPage'))
 const AdminLogPage = lazy(() => import('@/features/admin/pages/AdminLogPage'))
 // Manajemen pengguna tinggal di modulnya sendiri, tetapi dirender di dalam
 // kerangka admin — fungsinya fungsi admin, bukan halaman panel pengguna.
@@ -65,6 +66,7 @@ export const router = createBrowserRouter([
             children: [
               { index: true, element: page(<AdminDashboardPage />) },
               { path: routePatterns.adminDatasetNew, element: page(<AdminDatasetNewPage />) },
+              { path: routePatterns.adminDatasetEdit, element: page(<AdminDatasetEditPage />) },
               { path: routePatterns.adminDatasets, element: page(<AdminDatasetPage />) },
               { path: routePatterns.adminLog, element: page(<AdminLogPage />) },
               { path: routePatterns.adminUsers, element: page(<UserListPage />) },

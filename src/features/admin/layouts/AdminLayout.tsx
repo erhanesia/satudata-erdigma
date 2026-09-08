@@ -1,12 +1,12 @@
 import { Database, ExternalLink, FileText, LayoutGrid, LogOut, Menu, Users, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { Link, NavLink, Outlet, matchPath, useLocation } from 'react-router-dom'
 
 import { UserAvatar } from '@/shared/components/ui/UserAvatar'
 import { Toaster } from '@/shared/components/ui/Toaster'
 import { useCurrentUser } from '@/features/auth/hooks/useCurrentUser'
 import { useSignOut } from '@/features/auth/hooks/useSignOut'
-import { paths } from '@/app/router/paths'
+import { paths, routePatterns } from '@/app/router/paths'
 
 /**
  * Kerangka panel admin — sidebar gelap + topbar, mengikuti
@@ -43,6 +43,18 @@ const NAV = [
   },
 ]
 
+/**
+ * Alamat halaman sunting dalam bentuk POLA, bukan alamat jadi.
+ *
+ * Dipakai dua kali dan harus sama persis di keduanya: sebagai kunci di TITLES,
+ * dan sebagai pola yang dicocokkan dengan alamat sebenarnya. Ditulis sekali di
+ * sini supaya keduanya tidak bisa berbeda.
+ *
+ * `paths.adminDatasetEdit(':slug')` tidak dipakai karena ia meng-encode titik
+ * duanya menjadi `%3Aslug`, dan hasilnya bukan pola yang bisa dicocokkan.
+ */
+const ADMIN_DATASET_EDIT = `${paths.admin}/${routePatterns.adminDatasetEdit}`
+
 /** Satu ruas remah roti. Tanpa `to` berarti halaman yang sedang dibuka. */
 interface Crumb {
   label: string
@@ -61,6 +73,24 @@ interface Crumb {
  * dan tautan yang membawa ke tempat yang sama dengan tempat sekarang hanya
  * membingungkan.
  */
+/*
+  Dipegang sebagai const tersendiri, lalu dirujuk dari TITLES.
+
+  Halaman sunting adalah satu-satunya yang alamatnya tidak bisa dijadikan kunci
+  tetap, jadi ia harus dibaca lewat jalur kedua di `pageFor`. Membacanya dengan
+  `TITLES[...]` di sana menghasilkan tipe yang mungkin undefined dan memaksa
+  penegasan yang tidak dijamin apa pun. Merujuk const-nya langsung membuat
+  keberadaannya dijamin pengetik, bukan diyakini programmernya.
+*/
+const DATASET_EDIT_PAGE: { title: string; crumb: Crumb[] } = {
+  title: 'Edit dataset',
+  crumb: [
+    { label: 'Satu Data', to: paths.admin },
+    { label: 'Dataset', to: paths.adminDatasets },
+    { label: 'Edit' },
+  ],
+}
+
 const TITLES: Record<string, { title: string; crumb: Crumb[] }> = {
   [paths.admin]: {
     title: 'Dashboard',
@@ -78,6 +108,7 @@ const TITLES: Record<string, { title: string; crumb: Crumb[] }> = {
       { label: 'Tambah' },
     ],
   },
+  [ADMIN_DATASET_EDIT]: DATASET_EDIT_PAGE,
   [paths.adminLog]: {
     title: 'Log',
     crumb: [{ label: 'Satu Data', to: paths.admin }, { label: 'Log' }],
@@ -86,6 +117,29 @@ const TITLES: Record<string, { title: string; crumb: Crumb[] }> = {
     title: 'Pengguna',
     crumb: [{ label: 'Satu Data', to: paths.admin }, { label: 'Pengguna' }],
   },
+}
+
+/**
+ * Judul dan remah roti untuk sebuah alamat.
+ *
+ * Pencocokan persis saja tidak cukup sejak ada rute berslug: alamat
+ * `/admin/dataset/penjualan-2025/edit` tidak akan pernah sama dengan kunci mana
+ * pun, sehingga jatuh ke cadangan — dan halaman sunting menyebut dirinya
+ * "Dashboard" dengan remah roti yang tidak satu pun bisa diklik.
+ *
+ * Cadangannya sengaja dipertahankan, bukan diganti kosong: rute admin baru yang
+ * lupa didaftarkan tetap menggambar topbar yang utuh, bukan judul kosong yang
+ * terlihat seperti halaman gagal dimuat.
+ */
+function pageFor(pathname: string): { title: string; crumb: Crumb[] } {
+  const exact = TITLES[pathname]
+  if (exact) {
+    return exact
+  }
+  if (matchPath({ path: ADMIN_DATASET_EDIT }, pathname)) {
+    return DATASET_EDIT_PAGE
+  }
+  return { title: 'Dashboard', crumb: [{ label: 'Satu Data' }] }
 }
 
 export function AdminLayout() {
@@ -102,7 +156,7 @@ export function AdminLayout() {
     setNavOpen(false)
   }, [pathname])
 
-  const page = TITLES[pathname] ?? { title: 'Dashboard', crumb: [{ label: 'Satu Data' }] }
+  const page = pageFor(pathname)
 
   // Manajemen pengguna hanya untuk admin warisan HRIS. Syaratnya konjungsi,
   // sama persis dengan gerbang di server: admin yang ditunjuk lewat panel ini

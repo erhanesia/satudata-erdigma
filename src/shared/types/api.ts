@@ -28,6 +28,8 @@ export type Dataset = Schemas['DatasetResponse']
  * keduanya untuk isian pemilihnya.
  */
 export type AccessRule = Schemas['AccessRuleDTO']
+/** Badan permintaan untuk menyunting dataset yang sudah terbit. */
+export type DatasetUpdate = Schemas['DatasetRequestUpdateDTO']
 export type DatasetLite = Schemas['DatasetResponseLite']
 export type DatasetColumn = Schemas['DatasetColumnResponse']
 export type DatasetResource = Schemas['DatasetResourceResponse']

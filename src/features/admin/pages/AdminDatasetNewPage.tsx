@@ -1,17 +1,16 @@
-import {
-  AlertTriangle,
-  Check,
-  Loader2,
-  Plus,
-  Upload,
-  User,
-  X,
-} from "lucide-react";
-import { useRef, useState, type ReactNode } from "react";
+import { Check, Loader2, Plus, Upload, User } from "lucide-react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { paths } from "@/app/router/paths";
 import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser";
+import {
+  MAX_FILES,
+  fileBlocker,
+  newFileRow,
+  type FileRowState,
+} from "@/features/admin/lib/datasetFormState";
+
 import {
   useTopics,
   useUploadDataset,
@@ -20,9 +19,17 @@ import { ApiError } from "@/shared/api/errors";
 import { Reveal } from "@/shared/components/motion/Reveal";
 import { Dialog } from "@/shared/components/ui/Dialog";
 import { useToast } from "@/shared/components/ui/toastStore";
-import { formatBytes, formatNumber } from "@/shared/lib/format";
+import { formatNumber } from "@/shared/lib/format";
 import type { AccessRule, Dataset } from "@/shared/types/api";
 
+import {
+  Card,
+  CardHeader,
+  Chip,
+  Field,
+  FileRow,
+  TextInput,
+} from "../components/DatasetFormParts";
 import { FormatBadge } from "../components/FormatBadge";
 import { AccessRulePicker } from "../components/AccessRulePicker";
 
@@ -50,38 +57,6 @@ import { AccessRulePicker } from "../components/AccessRulePicker";
  * terlanjur ditulis orang. Yang hilang hanya cara mengisinya lewat layar ini.
  */
 
-const MAX_FILES = 10;
-
-/** Sejalan dengan MAX_BYTES di DatasetUploadService. */
-const MAX_BYTES = 10 * 1024 * 1024;
-
-const KINDS = ["CSV", "XLSX", "PDF", "DOCX"] as const;
-const KIND_LABELS: Record<string, string> = {
-  CSV: "CSV",
-  XLSX: "Excel",
-  PDF: "PDF",
-  DOCX: "Word",
-};
-
-interface FileRowState {
-  id: number;
-  label: string;
-  kind: string;
-  file: File | null;
-}
-
-let order = 0;
-
-function newFileRow(): FileRowState {
-  order += 1;
-  return { id: order, label: "", kind: "", file: null };
-}
-
-function kindFromFileName(name: string): string {
-  const ext = name.slice(name.lastIndexOf(".") + 1).toUpperCase();
-  return (KINDS as readonly string[]).includes(ext) ? ext : "";
-}
-
 export default function AdminDatasetNewPage() {
   const { data: user } = useCurrentUser();
   const topics = useTopics();
@@ -97,9 +72,9 @@ export default function AdminDatasetNewPage() {
   // Dataset yang baru terbit, penanda sekaligus isi pop-up berhasil.
   const [published, setPublished] = useState<Dataset | null>(null);
 
-  function change(id: number, ubahan: Partial<FileRowState>) {
+  function change(rowKey: number, ubahan: Partial<FileRowState>) {
     setFiles((previous) =>
-      previous.map((b) => (b.id === id ? { ...b, ...ubahan } : b)),
+      previous.map((b) => (b.rowKey === rowKey ? { ...b, ...ubahan } : b)),
     );
   }
 
@@ -109,23 +84,12 @@ export default function AdminDatasetNewPage() {
    * Dikembalikan sebagai kalimat, bukan boolean. Tombol mati tanpa keterangan
    * memaksa orang menebak apa yang kurang — dan pada formulir sepanjang ini,
    * yang kurang biasanya sedang berada di luar layar.
+   *
+   * Syarat berkasnya dipakai bersama formulir sunting, supaya penolakan yang
+   * sama tidak berbunyi berbeda di dua layar yang sengaja dibuat kembar.
    */
-  const blocker: string | null = (() => {
-    if (files.length === 0) return "Belum ada file";
-    if (files.some((b) => !b.file))
-      return "Ada file yang belum dipilih file-nya";
-    // Jenis kosong padahal berkasnya sudah ada berarti ekstensinya di luar
-    // keempat yang didukung. Ditahan di sini supaya penolakannya terbaca
-    // sebelum mengunggah, bukan sesudah menunggu unggahan selesai.
-    if (files.some((b) => b.file && !b.kind))
-      return "Ada file dengan jenis yang tidak didukung";
-    if (files.some((b) => !b.label.trim()))
-      return "Ada file yang belum diberi nama";
-    if (files.some((b) => (b.file?.size ?? 0) > MAX_BYTES))
-      return `Ada file melebihi ${formatBytes(MAX_BYTES)}`;
-    if (!title.trim()) return "Judul dataset belum diisi";
-    return null;
-  })();
+  const blocker: string | null =
+    fileBlocker(files) ?? (!title.trim() ? "Judul dataset belum diisi" : null);
 
   function submit() {
     if (blocker) return;
@@ -174,12 +138,14 @@ export default function AdminDatasetNewPage() {
 
           {files.map((b, i) => (
             <FileRow
-              key={b.id}
+              key={b.rowKey}
               rows={b}
               rowNumber={i + 1}
-              onChangeRow={(u) => change(b.id, u)}
+              onChangeRow={(u) => change(b.rowKey, u)}
               onRemove={() =>
-                setFiles((previous) => previous.filter((x) => x.id !== b.id))
+                setFiles((previous) =>
+                  previous.filter((x) => x.rowKey !== b.rowKey),
+                )
               }
             />
           ))}
@@ -476,253 +442,5 @@ function Stat({ label, value }: { label: string; value: string }) {
         {value}
       </dd>
     </div>
-  );
-}
-
-/**
- * Satu baris berkas.
- *
- * Muncul dengan animasi `tab-in` yang sama dengan perpindahan tab di seluruh
- * aplikasi — baris yang tiba-tiba ada terasa seperti layar yang meloncat.
- */
-function FileRow({
-  rows,
-  rowNumber,
-  onChangeRow,
-  onRemove,
-}: {
-  rows: FileRowState;
-  rowNumber: number;
-  onChangeRow: (u: Partial<FileRowState>) => void;
-  onRemove: () => void;
-}) {
-  const input = useRef<HTMLInputElement>(null);
-  const tooLarge = (rows.file?.size ?? 0) > MAX_BYTES;
-
-  return (
-    <div className="animate-tab-in border-b border-[#E9EBF0] py-5 first:pt-0 last:border-b-0">
-      <div className="mb-3.5 flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-start gap-2.5 sm:items-center">
-          <FormatBadge ext={rows.kind} />
-          <span className="min-w-0">
-            <span className="block truncate font-mono text-[14px] text-[#3C4A56]">
-              {rows.file?.name ??
-                `unggahan-${String(rowNumber).padStart(2, "0")}`}
-            </span>
-            {/* Ukuran turun ke baris kedua di ponsel supaya nama berkas
-                mendapat lebar penuh; di layar lebar ia kembali sebaris. */}
-            {rows.file ? (
-              <span className="block text-[13px] text-[#9CA3AF] sm:inline sm:pl-2.5">
-                {formatBytes(rows.file.size)}
-              </span>
-            ) : null}
-          </span>
-        </div>
-        <button
-          type="button"
-          onClick={onRemove}
-          className="flex shrink-0 items-center gap-1 text-[14px] font-semibold text-[#B4231B] transition-colors hover:underline"
-        >
-          <X className="size-4" />
-          Hapus
-        </button>
-      </div>
-
-      <div className="grid gap-3.5 lg:grid-cols-[1fr_200px_200px]">
-        <label className="block">
-          <span className="mb-1.5 block text-[14px] font-semibold text-[#3C4A56]">
-            Nama file
-          </span>
-          <input
-            value={rows.label}
-            onChange={(e) => onChangeRow({ label: e.target.value })}
-            placeholder="Contoh: Rekap Capaian 2026"
-            className={[
-              "h-[52px] w-full rounded-lg px-3.5 text-[16px] text-[#3C4A56] outline-none transition-colors focus:border-[#4F6BED]",
-              rows.label.trim()
-                ? "border border-[#E9EBF0] bg-white"
-                : "border border-[#CBD2DC] bg-[#F8FAFC]",
-            ].join(" ")}
-          />
-        </label>
-
-        {/*
-          Bacaan, bukan pilihan.
-
-          Jenis berkas adalah FAKTA tentang berkas yang diunggah, bukan
-          pendapat penerbit. Selama ia bisa diubah tangan, seseorang bisa
-          memilih PDF untuk berkas .csv — dan keterangan yang salah di katalog
-          data lebih berbahaya daripada penolakan. Server memang menolaknya,
-          tapi penolakan yang baru muncul setelah unggahan selesai adalah
-          pemborosan waktu untuk kesalahan yang tidak perlu bisa terjadi.
-        */}
-        <div className="block">
-          <span className="mb-1.5 block text-[14px] font-semibold text-[#3C4A56]">
-            Jenis file
-          </span>
-          <div
-            className={[
-              "flex h-[52px] w-full items-center rounded-lg border px-3.5 text-[16px]",
-              rows.kind
-                ? "border-[#E9EBF0] bg-[#F8FAFC] font-semibold text-[#3C4A56]"
-                : "border-[#CBD2DC] bg-[#F8FAFC] text-[#9CA3AF]",
-            ].join(" ")}
-          >
-            {rows.kind ? (KIND_LABELS[rows.kind] ?? rows.kind) : "Ikut File"}
-          </div>
-        </div>
-
-        <div className="block">
-          <span className="mb-1.5 block text-[14px] font-semibold text-[#3C4A56]">
-            File
-          </span>
-          <input
-            ref={input}
-            type="file"
-            accept=".csv,.xlsx,.pdf,.docx"
-            className="hidden"
-            onChange={(e) => {
-              const selected = e.target.files?.[0];
-              if (!selected) return;
-              // Jenis SELALU ditulis ulang dari berkas yang baru, termasuk
-              // ketika hasilnya kosong karena ekstensinya tidak didukung.
-              // Dulu yang kosong dilewati sehingga jenis milik berkas
-              // SEBELUMNYA tertinggal — berkas .zip bisa terkirim berlabel CSV.
-              onChangeRow({
-                file: selected,
-                kind: kindFromFileName(selected.name),
-              });
-            }}
-          />
-          <button
-            type="button"
-            onClick={() => input.current?.click()}
-            className={[
-              "flex h-[52px] w-full items-center justify-center gap-2 rounded-lg text-[15px] font-bold transition-colors",
-              rows.file
-                ? "border border-[#E9EBF0] bg-white text-[#4B5563] hover:bg-[#F8FAFC]"
-                : "bg-[#1F2A37] text-white hover:bg-[#111A24]",
-            ].join(" ")}
-          >
-            <Upload className="size-[18px]" />
-            {rows.file ? "Ganti file" : "Pilih file"}
-          </button>
-        </div>
-      </div>
-
-      {rows.file && !rows.kind ? (
-        <p className="mt-2.5 flex items-center gap-1.5 text-[13px] font-semibold text-[#B4231B]">
-          <AlertTriangle className="size-4" />
-          Jenis file ini belum didukung. Yang bisa diunggah hanya CSV, Excel,
-          PDF, dan Word.
-        </p>
-      ) : null}
-
-      {tooLarge ? (
-        <p className="mt-2.5 flex items-center gap-1.5 text-[13px] font-semibold text-[#B4231B]">
-          <AlertTriangle className="size-4" />
-          Ukuran melebihi batas {formatBytes(MAX_BYTES)} per file.
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
-/** Dropdown posisi, mengikuti bentuk pada desain. */
-
-function Card({ children, full }: { children: ReactNode; full?: boolean }) {
-  return (
-    <div
-      className={[
-        "rounded-lg bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,.06)] sm:p-6",
-        full ? "h-full" : "",
-      ].join(" ")}
-    >
-      {children}
-    </div>
-  );
-}
-
-function CardHeader({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="mb-4">
-      <h2 className="text-[17px] font-bold text-[#2E3646]">{title}</h2>
-      <p className="mt-1 text-[13.5px] leading-relaxed text-[#6B7280]">
-        {description}
-      </p>
-    </div>
-  );
-}
-
-function Field({
-  label,
-  hint,
-  required,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  required?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <div className="mb-5 last:mb-0">
-      <div className="mb-1.5 text-[14px] font-semibold text-[#3C4A56]">
-        {label}
-        {required ? <span className="ml-1 text-[#B4231B]">*</span> : null}
-      </div>
-      {hint ? <p className="mb-2 text-[13px] text-[#9CA3AF]">{hint}</p> : null}
-      {children}
-    </div>
-  );
-}
-
-function TextInput({
-  value,
-  onChange,
-  placeholder,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-}) {
-  return (
-    <input
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      className="h-[52px] w-full rounded-lg border border-[#E9EBF0] px-3.5 text-[16px] text-[#3C4A56] outline-none transition-colors focus:border-[#4F6BED] placeholder:text-[#9CA3AF]"
-    />
-  );
-}
-
-function Chip({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={[
-        "rounded-full border px-3.5 py-1.5 text-[13.5px] font-semibold transition-colors",
-        active
-          ? "border-[#4F6BED] bg-[#EDF2FF] text-[#4F6BED]"
-          : "border-[#E9EBF0] text-[#4B5563] hover:bg-[#F8FAFC]",
-      ].join(" ")}
-    >
-      {children}
-    </button>
   );
 }
