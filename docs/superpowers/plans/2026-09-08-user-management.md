@@ -649,7 +649,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.security.access.AuthorizationDeniedException;
+// Paket `authorization`, bukan `access` — inilah yang dipakai Spring Security
+// versi ini dan yang sudah ditangani GlobalExceptionHandler jadi 403.
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
