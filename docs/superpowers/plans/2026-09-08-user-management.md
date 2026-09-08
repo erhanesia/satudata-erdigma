@@ -711,13 +711,34 @@ Di `src/main/java/id/co/erdigma/satudata/repository/UserRepository.java`, tambah
      * `q` null berarti tanpa penyaringan. Pencocokan sebagian dan tanpa peduli
      * besar-kecil huruf, pada nama atau email — orang mencari rekannya dengan
      * potongan nama, bukan dengan ejaan persis.
+     *
+     * `CAST(:q AS string)` bukan hiasan: tanpanya, saat `q` null, Hibernate
+     * tidak bisa menebak tipe JDBC parameter itu di dalam CONCAT dan
+     * PostgreSQL menyimpulkannya sebagai bytea — `LOWER(bytea)` gagal.
+     *
+     * `LEFT JOIN FETCH u.division` menghindari N+1: `division` LAZY, dan
+     * pemetaan respons membacanya untuk SETIAP baris. Tanpa fetch join, satu
+     * halaman berisi 20 orang menambah 20 SELECT. LEFT, bukan INNER, supaya
+     * orang tanpa divisi tidak ikut hilang. Fetch join di sini aman untuk
+     * paginasi karena `division` relasi to-one, bukan koleksi.
+     *
+     * `countQuery` ditulis terpisah dan sengaja TANPA fetch join: Spring Data
+     * tidak selalu bisa menurunkan kueri hitung yang benar dari kueri
+     * ber-fetch-join, dan menghitung baris tidak butuh divisinya.
      */
-    @Query("""
+    @Query(value = """
             SELECT u FROM User u
+            LEFT JOIN FETCH u.division
             WHERE u.deletedAt IS NULL
               AND (:q IS NULL
-                   OR LOWER(u.name) LIKE LOWER(CONCAT('%', :q, '%'))
-                   OR LOWER(u.email) LIKE LOWER(CONCAT('%', :q, '%')))
+                   OR LOWER(u.name) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%'))
+                   OR LOWER(u.email) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%')))
+            """, countQuery = """
+            SELECT COUNT(u) FROM User u
+            WHERE u.deletedAt IS NULL
+              AND (:q IS NULL
+                   OR LOWER(u.name) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%'))
+                   OR LOWER(u.email) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%')))
             """)
     Page<User> cariAktif(@Param("q") String q, Pageable pageable);
 ```
