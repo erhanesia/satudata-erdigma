@@ -1383,14 +1383,17 @@ export default function UserListPage() {
     ubahPeran.mutate(
       { id: pengguna.id as string, role },
       {
+        // success/error, bukan show: warna toast yang membedakan berhasil dari
+        // gagal (lihat Toaster). Perubahan peran yang gagal tidak boleh terlihat
+        // sama dengan yang berhasil.
         onSuccess: () =>
-          toast.show(
+          toast.success(
             role === null
               ? `${pengguna.name} kembali mengikuti HRIS.`
               : `${pengguna.name} kini ${role}.`,
           ),
         onError: (galat) =>
-          toast.show(galat instanceof Error ? galat.message : 'Gagal mengubah peran.'),
+          toast.error(galat instanceof Error ? galat.message : 'Gagal mengubah peran.'),
       },
     )
   }
