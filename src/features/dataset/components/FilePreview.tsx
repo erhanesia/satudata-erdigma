@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, FileText } from 'lucide-react'
+import { AlertTriangle, Download, FileText } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { ErrorState } from '@/shared/components/feedback/StateViews'
+import { useIsMobile } from '@/shared/hooks/useMediaQuery'
 import { formatBytes } from '@/shared/lib/format'
 import type { DatasetResource } from '@/shared/types/api'
 
@@ -22,13 +23,22 @@ import { fetchDocumentText, fetchPdfPreview } from '../api/datasetApi'
 export function FilePreview({
   slug,
   files,
+  onRequestDownload,
 }: {
   slug: string
   files: DatasetResource
+  /**
+   * Dipanggil saat pratinjau tidak bisa digambar dan pengguna memilih mengunduh.
+   *
+   * Sengaja berupa callback, bukan mengunduh sendiri di sini: unduhan harus
+   * lewat modal persetujuan, karena server MENOLAK permintaan tanpa
+   * `agreement=true` dan persetujuannya ikut tercatat di log unduhan.
+   */
+  onRequestDownload?: () => void
 }) {
   const kind = (files.formatName ?? '').toUpperCase()
   if (kind === 'PDF') {
-    return <PdfPreview slug={slug} files={files} />
+    return <PdfPreview slug={slug} files={files} onRequestDownload={onRequestDownload} />
   }
   if (kind === 'DOCX') {
     return <WordPreview slug={slug} files={files} />
@@ -36,14 +46,38 @@ export function FilePreview({
   return <UnsupportedFile files={files} />
 }
 
-function PdfPreview({ slug, files }: { slug: string; files: DatasetResource }) {
+function PdfPreview({
+  slug,
+  files,
+  onRequestDownload,
+}: {
+  slug: string
+  files: DatasetResource
+  onRequestDownload?: () => void
+}) {
   const id = files.id ?? ''
   const [url, setUrl] = useState<string | null>(null)
+
+  /*
+    Di ponsel, PDF tidak digambar melainkan ditawarkan untuk diunduh.
+
+    Penampil PDF bawaan `<iframe>` tidak bisa diandalkan di peramban ponsel.
+    Safari iOS khususnya sering menggambar halaman pertama saja, tidak bisa
+    digulung, atau justru membuka penampil terpisah yang menutup seluruh
+    aplikasi. Hasilnya bukan pratinjau yang jelek, melainkan pratinjau yang
+    tidak bisa dipakai.
+
+    Kuncinya `enabled` di bawah, bukan sekadar menyembunyikan iframe-nya dengan
+    CSS. Berkasnya diambil lebih dulu lewat XHR, jadi menyembunyikannya berarti
+    ponsel tetap mengunduh PDF puluhan megabita lalu membuangnya — boros kuota
+    untuk sesuatu yang tidak pernah tampil.
+  */
+  const isMobile = useIsMobile()
 
   const query = useQuery({
     queryKey: ['preview', 'pdf', slug, id],
     queryFn: () => fetchPdfPreview(slug, id),
-    enabled: id.length > 0,
+    enabled: id.length > 0 && !isMobile,
     // Blob berukuran megabita; menahannya di cache react-query untuk berkas
     // yang mungkin tidak dibuka lagi hanya memakan memori tab.
     gcTime: 0,
@@ -64,6 +98,10 @@ function PdfPreview({ slug, files }: { slug: string; files: DatasetResource }) {
       setUrl(null)
     }
   }, [query.data])
+
+  if (isMobile) {
+    return <PdfOnMobile files={files} onRequestDownload={onRequestDownload} />
+  }
 
   if (query.isPending) return <LoadingBlock height="h-[720px]" />
   if (query.isError) return <ErrorState error={query.error} />
@@ -133,6 +171,56 @@ function WordPreview({ slug, files }: { slug: string; files: DatasetResource }) 
           Dokumen ini lebih panjang daripada yang ditampilkan. Unduh berkasnya untuk isi lengkap.
         </p>
       ) : null}
+    </div>
+  )
+}
+
+/**
+ * Ganti pratinjau PDF di ponsel: keterangan singkat plus tombol unduh.
+ *
+ * Kalimatnya menyebut alasannya, bukan sekadar "tidak tersedia". Pengguna yang
+ * tidak diberi tahu kenapa akan mengira aplikasinya rusak atau berkasnya
+ * bermasalah, lalu mencoba berkali-kali.
+ *
+ * Tombolnya membuka modal persetujuan yang sama dengan tombol Unduh di atas,
+ * bukan mengunduh langsung. Server menolak permintaan tanpa `agreement=true`,
+ * dan persetujuannya ikut tercatat di log unduhan — memotong jalur itu berarti
+ * unduhan yang gagal, atau lebih buruk, catatan audit yang menyatakan sesuatu
+ * yang tidak terjadi.
+ */
+function PdfOnMobile({
+  files,
+  onRequestDownload,
+}: {
+  files: DatasetResource
+  onRequestDownload?: () => void
+}) {
+  return (
+    <div className="border-line-200 bg-surface animate-tab-in rounded-[14px] border p-[22px]">
+      <HeadCell files={files} tight />
+
+      <p className="text-ink-500 mt-3.5 text-[13px] leading-relaxed">
+        Pratinjau PDF tidak bisa ditampilkan di layar ponsel. Unduh berkasnya untuk
+        membukanya dengan aplikasi pembaca PDF di perangkat Anda.
+      </p>
+
+      {onRequestDownload ? (
+        <button
+          type="button"
+          onClick={onRequestDownload}
+          className="bg-ink-900 mt-4 flex w-full items-center justify-center gap-2 rounded-lg px-5 py-3 text-[15px] font-bold text-white transition-colors active:opacity-90"
+        >
+          <Download className="size-[18px]" />
+          Unduh {(files.formatName ?? 'berkas').toUpperCase()} · {formatBytes(files.sizeBytes)}
+        </button>
+      ) : (
+        /* Tanpa callback, tombolnya tidak digambar sama sekali. Tombol yang
+           tidak melakukan apa-apa lebih buruk daripada tidak ada tombol. */
+        <p className="text-ink-500 mt-3.5 text-[13px] leading-relaxed">
+          Pakai tombol <strong className="font-semibold">Unduh</strong> di atas untuk
+          mengambilnya.
+        </p>
+      )}
     </div>
   )
 }

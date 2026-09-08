@@ -33,8 +33,16 @@ interface ColumnMeta {
 export function DataExplorer({
   slug,
   files = [],
+  onRequestDownload,
 }: {
   slug: string
+  /**
+   * Diteruskan ke `FilePreview`, dipakai saat pratinjau tidak bisa digambar dan
+   * pengguna memilih mengunduh. Diteruskan apa adanya, bukan ditangani di sini:
+   * modal persetujuannya milik halaman detail, dan komponen ini tidak perlu
+   * tahu bagaimana unduhan dijalankan.
+   */
+  onRequestDownload?: () => void
   /**
    * SELURUH berkas milik dataset, bukan hanya yang bukan tabel.
    *
@@ -105,7 +113,13 @@ export function DataExplorer({
       <div className="border-line-200 bg-surface rounded-[14px] border p-5">
         <div className="mb-3.5">{header}</div>
         <div key={active?.id} className="animate-tab-in">
-          {active ? <FilePreview slug={slug} files={active} /> : null}
+          {active ? (
+              <FilePreview
+                slug={slug}
+                files={active}
+                onRequestDownload={onRequestDownload}
+              />
+            ) : null}
         </div>
       </div>
     )

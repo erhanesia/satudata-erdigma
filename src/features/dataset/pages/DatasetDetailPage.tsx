@@ -62,7 +62,11 @@ function DetailBody({ dataset }: { dataset: Dataset }) {
             Berkas yang isinya sudah dibaca menjadi tabel menampilkan tabelnya;
             PDF dan Word menampilkan dokumennya.
           */}
-          <DataExplorer slug={dataset.slug ?? ''} files={dataset.resources ?? []} />
+          <DataExplorer
+            slug={dataset.slug ?? ''}
+            files={dataset.resources ?? []}
+            onRequestDownload={() => setDownloadOpen(true)}
+          />
         </div>
       </Reveal>
 
