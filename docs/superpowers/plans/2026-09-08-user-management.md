@@ -4,7 +4,7 @@
 
 **Goal:** Akun ADMIN HRIS bisa masuk Satu Data walau tidak punya baris `employee`, dan admin warisan HRIS bisa menunjuk pengguna lain jadi admin lewat panel di portal.
 
-**Architecture:** Kolom `role_override` menahan penyegaran 12 jam dari HRIS, sehingga kolom `role` tetap berarti "peran efektif" dan tidak ada pemanggil lama yang perlu diubah. Dua tingkat admin dibedakan dari `hrisPermissionLevel` yang sudah tersimpan — tidak ada kolom tingkat baru. Gerbangnya satu authority tambahan, `ROLE_HRIS_ADMIN`, yang diterbitkan converter JWT dan dipakai satu `@PreAuthorize` di kelas controller baru.
+**Architecture:** Kolom `role_override` menahan penyegaran 12 jam dari HRIS, sehingga kolom `role` tetap berarti "peran efektif" dan tidak ada pemanggil lama yang perlu diubah. Dua tingkat admin dibedakan dari `hrisPermissionLevel` yang sudah tersimpan — tidak ada kolom tingkat baru. Gerbangnya satu authority tambahan, `ROLE_HRIS_ADMIN`, yang diterbitkan converter JWT dan dipakai satu `@PreAuthorize` baru di kelas controller baru — bukan `@PreAuthorize` pertama di repositori; `DatasetController` sudah memakainya lebih dulu untuk menggerbangi penerbitan dataset (`hasAnyRole('ADMIN','PUBLISHER')`), yang berarti peran yang ditunjuk di panel ini juga ikut menentukan siapa yang boleh menerbitkan dataset.
 
 **Tech Stack:** Spring Boot 4.1 (Java, Maven wrapper), Liquibase, PostgreSQL, JUnit 5 + AssertJ + `MockRestServiceServer`; React + Vite + TypeScript, TanStack Query, Tailwind, tipe di-generate `openapi-typescript`.
 
@@ -17,7 +17,7 @@
 - Peran portal hanya tiga: `ADMIN`, `PUBLISHER`, `STAFF` (`enums/Role.java`). Jangan menambah nilai.
 - Tingkat izin HRIS lima: `ADMIN`, `DIRECTOR`, `CORPORATE_SECRETARY`, `MANAGER`, `STAFF` (`enums/HrisPermissionLevel.java`).
 - Gerbang user management **selalu** konjungsi: `role == ADMIN && hrisPermissionLevel == ADMIN`. Jangan menyederhanakannya jadi satu syarat.
-- Test back-end butuh PostgreSQL lokal: `localhost:5432`, database `satudata`, user `postgres`, password `tanfitra` (default `application-dev.yaml`). Sudah terverifikasi hidup dengan 13 baris `users`.
+- Test back-end butuh PostgreSQL lokal: `localhost:5432`, database `satudata`, user `postgres`, password — lihat `application-dev.yaml` milik developer masing-masing, jangan disalin ke dokumen ini. Sudah terverifikasi hidup dengan 13 baris `users`.
 - Perintah test back-end: `./mvnw.cmd test -Dtest=NamaKelas` dari akar `satudata-erdigma-api`.
 - Perintah front-end dari akar `satudata-erdigma`: `npm run typecheck`, `npm run lint`, `npm run build`.
 - `src/shared/types/api.generated.ts` **tidak pernah ditulis tangan**. Regenerasi: `npm run api:types` dengan back-end hidup di `http://localhost:8082`.

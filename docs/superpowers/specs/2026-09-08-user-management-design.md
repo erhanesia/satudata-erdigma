@@ -29,14 +29,16 @@ dan tidak bisa disentuh siapa pun.
 | Isi daftar panel | Hanya baris `users` lokal — orang yang pernah login. Tidak menarik `/user/directory` HRIS. |
 | Siapa boleh membuka user management | Hanya admin **warisan HRIS**. Admin hasil override boleh segalanya kecuali user management. |
 | Direktur / GM | **Tidak** dapat user management. Mereka dipetakan ke `Role.ADMIN` tetapi `hrisPermissionLevel`-nya `DIRECTOR`. User management urusan IT, bukan jabatan. |
-| Penegakan di endpoint lain | Tidak diubah. Dataset, koleksi, divisi tetap terbuka untuk semua yang terautentikasi, persis seperti hari ini. |
+| Penegakan di endpoint lain | Rencana ini tidak menambah `@PreAuthorize` baru di luar controller ini. Tapi endpoint penerbitan dataset (`POST /api/v1/datasets`) **sudah lebih dulu** digerbangi `hasAnyRole('ADMIN','PUBLISHER')` sebelum perubahan ini — jadi menunjuk seseorang PUBLISHER atau ADMIN di panel ini juga memberinya hak menerbitkan dataset, dan menurunkannya ke STAFF mencabut hak itu. Endpoint baca dataset, koleksi, dan divisi tetap terbuka untuk semua yang terautentikasi. |
 
 ## Model peran
 
 Tiga nilai yang sudah ada dipakai apa adanya, satu kolom baru ditambahkan:
 
-- `hrisPermissionLevel` — selalu hasil hitungan HRIS. **Tidak pernah** disentuh
-  panel. Inilah yang membedakan admin warisan dari admin tunjukan.
+- `hrisPermissionLevel` — hasil hitungan HRIS. **Tidak pernah** ditulis panel.
+  Inilah yang membedakan admin warisan dari admin tunjukan — tapi "hasil
+  hitungan HRIS" di sini punya jendela, bukan seketika: lihat catatan di
+  bawah `HrisEmployeeDirectory`.
 - `role_override` — nullable. Diisi manusia lewat panel.
 - `role` — **peran efektif**, yaitu `role_override` bila terisi, kalau tidak
   hasil pemetaan dari `hrisPermissionLevel`.
@@ -52,8 +54,22 @@ role == ADMIN  &&  hrisPermissionLevel == ADMIN
 
 Bukan `hrisPermissionLevel == ADMIN` saja. Bedanya penting: admin HRIS yang
 diturunkan lewat override ikut kehilangan akses panel, kalau tidak penurunannya
-tidak berarti apa-apa. Kunci-mati tidak mungkin terjadi karena seorang admin
-tidak boleh mengubah perannya sendiri — selalu tersisa minimal satu admin HRIS.
+tidak berarti apa-apa.
+
+**Kunci-mati tetap mungkin terjadi, dan itu disengaja.** Larangan mengubah
+peran sendiri hanya mencegah seseorang mengunci *dirinya sendiri* — itu tidak
+sama dengan menjamin selalu tersisa satu admin warisan HRIS. Admin A tetap
+bisa menurunkan admin B (yang `hrisPermissionLevel`-nya juga `ADMIN`) ke
+`STAFF`; B kehilangan gerbang panel ini secara permanen, dan kalau A sendiri
+kelak berhenti jadi admin, tidak ada satu pun admin warisan HRIS tersisa yang
+bisa memulihkan B lewat UI. Menurunkan admin HRIS memang aksi yang sah dan
+dipertahankan apa adanya — yang tidak ada hanyalah jalan pulih lewat
+antarmuka. Satu-satunya pemulihan adalah SQL langsung ke baris yang mau
+dipulihkan:
+
+```sql
+UPDATE users SET role='ADMIN', role_override=NULL, role_override_by=NULL, role_override_at=NULL WHERE email='…';
+```
 
 ## Back-end — `satudata-erdigma-api`
 
@@ -126,6 +142,14 @@ user.setRole(user.getRoleOverride() != null
 `hrisPermissionLevel` tetap ditimpa dari HRIS di setiap penyegaran; hanya `role`
 yang tunduk pada override.
 
+**Tapi "ditimpa dari HRIS" itu tidak seketika.** `HrisEmployeeDirectory.SEGAR`
+(12 jam) menahan baris lokal tanpa bertanya ke HRIS lagi, dan cabang
+`RestClientException` di `findByCognitoId` memakai baris basi itu selama
+hris-api tak terjangkau — bisa jauh lebih lama dari 12 jam. Akun yang baru
+diturunkan di HRIS tetap membawa `ROLE_HRIS_ADMIN` sampai barisnya sungguh
+disegarkan, dan penunjukan apa pun yang sempat ia buat lewat panel ini di
+jendela itu bertahan permanen. Ambang ini tidak diubah oleh rencana ini.
+
 ### Converter — authority kedua
 
 Di `CustomJwtAuthenticationConverter.convert()`, setelah `ROLE_<role>`:
@@ -141,9 +165,12 @@ Ini satu-satunya tempat perbedaan dua tingkat admin diputuskan.
 
 ### Endpoint
 
-Keduanya `@PreAuthorize("hasRole('HRIS_ADMIN')")`. Ini `@PreAuthorize` pertama di
-repositori; `@EnableMethodSecurity` sudah aktif di `SecurityConfig`, jadi tidak
-ada konfigurasi tambahan.
+Keduanya `@PreAuthorize("hasRole('HRIS_ADMIN')")`. Bukan `@PreAuthorize` pertama
+di repositori — `DatasetController.java:98` sudah lebih dulu memakainya
+(`hasAnyRole('ADMIN','PUBLISHER')` di endpoint penerbitan dataset) sebelum
+perubahan ini. `@EnableMethodSecurity` karena itu sudah aktif di
+`SecurityConfig`, jadi tidak ada konfigurasi tambahan untuk anotasi baru di
+sini.
 
 **`GET /api/v1/users`** — parameter `q` (cocok sebagian pada nama atau email,
 tanpa peduli besar-kecil huruf, opsional), `page`, `size`. Mengembalikan
@@ -182,8 +209,9 @@ Balasan berupa `UserAdminResponse` yang sudah diperbarui.
 | `id` tidak ada atau sudah terhapus lunak | 404 |
 | `role` bukan nilai enum yang sah dan bukan null | 400 |
 
-Larangan mengubah peran sendiri sekaligus yang menjamin selalu tersisa satu admin
-HRIS aktif.
+Larangan mengubah peran sendiri mencegah seseorang mengunci *dirinya sendiri* —
+bukan jaminan bahwa selalu tersisa satu admin HRIS aktif. Lihat catatan
+kunci-mati di bagian "Model peran" di atas.
 
 Efek samping yang disengaja: `PATCH` menyentuh `updated_at`, sehingga ambang segar
 12 jam pada `masihSegar()` ikut mundur. Data HRIS orang itu jadi basi paling lama
@@ -239,9 +267,13 @@ Tes ditulis lebih dulu (TDD). Suite sekarang 20/20 dan harus tetap hijau.
 
 ## Di luar cakupan
 
-- Menegakkan peran di endpoint dataset, koleksi, divisi. Semuanya masih terbuka
-  untuk siapa pun yang terautentikasi, sama seperti sebelum perubahan ini.
-  Menguncinya keputusan tersendiri dan berisiko memutus alur yang sedang dipakai.
+- Menambah penegakan peran baru di endpoint dataset, koleksi, divisi. Endpoint
+  baca tetap terbuka untuk siapa pun yang terautentikasi seperti sebelumnya —
+  tapi penerbitan dataset (`POST /api/v1/datasets`) **sudah** digerbangi
+  `hasAnyRole('ADMIN','PUBLISHER')` sejak sebelum perubahan ini, jadi peran
+  yang ditunjuk lewat panel di sini otomatis ikut menentukan siapa yang bisa
+  menerbitkan dataset. Menambah gerbang baru di endpoint lain tetap keputusan
+  tersendiri dan berisiko memutus alur yang sedang dipakai.
 - Menunjuk admin bagi orang yang belum pernah login. `GET /user/directory` di
   hris-api meminta `ROLE_ADMIN` di HRIS, sedangkan satudata memanggil memakai
   token si pemakai — admin tunjukan pasti kena 403 di sana.

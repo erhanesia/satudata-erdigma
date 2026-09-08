@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 import { useCurrentUser } from '@/features/auth/hooks/useCurrentUser'
+import { EmptyState } from '@/shared/components/feedback/StateViews'
 import { QueryBoundary } from '@/shared/components/feedback/QueryBoundary'
 import { Badge } from '@/shared/components/ui/Badge'
 import { PageContainer } from '@/shared/components/ui/PageContainer'
@@ -40,6 +41,15 @@ export default function UserListPage() {
   const toast = useToast()
 
   function pilihPeran(pengguna: UserAdmin, nilai: string) {
+    // Satu-satunya kontrol di halaman ini yang membagikan hak istimewa —
+    // termasuk hak menerbitkan dataset, lihat paragraf pembuka halaman — lewat
+    // satu event `change`. Di Firefox, menekan panah pada <select> tertutup
+    // yang sedang fokus memicu `change` untuk tiap opsi yang dilewati, jadi
+    // pengguna keyboard yang men-tab lewat tabel bisa menunjuk peran tanpa
+    // sengaja. Konfirmasi browser ini cukup untuk sekarang; ganti dengan modal
+    // begitu panel ini punya aksi lain selain dropdown peran.
+    if (!window.confirm(`Ubah peran ${pengguna.name}?`)) return
+
     const role = nilai === 'HRIS' ? null : (nilai as PortalRole)
     ubahPeran.mutate(
       { id: pengguna.id as string, role },
@@ -67,7 +77,9 @@ export default function UserListPage() {
         </h1>
         <p className="text-ink-500 mt-1.5 text-sm">
           Pengguna yang pernah masuk ke Satu Data. Peran yang ditunjuk di sini bertahan melewati
-          penyegaran data HRIS.
+          penyegaran data HRIS — dan bukan cuma soal akses ke halaman ini: menunjuk seseorang
+          Publisher atau Admin juga memberinya hak menerbitkan dataset, dan menurunkannya ke Staff
+          mencabut hak itu juga.
         </p>
       </div>
 
@@ -84,77 +96,91 @@ export default function UserListPage() {
 
       {/* `loading` wajib diisi — QueryBoundary tidak punya tampilan bawaan. */}
       <QueryBoundary query={query} loading={<Skeleton className="h-64 w-full rounded-xl" />}>
-        {(page) => (
-          <>
-            <div className="border-line-200 overflow-x-auto rounded-xl border bg-white">
-              <table className="w-full min-w-[760px] text-left text-sm">
-                <thead className="border-line-200 text-ink-500 border-b text-[12.5px]">
-                  <tr>
-                    <th className="px-4 py-3 font-semibold">Nama</th>
-                    <th className="px-4 py-3 font-semibold">Jabatan</th>
-                    <th className="px-4 py-3 font-semibold">Divisi</th>
-                    <th className="px-4 py-3 font-semibold">Peran</th>
-                    <th className="px-4 py-3 font-semibold">Sumber</th>
-                    <th className="px-4 py-3 font-semibold">Ubah</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(page.content ?? []).map((pengguna) => {
-                    const diriSendiri = pengguna.id === saya?.id
-                    return (
-                      <tr key={pengguna.id} className="border-line-100 border-b last:border-0">
-                        <td className="px-4 py-3">
-                          <span className="text-ink-900 block font-semibold">{pengguna.name}</span>
-                          <span className="text-ink-500 block text-xs">{pengguna.email}</span>
-                        </td>
-                        <td className="text-ink-600 px-4 py-3">{pengguna.position ?? '—'}</td>
-                        <td className="text-ink-600 px-4 py-3">{pengguna.division?.name ?? '—'}</td>
-                        <td className="px-4 py-3">
-                          <Badge tone={pengguna.role === 'ADMIN' ? 'brand' : 'neutral'}>
-                            {pengguna.role}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge tone={pengguna.roleOverride ? 'warning' : 'neutral'}>
-                            {pengguna.roleOverride ? 'Diatur manual' : 'Dari HRIS'}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3">
-                          {diriSendiri ? (
-                            <span className="text-ink-500 text-xs">Peran sendiri</span>
-                          ) : (
-                            <select
-                              aria-label={`Ubah peran ${pengguna.name}`}
-                              className="border-line-300 rounded-lg border px-2 py-1.5 text-sm"
-                              value={pengguna.roleOverride ?? 'HRIS'}
-                              disabled={ubahPeran.isPending}
-                              onChange={(e) => pilihPeran(pengguna, e.target.value)}
-                            >
-                              <option value="HRIS">Ikuti HRIS</option>
-                              {PERAN.map((p) => (
-                                <option key={p.nilai} value={p.nilai}>
-                                  {p.label}
-                                </option>
-                              ))}
-                            </select>
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+        {(page) => {
+          const daftar = page.content ?? []
+          // Sama seperti CollectionListPage: keadaan kosong dari komponen
+          // bersama, bukan header tabel telanjang — pencarian tanpa hasil
+          // tidak boleh terlihat seperti halaman rusak.
+          if (daftar.length === 0) {
+            return (
+              <EmptyState
+                title="Tidak ada pengguna yang cocok"
+                description="Coba kata kunci lain, atau kosongkan pencarian untuk melihat semua pengguna."
+              />
+            )
+          }
+          return (
+            <>
+              <div className="border-line-200 overflow-x-auto rounded-xl border bg-white">
+                <table className="w-full min-w-[760px] text-left text-sm">
+                  <thead className="border-line-200 text-ink-500 border-b text-[12.5px]">
+                    <tr>
+                      <th className="px-4 py-3 font-semibold">Nama</th>
+                      <th className="px-4 py-3 font-semibold">Jabatan</th>
+                      <th className="px-4 py-3 font-semibold">Divisi</th>
+                      <th className="px-4 py-3 font-semibold">Peran</th>
+                      <th className="px-4 py-3 font-semibold">Sumber</th>
+                      <th className="px-4 py-3 font-semibold">Ubah</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {daftar.map((pengguna) => {
+                      const diriSendiri = pengguna.id === saya?.id
+                      return (
+                        <tr key={pengguna.id} className="border-line-100 border-b last:border-0">
+                          <td className="px-4 py-3">
+                            <span className="text-ink-900 block font-semibold">{pengguna.name}</span>
+                            <span className="text-ink-500 block text-xs">{pengguna.email}</span>
+                          </td>
+                          <td className="text-ink-600 px-4 py-3">{pengguna.position ?? '—'}</td>
+                          <td className="text-ink-600 px-4 py-3">{pengguna.division?.name ?? '—'}</td>
+                          <td className="px-4 py-3">
+                            <Badge tone={pengguna.role === 'ADMIN' ? 'brand' : 'neutral'}>
+                              {pengguna.role}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge tone={pengguna.roleOverride ? 'warning' : 'neutral'}>
+                              {pengguna.roleOverride ? 'Diatur manual' : 'Dari HRIS'}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3">
+                            {diriSendiri ? (
+                              <span className="text-ink-500 text-xs">Peran sendiri</span>
+                            ) : (
+                              <select
+                                aria-label={`Ubah peran ${pengguna.name}`}
+                                className="border-line-300 rounded-lg border px-2 py-1.5 text-sm"
+                                value={pengguna.roleOverride ?? 'HRIS'}
+                                disabled={ubahPeran.isPending}
+                                onChange={(e) => pilihPeran(pengguna, e.target.value)}
+                              >
+                                <option value="HRIS">Ikuti HRIS</option>
+                                {PERAN.map((p) => (
+                                  <option key={p.nilai} value={p.nilai}>
+                                    {p.label}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
 
-            <Pagination
-              className="mt-6 justify-center"
-              page={halaman}
-              totalPages={page.totalPages ?? 1}
-              onPageChange={setHalaman}
-              labels
-            />
-          </>
-        )}
+              <Pagination
+                className="mt-6 justify-center"
+                page={halaman}
+                totalPages={page.totalPages ?? 1}
+                onPageChange={setHalaman}
+                labels
+              />
+            </>
+          )
+        }}
       </QueryBoundary>
     </PageContainer>
   )
