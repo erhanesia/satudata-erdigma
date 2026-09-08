@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useCurrentUser } from '@/features/auth/hooks/useCurrentUser'
 import { QueryBoundary } from '@/shared/components/feedback/QueryBoundary'
 import { Badge } from '@/shared/components/ui/Badge'
-import { PageContainer, PageHeading } from '@/shared/components/ui/PageContainer'
+import { PageContainer } from '@/shared/components/ui/PageContainer'
 import { Pagination } from '@/shared/components/ui/Pagination'
 import { SearchField } from '@/shared/components/ui/SearchField'
 import { Skeleton } from '@/shared/components/ui/Skeleton'
@@ -45,23 +45,28 @@ export default function UserListPage() {
       { id: pengguna.id as string, role },
       {
         onSuccess: () =>
-          toast.success(
+          toast.show(
             role === null
               ? `${pengguna.name} kembali mengikuti HRIS.`
               : `${pengguna.name} kini ${role}.`,
           ),
         onError: (galat) =>
-          toast.error(galat instanceof Error ? galat.message : 'Gagal mengubah peran.'),
+          toast.show(galat instanceof Error ? galat.message : 'Gagal mengubah peran.'),
       },
     )
   }
 
   return (
     <PageContainer>
-      <PageHeading
-        title="Manajemen Pengguna"
-        description="Pengguna yang pernah masuk ke Satu Data. Peran yang ditunjuk di sini bertahan melewati penyegaran data HRIS."
-      />
+      <div className="mb-6">
+        <h1 className="text-ink-900 text-2xl font-extrabold tracking-[-0.4px]">
+          Manajemen Pengguna
+        </h1>
+        <p className="text-ink-500 mt-1.5 text-sm">
+          Pengguna yang pernah masuk ke Satu Data. Peran yang ditunjuk di sini bertahan melewati
+          penyegaran data HRIS.
+        </p>
+      </div>
 
       <SearchField
         value={cari}
@@ -103,7 +108,7 @@ export default function UserListPage() {
                         <td className="text-ink-600 px-4 py-3">{pengguna.division?.name ?? '—'}</td>
                         <td className="px-4 py-3">
                           <Badge tone={pengguna.role === 'ADMIN' ? 'brand' : 'neutral'}>
-                            {pengguna.role ?? '—'}
+                            {pengguna.role}
                           </Badge>
                         </td>
                         <td className="px-4 py-3">
