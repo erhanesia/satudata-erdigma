@@ -13,7 +13,15 @@ import { FormatBadge } from '../components/FormatBadge'
 import { exportDownloadLogs } from '../api/adminApi'
 import { useAuditLogs, useDownloadLogs } from '../hooks/useAdminLogs'
 
-const PAGE_SIZE = 25
+/**
+ * Baris per halaman, sama di seluruh aplikasi.
+ *
+ * Angkanya disamakan dengan halaman berpaginasi lain supaya berpindah antar
+ * layar tidak mengubah panjang daftar yang dibaca orang. Sebelumnya tiap
+ * halaman memakai angkanya sendiri, dan yang terasa bukan angkanya melainkan
+ * tinggi halamannya yang berubah-ubah tanpa alasan yang bisa dijelaskan.
+ */
+const PAGE_SIZE = 10
 
 /**
  * Pilihan penyaring jenis akses.

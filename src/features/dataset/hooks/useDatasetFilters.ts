@@ -6,7 +6,15 @@ import type { DatasetQuery } from '../api/datasetApi'
 const VALID_SORTS = ['relevance', 'downloads', 'updated'] as const
 type Sort = (typeof VALID_SORTS)[number]
 
-export const PAGE_SIZE = 5
+/**
+ * Baris per halaman, sama di seluruh aplikasi.
+ *
+ * Angkanya disamakan dengan halaman berpaginasi lain supaya berpindah antar
+ * layar tidak mengubah panjang daftar yang dibaca orang. Sebelumnya tiap
+ * halaman memakai angkanya sendiri, dan yang terasa bukan angkanya melainkan
+ * tinggi halamannya yang berubah-ubah tanpa alasan yang bisa dijelaskan.
+ */
+export const PAGE_SIZE = 10
 
 /**
  * Filter katalog disimpan di URL, bukan di state React.
