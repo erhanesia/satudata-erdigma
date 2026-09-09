@@ -1,11 +1,11 @@
 import { FileText } from 'lucide-react'
-import { useState } from 'react'
 
 import { EmptyState } from '@/shared/components/feedback/StateViews'
 import { QueryBoundary } from '@/shared/components/feedback/QueryBoundary'
 import { SkeletonTable } from '@/shared/components/ui/Skeleton'
 import { cn } from '@/shared/lib/cn'
 import { formatNumber } from '@/shared/lib/format'
+import { pageFromUrl, useUrlState } from '@/shared/hooks/useUrlState'
 import type { DatasetResource, DatastoreRow } from '@/shared/types/api'
 
 import { useDatastore } from '../hooks/useDatasets'
@@ -55,16 +55,31 @@ export function DataExplorer({
    */
   files?: DatasetResource[]
 }) {
-  const [page, setPage] = useState(1)
+  /*
+    Berkas yang dibuka dan halamannya ikut masuk URL.
+
+    Yang dilihat orang di kartu ini bagian dari "sedang melihat apa", bukan
+    sekadar keadaan sementara. Tanpa ini, mengirim tautan ke rekan kerja untuk
+    menunjukkan sebuah tabel berakhir dengan "buka datasetnya, klik tab kedua,
+    lalu ke halaman 12", dan menyegarkan halaman mengembalikan orang ke berkas
+    pertama di halaman pertama.
+  */
+  const [urlState, setUrlState] = useUrlState({ file: '', page: '1' })
+  const page = pageFromUrl(urlState.page)
 
   // Berkas utama didahulukan sebagai pilihan awal — itu yang paling sering
   // ingin dilihat orang.
   const mainIndex = files.findIndex((r) => r.tableSource)
-  const [activeId, setActiveId] = useState<string>(
-    () => files[mainIndex >= 0 ? mainIndex : 0]?.id ?? '',
-  )
+  const utama = files[mainIndex >= 0 ? mainIndex : 0]
 
-  const active = files.find((r) => r.id === activeId) ?? files[0]
+  /*
+    Id dari URL diperiksa terhadap berkas yang benar-benar ada.
+
+    Nilainya dikendalikan siapa pun yang menyunting alamatnya, dan tautan lama
+    bisa menyebut berkas yang sejak itu sudah dihapus. Yang tidak dikenali
+    jatuh ke berkas utama, bukan membuat kartunya kosong tanpa penjelasan.
+  */
+  const active = files.find((r) => r.id === urlState.file) ?? utama ?? files[0]
 
   /*
    * Punya tabel atau tidak ditentukan oleh JUMLAH BARISNYA, bukan oleh
@@ -84,8 +99,8 @@ export function DataExplorer({
    * terlihat seperti berkasnya gagal dibaca.
    */
   const selectFile = (id: string) => {
-    setActiveId(id)
-    setPage(1)
+    // Halamannya dikembalikan sendiri oleh hook-nya begitu berkasnya berganti.
+    setUrlState({ file: id })
   }
 
   const query = useDatastore(slug, active?.id, page - 1, PAGE_SIZE, showTable)
@@ -179,7 +194,11 @@ export function DataExplorer({
                 <div className="text-ink-500 text-[13px]">
                   Halaman {page} dari {totalPages}
                 </div>
-                <TablePagination page={page} totalPages={totalPages} onChange={setPage} />
+                <TablePagination
+                  page={page}
+                  totalPages={totalPages}
+                  onChange={(h) => setUrlState({ page: String(h) })}
+                />
               </div>
             </>
           )
