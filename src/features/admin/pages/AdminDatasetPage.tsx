@@ -19,7 +19,12 @@ import { Reveal } from "@/shared/components/motion/Reveal";
 import { Dialog } from "@/shared/components/ui/Dialog";
 import { Pagination } from "@/shared/components/ui/Pagination";
 import { SelectMenu } from "@/shared/components/ui/SelectMenu";
-import { formatBytes, formatNumber } from "@/shared/lib/format";
+import {
+  formatBytes,
+  formatNumber,
+  parseServerTime,
+  TIME_ZONE,
+} from "@/shared/lib/format";
 import type { AccessRule, DatasetLite } from "@/shared/types/api";
 
 import { DatasetDrawer } from "../components/DatasetDrawer";
@@ -924,9 +929,10 @@ function CheckBox({
  */
 function shortDate(iso: string | null | undefined): string {
   if (!iso) return "—";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "—";
+  const date = parseServerTime(iso);
+  if (!date) return "—";
   const parts = new Intl.DateTimeFormat("id-ID", {
+    timeZone: TIME_ZONE,
     day: "2-digit",
     month: "short",
     year: "numeric",
