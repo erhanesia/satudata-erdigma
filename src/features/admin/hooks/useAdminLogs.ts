@@ -2,6 +2,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 
 import { queryKeys } from '@/shared/api/queryKeys'
 
+import type { AccessType } from '../api/adminApi'
 import { fetchAuditLogs, fetchDownloadLogs } from '../api/adminApi'
 
 /**
@@ -23,11 +24,16 @@ export function useDownloadLogs(
   size: number,
   from?: string,
   to?: string,
+  accessType?: AccessType,
   enabled = true,
 ) {
   return useQuery({
-    queryKey: queryKeys.log.download(page, size, from, to),
-    queryFn: ({ signal }) => fetchDownloadLogs({ page, size, from, to }, signal),
+    // `accessType` wajib ikut jadi kunci. Tanpa itu, mengganti penyaring
+    // mengembalikan hasil penyaring sebelumnya dari cache, dan tabelnya
+    // terlihat seperti tidak menanggapi apa pun.
+    queryKey: queryKeys.log.download(page, size, from, to, accessType),
+    queryFn: ({ signal }) =>
+      fetchDownloadLogs({ page, size, from, to, accessType }, signal),
     enabled,
     placeholderData: keepPreviousData,
   })

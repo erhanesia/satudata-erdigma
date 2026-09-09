@@ -18,6 +18,16 @@ export interface AuditLogQuery {
   slug?: string
 }
 
+/**
+ * Jenis akses yang dicatat tabel log.
+ *
+ * Nilainya kode yang dipakai back-end, bukan tulisan yang dibaca orang.
+ * Terjemahannya ke "Dibuka" dan "Diunduh" ada di halaman Log, satu tempat
+ * saja, supaya kata yang tampil bisa diubah tanpa menyentuh permintaan yang
+ * dikirim ke server.
+ */
+export type AccessType = 'DOWNLOAD' | 'PREVIEW'
+
 export interface DownloadLogQuery {
   page?: number
   size?: number
@@ -25,6 +35,8 @@ export interface DownloadLogQuery {
   from?: string
   /** Format YYYY-MM-DD, inklusif. */
   to?: string
+  /** Dikosongkan berarti kedua jenis akses. */
+  accessType?: AccessType
 }
 
 export function fetchAuditLogs(
@@ -48,9 +60,25 @@ export function fetchDownloadLogs(
  * autentikasi, dan server mencatat ekspornya ke jejak audit sebelum bita
  * pertama dikirim.
  */
-export function exportDownloadLogs(from?: string, to?: string) {
+/*
+  Penyaringnya ikut dikirim, dan itu bukan kelengkapan belaka.
+
+  Berkas hasil ekspor memuat nama, email, dan alamat IP karyawan. Kalau
+  ekspornya mengabaikan penyaring yang sedang dipakai, orang yang melihat
+  belasan baris di layar menekan Export lalu membawa keluar puluhan ribu
+  baris yang justru sengaja ia singkirkan.
+*/
+export function exportDownloadLogs(
+  from?: string,
+  to?: string,
+  accessType?: AccessType,
+) {
   return apiDownload('/api/v1/download-logs/export', {
-    params: { ...(from ? { from } : {}), ...(to ? { to } : {}) },
+    params: {
+      ...(from ? { from } : {}),
+      ...(to ? { to } : {}),
+      ...(accessType ? { accessType } : {}),
+    },
     timeout: 120_000,
   })
 }

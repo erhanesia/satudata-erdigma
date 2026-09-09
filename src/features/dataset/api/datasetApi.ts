@@ -109,12 +109,30 @@ export function fetchSummary(
  * tanpa nilai itu dan mencatatnya di audit log, jadi ia bukan sekadar hiasan
  * antarmuka — jangan pernah dikirim `true` secara otomatis.
  */
-export function downloadDataset(slug: string, agreement: boolean, resourceId?: string) {
+export function downloadDataset(
+  slug: string,
+  agreement: boolean,
+  resourceId?: string,
+  actionId?: string,
+) {
   return apiDownload(`${BASE}/${encodeURIComponent(slug)}/download`, {
-    // `resourceId` dikosongkan berarti berkas pertama. Satu permintaan
-    // mengambil satu berkas — beberapa berkas dipanggil berurutan, supaya
-    // masing-masing punya barisnya sendiri di log unduhan.
-    params: { agreement, ...(resourceId ? { resourceId } : {}) },
+    /*
+      `resourceId` dikosongkan berarti berkas pertama. Satu permintaan
+      mengambil satu berkas, jadi mengunduh beberapa berkas berarti
+      memanggil endpoint ini beberapa kali.
+
+      `actionId` yang menyatakan bahwa panggilan-panggilan itu satu
+      peristiwa, sehingga log mencatatnya sebagai satu baris. Server tidak
+      bisa menyimpulkannya sendiri: ia hanya melihat permintaan terpisah,
+      dan menebaknya dari jarak waktu pernah dicoba lalu gagal di kedua
+      arah, karena unduhan berurutan membuat jaraknya bergantung pada
+      besar berkasnya.
+    */
+    params: {
+      agreement,
+      ...(resourceId ? { resourceId } : {}),
+      ...(actionId ? { actionId } : {}),
+    },
     // Berkas bisa berukuran puluhan megabita di jaringan kantor yang lambat;
     // batas 20 detik milik klien standar terlalu pendek.
     timeout: 120_000,

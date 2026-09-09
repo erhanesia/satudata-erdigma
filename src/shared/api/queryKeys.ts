@@ -66,8 +66,14 @@ export const queryKeys = {
     all: ['log'] as const,
     audit: (page: number, size: number, slug?: string) =>
       ['log', 'audit', page, size, slug ?? null] as const,
-    download: (page: number, size: number, from?: string, to?: string) =>
-      ['log', 'download', page, size, from ?? null, to ?? null] as const,
+    download: (
+      page: number,
+      size: number,
+      from?: string,
+      to?: string,
+      accessType?: string,
+    ) =>
+      ['log', 'download', page, size, from ?? null, to ?? null, accessType ?? null] as const,
   },
 
 } as const

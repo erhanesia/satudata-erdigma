@@ -632,6 +632,11 @@ export interface paths {
          *
          *     **Perhatikan:** `to` bersifat inklusif — mengisinya dengan tanggal hari ini ikut
          *     memuat unduhan yang terjadi hari ini.
+         *
+         *     **Jenis akses.** `accessType` memisahkan dua peristiwa yang tabel ini catat
+         *     bersama: `DOWNLOAD` untuk berkas yang benar-benar diunduh setelah menyetujui
+         *     syarat pemakaian, dan `PREVIEW` untuk berkas yang hanya dibuka di peramban.
+         *     Dikosongkan berarti keduanya.
          */
         get: operations["index_5"];
         put?: never;
@@ -660,6 +665,10 @@ export interface paths {
          *     paling mudah membuatnya.
          *
          *     Dibatasi 50.000 baris per ekspor. Persempit rentang tanggalnya bila hasilnya terpotong.
+         *
+         *     `accessType` berlaku sama seperti di daftar, dan memang harus: berkas yang
+         *     diekspor mesti berisi persis apa yang sedang dilihat di layar, bukan seluruh
+         *     tabel.
          */
         get: operations["export"];
         put?: never;
@@ -985,7 +994,7 @@ export interface components {
              */
             slug?: string;
             /**
-             * @description Penjelasan isi dataset dan cara membacanya, berupa **HTML terbatas** dari editor teks kaya. Yang dipertahankan hanya p, br, strong, em, b, i, u, s, ul, ol, li, blockquote, h2, h3, dan a[href]; selebihnya DIBUANG saat disimpan, termasuk atribut style, gambar, dan penangan kejadian. Teks polos tetap diterima apa adanya.
+             * @description Penjelasan isi dataset dan cara membacanya, berupa **HTML terbatas** dari editor teks kaya. Yang dipertahankan hanya p, br, strong, em, b, i, u, s, ul, ol, li, blockquote, h2, dan a[href]; selebihnya DIBUANG saat disimpan, termasuk atribut style, gambar, dan penangan kejadian. Teks polos tetap diterima apa adanya.
              * @example <p>Transaksi penjualan furnitur ritel sepanjang 2025 per pesanan.</p>
              */
             notes?: string;
@@ -1161,7 +1170,7 @@ export interface components {
              * @example Penjualan Furnitur Ritel 2025
              */
             title: string;
-            /** @description Deskripsi dataset, berupa **HTML terbatas** dari editor teks kaya. Yang dipertahankan hanya p, br, strong, em, b, i, u, s, ul, ol, li, blockquote, h2, h3, dan a[href]; selebihnya DIBUANG saat disimpan, termasuk atribut style, gambar, dan penangan kejadian. Teks polos tetap diterima apa adanya. Kirim string kosong untuk mengosongkannya; hilangkan ruasnya kalau tidak ingin mengubahnya. */
+            /** @description Deskripsi dataset, berupa **HTML terbatas** dari editor teks kaya. Yang dipertahankan hanya p, br, strong, em, b, i, u, s, ul, ol, li, blockquote, h2, dan a[href]; selebihnya DIBUANG saat disimpan, termasuk atribut style, gambar, dan penangan kejadian. Teks polos tetap diterima apa adanya. Kirim string kosong untuk mengosongkannya; hilangkan ruasnya kalau tidak ingin mengubahnya. */
             notes?: string;
             /** @description Peringatan yang tampil sebelum unduhan. Kirim string kosong untuk mengosongkannya; hilangkan ruasnya kalau tidak ingin mengubahnya. */
             disclaimer?: string;
@@ -1230,17 +1239,17 @@ export interface components {
             /** Format: int64 */
             offset?: number;
             sort?: components["schemas"]["SortObject"];
-            unpaged?: boolean;
             paged?: boolean;
             /** Format: int32 */
-            pageNumber?: number;
-            /** Format: int32 */
             pageSize?: number;
+            /** Format: int32 */
+            pageNumber?: number;
+            unpaged?: boolean;
         };
         SortObject: {
             empty?: boolean;
-            unsorted?: boolean;
             sorted?: boolean;
+            unsorted?: boolean;
         };
         TopicResponse: {
             /** Format: uuid */
@@ -1347,6 +1356,7 @@ export interface components {
             fileName?: string;
             /** Format: int64 */
             sizeBytes?: number;
+            formats?: string;
             accessType?: string;
             channel?: string;
             agreementAccepted?: boolean;
@@ -2217,6 +2227,11 @@ export interface operations {
                  * @example 2026-08-31
                  */
                 to?: string;
+                /**
+                 * @description Jenis akses: DOWNLOAD atau PREVIEW. Kosongkan untuk keduanya.
+                 * @example DOWNLOAD
+                 */
+                accessType?: string;
             };
             header?: never;
             path?: never;
@@ -2233,7 +2248,7 @@ export interface operations {
                     "*/*": components["schemas"]["PageDownloadLogResponse"];
                 };
             };
-            /** @description Tanggal akhir mendahului tanggal awal */
+            /** @description Tanggal akhir mendahului tanggal awal, atau jenis akses tidak dikenal */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -2256,6 +2271,11 @@ export interface operations {
                 from?: string;
                 /** @description Tanggal akhir, inklusif. */
                 to?: string;
+                /**
+                 * @description Jenis akses: DOWNLOAD atau PREVIEW. Kosongkan untuk keduanya.
+                 * @example DOWNLOAD
+                 */
+                accessType?: string;
             };
             header?: never;
             path?: never;
