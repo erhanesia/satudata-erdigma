@@ -16,7 +16,15 @@ import type { PortalRole, UserAdmin } from '@/shared/types/api'
 import { useUpdateUserRole } from '../hooks/useUpdateUserRole'
 import { useUsers } from '../hooks/useUsers'
 
-const UKURAN_HALAMAN = 20
+/**
+ * Baris per halaman, sama di seluruh aplikasi.
+ *
+ * Angkanya disamakan dengan halaman berpaginasi lain supaya berpindah antar
+ * layar tidak mengubah panjang daftar yang dibaca orang. Sebelumnya tiap
+ * halaman memakai angkanya sendiri, dan yang terasa bukan angkanya melainkan
+ * tinggi halamannya yang berubah-ubah tanpa alasan yang bisa dijelaskan.
+ */
+const UKURAN_HALAMAN = 10
 
 const PERAN: { nilai: PortalRole; label: string }[] = [
   { nilai: 'ADMIN', label: 'Admin' },

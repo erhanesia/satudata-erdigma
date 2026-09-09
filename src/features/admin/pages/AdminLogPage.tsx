@@ -3,14 +3,42 @@ import { useState } from 'react'
 
 import { ApiError } from '@/shared/api/errors'
 import { Reveal } from '@/shared/components/motion/Reveal'
+import { SelectMenu } from '@/shared/components/ui/SelectMenu'
 import { useToast } from '@/shared/components/ui/toastStore'
 import { formatDateTime, formatNumber, sanitizeFileName } from '@/shared/lib/format'
 import type { AuditAction } from '@/shared/types/api'
 
+import type { AccessType } from '../api/adminApi'
+import { FormatBadge } from '../components/FormatBadge'
 import { exportDownloadLogs } from '../api/adminApi'
 import { useAuditLogs, useDownloadLogs } from '../hooks/useAdminLogs'
 
-const PAGE_SIZE = 25
+/**
+ * Baris per halaman, sama di seluruh aplikasi.
+ *
+ * Angkanya disamakan dengan halaman berpaginasi lain supaya berpindah antar
+ * layar tidak mengubah panjang daftar yang dibaca orang. Sebelumnya tiap
+ * halaman memakai angkanya sendiri, dan yang terasa bukan angkanya melainkan
+ * tinggi halamannya yang berubah-ubah tanpa alasan yang bisa dijelaskan.
+ */
+const PAGE_SIZE = 10
+
+/**
+ * Pilihan penyaring jenis akses.
+ *
+ * Tabel ini mencatat dua peristiwa yang mudah dikira satu: berkas yang
+ * benar-benar diunduh, dan berkas yang cuma dibuka di peramban lewat
+ * pratinjau. Keduanya sama-sama mengeluarkan bita dari server sehingga
+ * sama-sama dicatat, tetapi hanya yang pertama yang menambah angka unduhan
+ * di halaman dataset.
+ *
+ * Nilainya kode milik back-end; tulisannya yang dibaca orang ada di sini,
+ * dan hanya di sini.
+ */
+const ACCESS_OPTIONS: { value: AccessType; label: string }[] = [
+  { value: 'DOWNLOAD', label: 'Diunduh' },
+  { value: 'PREVIEW', label: 'Dibuka' },
+]
 
 /**
  * Halaman Log — dua tab, mengikuti desain: **Download** dan **Audit**.
@@ -44,15 +72,25 @@ function DownloadTab() {
   const [page, setPage] = useState(0)
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
+  // String kosong berarti kedua jenis akses, sama seperti yang dipahami server.
+  const [accessType, setAccessType] = useState<AccessType | ''>('')
   const [exporting, setExporting] = useState(false)
   const toast = useToast()
 
-  const query = useDownloadLogs(page, PAGE_SIZE, fromDate || undefined, toDate || undefined)
+  const query = useDownloadLogs(
+    page,
+    PAGE_SIZE,
+    fromDate || undefined,
+    toDate || undefined,
+    accessType || undefined,
+  )
   const rows = query.data?.content ?? []
 
-  function changeRange(change: () => void) {
+  const menyaring = Boolean(fromDate || toDate || accessType)
+
+  function changeFilter(change: () => void) {
     change()
-    // Rentang baru berarti hasil baru. Tetap di halaman 7 menghasilkan tabel
+    // Penyaring baru berarti hasil baru. Tetap di halaman 7 menghasilkan tabel
     // kosong yang terlihat seperti "tidak ada data" padahal ada di halaman 1.
     setPage(0)
   }
@@ -60,7 +98,13 @@ function DownloadTab() {
   async function exportCsv() {
     setExporting(true)
     try {
-      const { blob, fileName } = await exportDownloadLogs(fromDate || undefined, toDate || undefined)
+      const { blob, fileName } = await exportDownloadLogs(
+        fromDate || undefined,
+        toDate || undefined,
+        // Penyaring yang sama dengan yang sedang dilihat. Berkasnya memuat data
+        // pribadi, jadi selisih antara layar dan berkas bukan sekadar merepotkan.
+        accessType || undefined,
+      )
       const url = URL.createObjectURL(blob)
       try {
         const anchor = document.createElement('a')
@@ -93,25 +137,39 @@ function DownloadTab() {
       </p>
 
       <div className="flex flex-wrap items-center gap-2.5 px-4 py-4 sm:px-6 sm:py-5">
-        <DateInput value={fromDate} onChange={(v) => changeRange(() => setFromDate(v))} label="Tanggal awal" />
+        <DateInput
+          value={fromDate}
+          onChange={(v) => changeFilter(() => setFromDate(v))}
+          label="Tanggal awal"
+        />
         <DateInput
           value={toDate}
-          onChange={(v) => changeRange(() => setToDate(v))}
+          onChange={(v) => changeFilter(() => setToDate(v))}
           label="Tanggal akhir"
         />
 
-        {fromDate || toDate ? (
+        <SelectMenu
+          value={accessType}
+          onChange={(v) => changeFilter(() => setAccessType(v as AccessType | ''))}
+          options={ACCESS_OPTIONS}
+          placeholder="Semua akses"
+          ariaLabel="Saring menurut jenis akses"
+          className="min-w-[170px]"
+        />
+
+        {menyaring ? (
           <button
             type="button"
             onClick={() =>
-              changeRange(() => {
+              changeFilter(() => {
                 setFromDate('')
                 setToDate('')
+                setAccessType('')
               })
             }
             className="text-[13.5px] font-semibold text-[#4F6BED] hover:underline"
           >
-            Bersihkan rentang
+            Bersihkan penyaring
           </button>
         ) : null}
 
@@ -131,14 +189,24 @@ function DownloadTab() {
       </div>
 
       <DataTable
-        columns={['Waktu', 'Pengguna', 'Dataset', 'Format', 'Channel', 'Disclaimer']}
+        columns={['Waktu', 'Pengguna', 'Dataset', 'Format', 'Channel', 'Aksi']}
         loading={query.isPending}
         failed={query.isError}
         empty={rows.length === 0}
+        /*
+          Dua pesan yang berbeda untuk dua keadaan yang berbeda.
+
+          "Belum ada yang tercatat" pada tabel yang sedang disaring adalah
+          kebohongan kecil yang mahal: pembacanya menyimpulkan sistemnya kosong,
+          padahal yang kosong cuma irisan yang sedang ia minta.
+
+          Katanya juga bukan lagi "unduhan", karena tabel ini memuat pratinjau
+          juga sejak ada penyaring yang memisahkan keduanya.
+        */
         emptyMessage={
-          fromDate || toDate
-            ? 'Tidak ada unduhan pada rentang tanggal ini.'
-            : 'Belum ada unduhan tercatat.'
+          menyaring
+            ? 'Tidak ada yang cocok dengan penyaring ini.'
+            : 'Belum ada akses berkas tercatat.'
         }
         fetching={query.isFetching && !query.isPending}
       >
@@ -150,20 +218,31 @@ function DownloadTab() {
               <div className="mt-0.5 text-[12.5px] text-[#9CA3AF]">{l.divisionCode ?? '—'}</div>
             </Cell>
             <Cell>{l.datasetSlug}</Cell>
-            <Cell nowrap>{fileKindOf(l.fileName)}</Cell>
+            <Cell nowrap>
+              <FormatList formats={formatsOf(l)} />
+            </Cell>
             <Cell nowrap>{channel(l.channel)}</Cell>
             <Cell nowrap>
               {/*
-                Pratinjau memang tidak melewati modal persetujuan. Menuliskannya
-                "Tidak" begitu saja akan terbaca seolah orang mengunduh tanpa
-                menyetujui apa pun — padahal ia tidak mengunduh sama sekali.
+                Kolom ini dulu berjudul "Disclaimer" dan menampilkan tiga keadaan:
+                "Pratinjau", "Disetujui", dan "Tidak". Tiga keadaan untuk dua
+                pertanyaan yang berbeda, dan salah satunya tidak pernah terjadi.
+
+                "Tidak" mustahil: DownloadService menolak unduhan yang tidak
+                menyertakan persetujuan SEBELUM satu baris log pun ditulis, jadi
+                tidak ada baris DOWNLOAD yang persetujuannya bernilai salah.
+                Cabangnya berwarna merah selama berbulan-bulan tanpa pernah sekali
+                pun tergambar.
+
+                Yang tersisa dua keadaan yang menjawab satu pertanyaan yang sama,
+                yaitu apa yang orang itu lakukan. Persetujuannya sendiri tetap
+                tersimpan dan tetap ikut di kolom `persetujuan` pada ekspor CSV,
+                tempat catatan kepatuhan memang seharusnya berada.
               */}
               {l.accessType === 'PREVIEW' ? (
-                <span className="text-[#6B7280]">Pratinjau</span>
-              ) : l.agreementAccepted ? (
-                <span className="text-[#137A46]">Disetujui</span>
+                <span className="text-[#6B7280]">Dibuka</span>
               ) : (
-                <span className="text-[#B4231B]">Tidak</span>
+                <span className="text-[#137A46]">Diunduh</span>
               )}
             </Cell>
           </tr>
@@ -236,12 +315,61 @@ function TabAudit() {
   )
 }
 
-/** "komentar-tiktok-mbg.xlsx" -> "XLSX". Nama berkas adalah sumber yang paling benar. */
-function fileKindOf(fileName: string | undefined): string {
-  if (!fileName) return '—'
+/**
+ * Format apa saja yang terlibat dalam satu baris log.
+ *
+ * <h2>Kenapa dua sumber</h2>
+ *
+ * Kolom `formats` baru ada sejak baris log berhenti mewakili satu berkas dan
+ * mulai mewakili satu peristiwa. Baris yang ditulis sebelum itu tidak
+ * memilikinya, dan jumlahnya puluhan ribu; menampilkannya kosong berarti
+ * membuang keterangan yang sebenarnya masih ada di nama berkasnya.
+ *
+ * Jadi kolomnya dipakai kalau ada, dan nama berkas dipakai kalau tidak.
+ * Baris pembukaan dataset tidak punya keduanya, dan itu memang benar: membuka
+ * dataset tidak menyentuh berkas mana pun.
+ */
+function formatsOf(l: { formats?: string; fileName?: string }): string[] {
+  if (l.formats) {
+    return l.formats
+      .split(',')
+      .map((f) => f.trim())
+      .filter(Boolean)
+  }
+  const fromName = extensionOf(l.fileName)
+  return fromName ? [fromName] : []
+}
+
+/** "komentar-tiktok-mbg.xlsx" -> "XLSX". */
+function extensionOf(fileName: string | undefined): string | null {
+  if (!fileName) return null
   const points = fileName.lastIndexOf('.')
-  if (points < 0) return '—'
+  if (points < 0) return null
   return fileName.slice(points + 1).toUpperCase()
+}
+
+/**
+ * Menggambar format sebagai badge, bukan teks.
+ *
+ * Warnanya sama dengan yang dipakai di halaman Dataset panel admin, lewat
+ * komponen yang sama, supaya "CSV" berarti hal yang sama dan terlihat sama di
+ * mana pun ia muncul.
+ *
+ * Satu baris bisa memuat lebih dari satu, karena satu aksi unduh boleh
+ * mengambil beberapa berkas sekaligus. `flex-wrap` menahannya tetap rapi
+ * ketika jumlahnya banyak, alih-alih mendorong lebar kolomnya.
+ */
+function FormatList({ formats }: { formats: string[] }) {
+  if (formats.length === 0) {
+    return <span className="text-[#9CA3AF]">—</span>
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {formats.map((f) => (
+        <FormatBadge key={f} ext={f} />
+      ))}
+    </div>
+  )
 }
 
 function channel(value: string | undefined): string {

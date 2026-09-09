@@ -47,6 +47,36 @@ export interface RequestedFile {
  * berurutan membuat "berhasil 2 dari 3" jadi kalimat yang benar. Sebagian
  * peramban juga membatasi jumlah unduhan otomatis yang dipicu bersamaan.
  */
+/**
+ * Penanda satu aksi unduh.
+ *
+ * <h2>Kenapa ada cadangannya</h2>
+ *
+ * crypto.randomUUID hanya tersedia pada konteks yang aman, yaitu HTTPS dan
+ * localhost. Produksi memakai HTTPS dan pengembangan memakai localhost, jadi
+ * seharusnya selalu ada. Tetapi kalau suatu saat aplikasinya dibuka lewat
+ * alamat IP di jaringan kantor untuk diuji di ponsel, ia hilang, dan unduhan
+ * berhenti bekerja sama sekali karena galat yang tidak ada hubungannya dengan
+ * mengunduh.
+ *
+ * Cadangannya tidak perlu aman secara kriptografis. Yang dibutuhkan cuma nilai
+ * yang tidak bertabrakan dengan penekanan tombol lain, dan server pun sudah
+ * membatasi pencariannya pada orang dan dataset yang sama.
+ */
+function newActionId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  const acak = () => Math.floor(Math.random() * 0x10000).toString(16).padStart(4, '0')
+  return [
+    acak() + acak(),
+    acak(),
+    '4' + acak().slice(1),
+    ((8 + Math.floor(Math.random() * 4)).toString(16)) + acak().slice(1),
+    acak() + acak() + acak(),
+  ].join('-')
+}
+
 export function useDownloadDataset() {
   return useMutation({
     mutationFn: async ({
@@ -63,9 +93,28 @@ export function useDownloadDataset() {
       const failed: string[] = []
       let totalByte = 0
 
+      /*
+        Satu penanda untuk seluruh berkas dalam satu penekanan tombol.
+
+        Server melihat sebanyak-banyaknya permintaan terpisah dan tidak punya
+        cara menyimpulkan bahwa semuanya satu peristiwa. Penanda ini yang
+        menyatakannya, sehingga log mencatat satu baris berisi seluruh format
+        alih-alih satu baris per berkas.
+
+        Dibuat di sini, bukan di dalam perulangan: dua penekanan tombol yang
+        berjarak sepersepuluh ribu detik tetap dua peristiwa, dan penanda yang
+        berbeda itulah yang membedakannya.
+      */
+      const actionId = newActionId()
+
       for (const item of items) {
         try {
-          const { blob, fileName } = await downloadDataset(slug, agreement, item.resourceId)
+          const { blob, fileName } = await downloadDataset(
+            slug,
+            agreement,
+            item.resourceId,
+            actionId,
+          )
           const fallback = item.fileName ?? `${slug}`
           saveBlob(blob, sanitizeFileName(fileName ?? fallback, fallback))
           totalByte += blob.size
