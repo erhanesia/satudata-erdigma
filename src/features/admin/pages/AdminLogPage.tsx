@@ -42,7 +42,12 @@ const ACCESS_OPTIONS: { value: AccessType; label: string }[] = [
 ]
 
 /**
- * Halaman Log — dua tab, mengikuti desain: **Download** dan **Audit**.
+ * Halaman Log — dua tab: **Akses** dan **Audit**.
+ *
+ * Tab pertamanya dulu bernama "Download", dan namanya jadi keliru begitu
+ * tabelnya berhenti mencatat unduhan saja. Ia memuat dua peristiwa: berkas
+ * yang benar-benar diambil, dan dataset yang cuma dibuka. "Akses" mencakup
+ * keduanya, dan sepanjang satu kata seperti "Audit" di sebelahnya.
  *
  * Tab yang tidak terlihat TIDAK ikut memanggil endpoint-nya. Log unduhan berisi
  * puluhan ribu baris; menariknya hanya karena tab-nya ada di pohon komponen
@@ -60,29 +65,29 @@ export default function AdminLogPage() {
     Dengan `page` dikenali di sini, useUrlState menghapusnya sendiri setiap
     kali tab berganti, aturan yang sama dengan saat penyaring berganti.
   */
-  const [urlState, setUrlState] = useUrlState({ tab: 'download', page: '1' })
-  const tab = urlState.tab === 'audit' ? 'audit' : 'download'
-  const setTab = (nilai: 'download' | 'audit') => setUrlState({ tab: nilai })
+  const [urlState, setUrlState] = useUrlState({ tab: 'access', page: '1' })
+  const tab = urlState.tab === 'audit' ? 'audit' : 'access'
+  const setTab = (nilai: 'access' | 'audit') => setUrlState({ tab: nilai })
 
   return (
     <Reveal>
       <div className="overflow-hidden rounded-[14px] border border-[#E9EBF0] bg-white">
         <div className="flex border-b border-[#E9EBF0] px-2">
-          <Tab active={tab === 'download'} onClick={() => setTab('download')}>
-            Download
+          <Tab active={tab === 'access'} onClick={() => setTab('access')}>
+            Akses
           </Tab>
           <Tab active={tab === 'audit'} onClick={() => setTab('audit')}>
             Audit
           </Tab>
         </div>
 
-        {tab === 'download' ? <DownloadTab /> : <TabAudit />}
+        {tab === 'access' ? <AccessTab /> : <TabAudit />}
       </div>
     </Reveal>
   )
 }
 
-function DownloadTab() {
+function AccessTab() {
   /*
     Penyaringnya di URL, status mengekspor tidak.
 
@@ -153,7 +158,7 @@ function DownloadTab() {
       } finally {
         window.setTimeout(() => URL.revokeObjectURL(url), 1000)
       }
-      toast.success('Log unduhan diekspor.')
+      toast.success('Log akses diekspor.')
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : 'Ekspor gagal.')
     } finally {
@@ -222,7 +227,17 @@ function DownloadTab() {
       </div>
 
       <DataTable
-        columns={['Waktu', 'Pengguna', 'Dataset', 'Format', 'Channel', 'Aksi']}
+        /*
+          "Tindakan", bukan "Aksi", dan itu bukan soal selera.
+
+          Tab ini bernama Akses. Kolom bernama Aksi di dalamnya berarti dua kata
+          yang nyaris sama bunyinya berdiri berdampingan di satu layar dengan
+          arti yang berbeda.
+
+          Tab Audit sudah memakai "Tindakan" untuk gagasan yang persis sama,
+          jadi kata itu yang dipakai di sini juga.
+        */
+        columns={['Waktu', 'Pengguna', 'Dataset', 'Format', 'Channel', 'Tindakan']}
         loading={query.isPending}
         failed={query.isError}
         empty={rows.length === 0}
