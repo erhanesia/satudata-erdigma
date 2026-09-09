@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
-import { useDatasets } from '@/features/dataset/hooks/useDatasets'
-import { useDailyDownloads, useStats } from '@/features/stats/hooks/useStats'
+import { useAdminDatasets } from '@/features/dataset/hooks/useDatasets'
+import { useAdminDailyDownloads, useAdminStats } from '@/features/stats/hooks/useStats'
 import { CountUp } from '@/shared/components/motion/CountUp'
 import { Reveal } from '@/shared/components/motion/Reveal'
 import { formatDateTime, formatNumber } from '@/shared/lib/format'
@@ -27,10 +27,21 @@ import { useAuditLogs } from '../hooks/useAdminLogs'
  * sungguhan, angkanya ikut bergerak tanpa ada kode yang perlu diubah.
  */
 export default function AdminDashboardPage() {
-  const stats = useStats()
-  const latest = useDatasets({ sort: 'created', page: 0, size: 5 })
+  /*
+    Seluruhnya lewat jalur admin, yang dibatasi server ke divisi si admin.
+
+    Log akses dan jejak audit tidak punya jalur kembar dan memang tidak
+    perlu: keduanya sudah hanya untuk admin, jadi pembatasannya dipasang di
+    endpoint-nya sendiri.
+
+    Kartu "Jenis file" tetap angka global, dan itu disengaja. Banyaknya
+    format yang dikenal sistem adalah data acuan bersama, bukan cerminan
+    cakupan seseorang.
+  */
+  const stats = useAdminStats()
+  const latest = useAdminDatasets({ sort: 'created', page: 0, size: 5 })
   const audit = useAuditLogs(0, 6)
-  const chart = useDailyDownloads(30)
+  const chart = useAdminDailyDownloads(30)
 
   const [openSlug, setOpenSlug] = useState<string | null>(null)
 

@@ -13,7 +13,8 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { paths } from "@/app/router/paths";
-import { useDatasets, useFormats } from "@/features/dataset/hooks/useDatasets";
+import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser";
+import { useAdminDatasets, useFormats } from "@/features/dataset/hooks/useDatasets";
 import { useDivisions } from "@/features/division/hooks/useDivisions";
 import { Reveal } from "@/shared/components/motion/Reveal";
 import { Dialog } from "@/shared/components/ui/Dialog";
@@ -30,6 +31,7 @@ import type { AccessRule, DatasetLite } from "@/shared/types/api";
 
 import { DatasetDrawer } from "../components/DatasetDrawer";
 import { FormatBadge } from "../components/FormatBadge";
+import { seesEveryDivision } from "../lib/adminScope";
 import { useJobLevels } from "../hooks/useAccessOptions";
 import { useDatasetAdmin } from "../hooks/useDatasetAdmin";
 
@@ -119,14 +121,53 @@ export default function AdminDatasetPage() {
     setDeleteConfirmed(false);
   }, [dialog]);
 
+  const { data: me } = useCurrentUser();
+
+  /*
+    Penyaring divisi hanya berarti bagi admin HRIS.
+
+    Admin biasa sudah dibatasi server ke divisinya sendiri, jadi baginya
+    "Semua divisi" menjanjikan sesuatu yang tidak akan terjadi, dan
+    memilih divisi lain menghasilkan tabel kosong yang terbaca seperti
+    kerusakan alih-alih seperti penolakan.
+
+    Selama /me belum tiba nilainya false, jadi penyaringnya belum muncul.
+    Itu arah yang benar untuk salah sesaat: yang tertunda cuma sebuah
+    pilihan, bukan datanya.
+  */
+  const bolehLintasDivisi = seesEveryDivision(me);
+
+  /*
+    Membersihkan ?division= yang tertinggal di alamat.
+
+    Tanpa ini, tautan berpenyaring divisi yang diteruskan ke admin divisi
+    lain akan menyaring sesuatu yang kotaknya sudah tidak ada di layarnya,
+    dan ia tidak punya cara membatalkannya selain menyunting alamat sendiri.
+
+    Menunggu me benar-benar ada, bukan sekadar bukan-admin-HRIS: saat /me
+    masih berjalan keduanya terlihat sama, dan bertindak lebih dulu berarti
+    menghapus penyaring milik admin HRIS yang sebenarnya berhak.
+  */
+  useEffect(() => {
+    if (me && !seesEveryDivision(me) && division) setUrlState({ division: "" });
+  }, [me, division, setUrlState]);
+
   const divisions = useDivisions();
   const formats = useFormats();
   const jobLevels = useJobLevels();
   const { remove } = useDatasetAdmin();
 
-  const datasets = useDatasets({
+  /*
+    Jalur admin, BUKAN jalur portal.
+
+    Endpoint portal memang tidak dibatasi divisi, karena ia juga melayani
+    katalog yang dilihat seluruh karyawan. Yang membatasi ada di
+    /api/v1/admin/datasets, dan pembatasannya diputuskan server dari
+    identitas pemanggil, bukan dari sesuatu yang dikirim klien.
+  */
+  const datasets = useAdminDatasets({
     search: search || undefined,
-    divisions: division ? [division] : undefined,
+    divisions: bolehLintasDivisi && division ? [division] : undefined,
     formats: format ? [format] : undefined,
     jobLevels: jobLevel ? [jobLevel] : undefined,
     sort: "created",
@@ -134,7 +175,9 @@ export default function AdminDatasetPage() {
     size: PAGE_SIZE,
   });
 
-  const hasFilter = Boolean(search || division || format || jobLevel);
+  const hasFilter = Boolean(
+    search || (bolehLintasDivisi && division) || format || jobLevel,
+  );
   const rows = useMemo(() => datasets.data?.content ?? [], [datasets.data]);
   const totalPages = datasets.data?.totalPages ?? 0;
 
@@ -215,14 +258,16 @@ export default function AdminDatasetPage() {
             penyaringnya. Membuangnya lebih jujur daripada menampilkan baris
             yang tidak menyaring apa pun.
           */}
-          <SelectMenu
-            value={division}
-            onChange={(v) => setUrlState({ division: v })}
-            placeholder="Semua divisi"
-            options={(divisions.data ?? [])
-              .filter((d) => d.code)
-              .map((d) => ({ value: d.code as string, label: d.code as string }))}
-          />
+          {bolehLintasDivisi ? (
+            <SelectMenu
+              value={division}
+              onChange={(v) => setUrlState({ division: v })}
+              placeholder="Semua divisi"
+              options={(divisions.data ?? [])
+                .filter((d) => d.code)
+                .map((d) => ({ value: d.code as string, label: d.code as string }))}
+            />
+          ) : null}
 
           <SelectMenu
             value={format}
