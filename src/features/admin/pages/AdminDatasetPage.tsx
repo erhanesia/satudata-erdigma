@@ -25,6 +25,7 @@ import {
   parseServerTime,
   TIME_ZONE,
 } from "@/shared/lib/format";
+import { pageFromUrl, useUrlState } from "@/shared/hooks/useUrlState";
 import type { AccessRule, DatasetLite } from "@/shared/types/api";
 
 import { DatasetDrawer } from "../components/DatasetDrawer";
@@ -62,11 +63,28 @@ const PAGE_SIZE = 10;
  * jarang dipakai. Jenjangnya cuma dua belas dan sudah berupa nama.
  */
 export default function AdminDatasetPage() {
-  const [search, setSearch] = useState("");
-  const [division, setDivision] = useState("");
-  const [format, setFormat] = useState("");
-  const [jobLevel, setJobLevel] = useState("");
-  const [page, setPage] = useState(0);
+  /*
+    Penyaring dan nomor halaman disimpan di URL.
+
+    Yang paling terasa di halaman ini: admin sering menyaring lalu mengirim
+    tautannya ke rekan kerja. Sebelumnya yang terkirim cuma alamat halaman
+    kosong, dan penerimanya harus mengulang seluruh penyaringnya sendiri.
+  */
+  const [urlState, setUrlState] = useUrlState({
+    search: "",
+    division: "",
+    format: "",
+    jobLevel: "",
+    page: "1",
+  });
+
+  const search = urlState.search;
+  const division = urlState.division;
+  const format = urlState.format;
+  const jobLevel = urlState.jobLevel;
+  // URL berbasis 1 karena dibaca manusia; API berbasis 0. Konversinya cuma
+  // di baris ini dan di pemanggilan paginasinya.
+  const page = pageFromUrl(urlState.page) - 1;
 
   const navigate = useNavigate();
 
@@ -120,10 +138,8 @@ export default function AdminDatasetPage() {
   const rows = useMemo(() => datasets.data?.content ?? [], [datasets.data]);
   const totalPages = datasets.data?.totalPages ?? 0;
 
-  // Mengganti filter harus mengembalikan ke halaman pertama. Tanpa ini,
-  // menyaring saat sedang di halaman 5 menghasilkan tabel kosong yang terlihat
-  // seperti "tidak ada hasil" padahal hasilnya ada di halaman 1.
-  const resetPage = () => setPage(0);
+  // Mengganti filter mengembalikan ke halaman pertama; diurus useUrlState,
+  // dan alasannya ada di sana.
 
   // Pilihan hanya berlaku untuk baris yang terlihat. Menyimpan pilihan lintas
   // halaman berarti seseorang bisa menekan Hapus untuk dataset yang tidak ada
@@ -182,10 +198,7 @@ export default function AdminDatasetPage() {
           <div className="relative col-span-2 sm:w-[300px] sm:min-w-[240px]">
             <input
               value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                resetPage();
-              }}
+              onChange={(e) => setUrlState({ search: e.target.value })}
               placeholder="Cari judul atau slug"
               className="h-[52px] w-full rounded-lg border border-[#E9EBF0] bg-white pr-11 pl-[18px] text-[16px] text-[#2E3646] outline-none transition-colors focus:border-[#4F6BED] placeholder:text-[#9CA3AF]"
             />
@@ -204,10 +217,7 @@ export default function AdminDatasetPage() {
           */}
           <SelectMenu
             value={division}
-            onChange={(v) => {
-              setDivision(v);
-              resetPage();
-            }}
+            onChange={(v) => setUrlState({ division: v })}
             placeholder="Semua divisi"
             options={(divisions.data ?? [])
               .filter((d) => d.code)
@@ -216,10 +226,7 @@ export default function AdminDatasetPage() {
 
           <SelectMenu
             value={format}
-            onChange={(v) => {
-              setFormat(v);
-              resetPage();
-            }}
+            onChange={(v) => setUrlState({ format: v })}
             placeholder="Semua jenis file"
             options={(formats.data ?? [])
               .filter((f) => f.name)
@@ -228,10 +235,7 @@ export default function AdminDatasetPage() {
 
           <SelectMenu
             value={jobLevel}
-            onChange={(v) => {
-              setJobLevel(v);
-              resetPage();
-            }}
+            onChange={(v) => setUrlState({ jobLevel: v })}
             placeholder="Semua job level"
             options={(jobLevels.data ?? []).map((level) => ({
               value: level,
@@ -243,11 +247,12 @@ export default function AdminDatasetPage() {
             type="button"
             disabled={!hasFilter}
             onClick={() => {
-              setSearch("");
-              setDivision("");
-              setFormat("");
-              setJobLevel("");
-              resetPage();
+              setUrlState({
+                search: "",
+                division: "",
+                format: "",
+                jobLevel: "",
+              });
             }}
             className="flex h-[52px] items-center justify-center gap-2 rounded-lg border border-[#E9EBF0] bg-white px-4 text-[16px] font-semibold text-[#4B5563] transition-colors hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white"
           >
@@ -623,7 +628,7 @@ export default function AdminDatasetPage() {
               <Pagination
                 page={page + 1}
                 totalPages={totalPages}
-                onPageChange={(p) => setPage(p - 1)}
+                onPageChange={(p) => setUrlState({ page: String(p) })}
                 labels
               />
             </div>

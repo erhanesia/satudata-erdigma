@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { ApiError } from '@/shared/api/errors'
 import { Reveal } from '@/shared/components/motion/Reveal'
 import { SelectMenu } from '@/shared/components/ui/SelectMenu'
+import { pageFromUrl, useUrlState } from '@/shared/hooks/useUrlState'
 import { useToast } from '@/shared/components/ui/toastStore'
 import { formatDateTime, formatNumber, sanitizeFileName } from '@/shared/lib/format'
 import type { AuditAction } from '@/shared/types/api'
@@ -48,7 +49,20 @@ const ACCESS_OPTIONS: { value: AccessType; label: string }[] = [
  * adalah pemborosan yang tidak kelihatan dari layar.
  */
 export default function AdminLogPage() {
-  const [tab, setTab] = useState<'download' | 'audit'>('download')
+  /*
+    `page` ikut dideklarasikan di sini meski komponen ini tidak membacanya.
+
+    Kedua tab berbagi satu parameter `page`, dan tanpa deklarasi ini berpindah
+    tab akan membawa serta nomor halaman tab sebelumnya. Halaman 7 dari log
+    unduhan menjadi halaman 7 dari jejak audit yang mungkin cuma punya dua,
+    dan yang tampil tabel kosong.
+
+    Dengan `page` dikenali di sini, useUrlState menghapusnya sendiri setiap
+    kali tab berganti, aturan yang sama dengan saat penyaring berganti.
+  */
+  const [urlState, setUrlState] = useUrlState({ tab: 'download', page: '1' })
+  const tab = urlState.tab === 'audit' ? 'audit' : 'download'
+  const setTab = (nilai: 'download' | 'audit') => setUrlState({ tab: nilai })
 
   return (
     <Reveal>
@@ -69,11 +83,38 @@ export default function AdminLogPage() {
 }
 
 function DownloadTab() {
-  const [page, setPage] = useState(0)
-  const [fromDate, setFromDate] = useState('')
-  const [toDate, setToDate] = useState('')
-  // String kosong berarti kedua jenis akses, sama seperti yang dipahami server.
-  const [accessType, setAccessType] = useState<AccessType | ''>('')
+  /*
+    Penyaringnya di URL, status mengekspor tidak.
+
+    Yang masuk URL menerangkan "sedang melihat apa", dan itu yang berguna
+    dibagikan atau dibuka ulang. Status mengekspor cuma menerangkan "sedang
+    sibuk", dan alamat yang membawanya ikut akan membuat tombolnya mati saat
+    tautannya dibuka orang lain.
+  */
+  const [urlState, setUrlState] = useUrlState({
+    from: '',
+    to: '',
+    accessType: '',
+    page: '1',
+  })
+
+  // URL berbasis 1 karena dibaca manusia; API berbasis 0. Konversinya cuma
+  // di baris ini dan di pemanggilan paginasinya.
+  const page = pageFromUrl(urlState.page) - 1
+  const fromDate = urlState.from
+  const toDate = urlState.to
+  /*
+    Nilai dari URL diperiksa terhadap daftar yang sah, tidak diteruskan mentah.
+
+    Server memang menolak jenis akses yang tidak dikenal dengan 400, tetapi
+    membiarkannya sampai ke sana berarti orang yang salah mengetik alamat
+    melihat pesan galat merah alih-alih tabel biasa tanpa penyaring.
+  */
+  const accessType: AccessType | '' =
+    urlState.accessType === 'DOWNLOAD' || urlState.accessType === 'PREVIEW'
+      ? urlState.accessType
+      : ''
+
   const [exporting, setExporting] = useState(false)
   const toast = useToast()
 
@@ -88,12 +129,8 @@ function DownloadTab() {
 
   const menyaring = Boolean(fromDate || toDate || accessType)
 
-  function changeFilter(change: () => void) {
-    change()
-    // Penyaring baru berarti hasil baru. Tetap di halaman 7 menghasilkan tabel
-    // kosong yang terlihat seperti "tidak ada data" padahal ada di halaman 1.
-    setPage(0)
-  }
+  // Halamannya dikembalikan sendiri oleh useUrlState begitu penyaring berubah;
+  // alasannya ada di sana, dan sekarang berlaku sama di seluruh halaman.
 
   async function exportCsv() {
     setExporting(true)
@@ -139,18 +176,18 @@ function DownloadTab() {
       <div className="flex flex-wrap items-center gap-2.5 px-4 py-4 sm:px-6 sm:py-5">
         <DateInput
           value={fromDate}
-          onChange={(v) => changeFilter(() => setFromDate(v))}
+          onChange={(v) => setUrlState({ from: v })}
           label="Tanggal awal"
         />
         <DateInput
           value={toDate}
-          onChange={(v) => changeFilter(() => setToDate(v))}
+          onChange={(v) => setUrlState({ to: v })}
           label="Tanggal akhir"
         />
 
         <SelectMenu
           value={accessType}
-          onChange={(v) => changeFilter(() => setAccessType(v as AccessType | ''))}
+          onChange={(v) => setUrlState({ accessType: v })}
           options={ACCESS_OPTIONS}
           placeholder="Semua akses"
           ariaLabel="Saring menurut jenis akses"
@@ -161,11 +198,7 @@ function DownloadTab() {
           <button
             type="button"
             onClick={() =>
-              changeFilter(() => {
-                setFromDate('')
-                setToDate('')
-                setAccessType('')
-              })
+              setUrlState({ from: '', to: '', accessType: '' })
             }
             className="text-[13.5px] font-semibold text-[#4F6BED] hover:underline"
           >
@@ -253,7 +286,7 @@ function DownloadTab() {
         page={page}
         totalPages={query.data?.totalPages ?? 0}
         totalRows={query.data?.totalElements ?? 0}
-        onPindah={setPage}
+        onPindah={(h) => setUrlState({ page: String(h + 1) })}
         unit="baris"
       />
     </div>
@@ -261,7 +294,10 @@ function DownloadTab() {
 }
 
 function TabAudit() {
-  const [page, setPage] = useState(0)
+  // Berbagi parameter `page` dengan tab unduhan. Yang menjaga keduanya tidak
+  // tertukar adalah penghapusan `page` saat tab berganti, di komponen induk.
+  const [urlState, setUrlState] = useUrlState({ page: '1' })
+  const page = pageFromUrl(urlState.page) - 1
   const query = useAuditLogs(page, PAGE_SIZE)
   const rows = query.data?.content ?? []
 
@@ -308,7 +344,7 @@ function TabAudit() {
         page={page}
         totalPages={query.data?.totalPages ?? 0}
         totalRows={query.data?.totalElements ?? 0}
-        onPindah={setPage}
+        onPindah={(h) => setUrlState({ page: String(h + 1) })}
         unit="aktivitas"
       />
     </div>

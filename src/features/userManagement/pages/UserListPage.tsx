@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 
 import { paths } from '@/app/router/paths'
@@ -8,6 +7,7 @@ import { QueryBoundary } from '@/shared/components/feedback/QueryBoundary'
 import { Reveal } from '@/shared/components/motion/Reveal'
 import { Badge } from '@/shared/components/ui/Badge'
 import { Pagination } from '@/shared/components/ui/Pagination'
+import { pageFromUrl, useUrlState } from '@/shared/hooks/useUrlState'
 import { SearchField } from '@/shared/components/ui/SearchField'
 import { Skeleton } from '@/shared/components/ui/Skeleton'
 import { useToast } from '@/shared/components/ui/toastStore'
@@ -47,10 +47,12 @@ const PERAN: { nilai: PortalRole; label: string }[] = [
  * `@PreAuthorize("hasRole('HRIS_ADMIN')")` di back-end.
  */
 export default function UserListPage() {
+  const [urlState, setUrlState] = useUrlState({ search: '', page: '1' })
+
   // Halaman untuk manusia berbasis 1; API berbasis 0. Konversinya di satu
   // tempat, sama seperti useDatasetFilters.
-  const [halaman, setHalaman] = useState(1)
-  const [cari, setCari] = useState('')
+  const halaman = pageFromUrl(urlState.page)
+  const cari = urlState.search
   const query = useUsers({ q: cari || undefined, page: halaman - 1, size: UKURAN_HALAMAN })
 
   const { data: saya } = useCurrentUser()
@@ -106,8 +108,9 @@ export default function UserListPage() {
       <SearchField
         value={cari}
         onChange={(nilai) => {
-          setCari(nilai)
-          setHalaman(1)
+          // Halamannya dikembalikan sendiri oleh hook-nya begitu penyaring
+          // berubah, jadi tidak perlu disetel di sini.
+          setUrlState({ search: nilai })
         }}
         placeholder="Cari nama atau email"
         label="Cari pengguna"
@@ -196,7 +199,7 @@ export default function UserListPage() {
                 className="mt-6 justify-center"
                 page={halaman}
                 totalPages={page.totalPages ?? 1}
-                onPageChange={setHalaman}
+                onPageChange={(h) => setUrlState({ page: String(h) })}
                 labels
               />
             </>
