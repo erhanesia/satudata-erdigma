@@ -77,10 +77,28 @@ const ALLOWED_ATTR = ['href', 'rel', 'target']
  * sekarang rusak di produksi.
  */
 function unlockLineBreaks(html: string): string {
-  // Ditulis sebagai escape, bukan karakternya langsung: U+00A0 tergambar
-  // persis seperti spasi biasa di editor kode, jadi yang menuliskannya apa
-  // adanya tidak bisa dibedakan siapa pun yang membaca ulang berkas ini.
-  return html.replaceAll('\u00A0', ' ')
+  /*
+    DUA bentuk, dan keduanya wajib.
+
+    Spasi tak-terputus bisa muncul sebagai karakter U+00A0 maupun sebagai
+    entitas &nbsp;, dan mana yang muncul tergantung tahap mana yang sedang
+    dipegang. Yang datang dari getSemanticHTML berupa entitas. Yang KELUAR
+    dari DOMPurify juga entitas, karena serialisasi HTML memang diwajibkan
+    menuliskan U+00A0 kembali sebagai &nbsp;. Sedangkan yang datang dari
+    back-end berupa karakter, karena pembersih di sana menguraikan entitasnya
+    lebih dulu sebelum menyimpan.
+
+    Menangani satu bentuk saja membuat perbaikannya diam-diam tidak bekerja,
+    dan itu sudah terjadi sekali: versi pertama fungsi ini hanya mengganti
+    karakternya, dijalankan sesudah DOMPurify, sehingga tidak pernah menemukan
+    satu pun yang bisa diganti. Tidak ada galat, tidak ada tanda apa pun, dan
+    deskripsinya tetap menerobos keluar kartu persis seperti sebelumnya.
+
+    Karakternya ditulis sebagai escape, bukan apa adanya: U+00A0 tergambar
+    persis seperti spasi biasa di editor kode, jadi yang menuliskannya
+    langsung tidak bisa dibedakan siapa pun yang membaca ulang berkas ini.
+  */
+  return html.replaceAll('&nbsp;', ' ').replaceAll('\u00A0', ' ')
 }
 
 /**
