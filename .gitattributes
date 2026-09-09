@@ -1,0 +1,17 @@
+# Berkas sumber selalu dibandingkan sebagai teks.
+#
+# Git menebak sendiri mana berkas biner, dan tebakannya satu: kalau ada byte
+# NUL di dalamnya, seluruh berkas dianggap biner. Berkas biner tidak pernah
+# ditampilkan diff-nya, jadi perubahan apa pun di sana muncul di review
+# sebagai "binary file changed" saja dan lolos tanpa pernah dibaca siapa pun.
+#
+# Itu sempat terjadi pada src/shared/lib/format.ts, yang memuat karakter
+# kendali harfiah di regex pembersih nama berkas. Karakternya sudah diganti
+# bentuk escape, tetapi riwayat yang sudah ada tetap membawa byte lamanya, dan
+# baris di bawah ini yang membuat riwayat itu tetap bisa dibaca.
+#
+# Berlaku seterusnya juga: berkas sumber memang selalu teks, dan tidak ada
+# gunanya membiarkan git menebak-nebak hal yang sudah kita ketahui.
+*.ts diff
+*.tsx diff
+*.css diff
