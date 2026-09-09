@@ -9,7 +9,7 @@ import { Reveal } from '@/shared/components/motion/Reveal'
 import { RichText } from '@/shared/components/ui/RichText'
 import { SkeletonCardList } from '@/shared/components/ui/Skeleton'
 import { useCopyToClipboard } from '@/shared/hooks/useCopyToClipboard'
-import { formatDateTime } from '@/shared/lib/format'
+import { formatDateTime, formatRelative } from '@/shared/lib/format'
 import type { Dataset } from '@/shared/types/api'
 
 import { DataExplorer } from '../components/DataExplorer'
@@ -136,16 +136,17 @@ function TitleBlock({
           </Link>
           {/*
             Waktunya diambil dari `createdAt`, bukan `lastUpdatedAt`.
-            "Diunggah" menjawab "kapan berkas ini masuk katalog" — dan
-            `lastUpdatedAt` bergeser setiap kali metadatanya disunting, sehingga
-            memakainya di sini akan membuat label dan angkanya menceritakan dua
-            hal yang berbeda.
+            "Diunggah" menjawab "sejak kapan dataset ini ada di katalog", dan
+            jawaban itu memang tidak pernah berubah. Kapan datanya terakhir
+            berubah adalah pertanyaan lain, dan dijawab baris di bawahnya.
           */}
           <span className="text-ink-500">
             · Diunggah{' '}
             {dataset.realtime ? 'streaming real-time' : formatDateTime(dataset.createdAt)}
           </span>
         </div>
+
+        <FreshnessLine dataset={dataset} />
       </div>
 
       <div className="flex w-full flex-col gap-2.5 sm:w-auto sm:flex-row sm:items-center">
@@ -182,6 +183,110 @@ function TitleBlock({
  * begitu portalnya dibuka lewat alamat lain — IP jaringan lokal saat mencoba
  * dari ponsel, misalnya.
  */
+/**
+ * Dua fakta yang menentukan apakah data ini layak dipakai.
+ *
+ * <h2>Kenapa dipisah dari baris identitas di atasnya</h2>
+ *
+ * Baris di atas menjawab "dataset ini milik siapa dan sejak kapan ada".
+ * Baris ini menjawab pertanyaan yang sama sekali berbeda, dan justru yang
+ * dibawa hampir setiap pembaca: <b>apakah data ini masih cukup baru untuk
+ * keputusan yang sedang saya ambil.</b> Menggabungkannya jadi satu baris
+ * panjang membuat keduanya sama-sama sulit dipindai.
+ *
+ * <h2>Periode data disebut lebih dulu, dan itu disengaja</h2>
+ *
+ * Ini yang paling sering disalahpahami di katalog data. Dataset yang diunggah
+ * hari ini tetapi isinya Januari sampai Juni 2025 BUKAN data baru — ia data
+ * lama yang baru masuk katalog. Pembaca yang cuma melihat "diperbarui 12 jam
+ * lalu" akan menyimpulkan sebaliknya, dan kesimpulan itu dipakai mengambil
+ * keputusan.
+ *
+ * Kolomnya sudah lama ada dan sudah terisi di sebagian besar dataset, tetapi
+ * tidak pernah digambar di halaman ini. Yang tampil selama ini cuma di kartu
+ * kecil pada daftar koleksi.
+ *
+ * <h2>Kenapa banyak dataset TIDAK punya periode data</h2>
+ *
+ * Yang mengisinya hanya seed. Formulir tambah dataset tidak punya isian untuk
+ * ruas ini, dan itu disengaja mengikuti desain — lihat catatannya di
+ * `AdminDatasetNewPage`. Akibatnya setiap dataset yang benar-benar diterbitkan
+ * lewat panel admin tidak akan pernah memilikinya.
+ *
+ * Keadaan itu diketahui dan diterima untuk sekarang. Tampilannya tetap
+ * dipertahankan, bukan dibuang, karena ruasnya masih hidup di database dan di
+ * API: begitu isian di formulir dikembalikan, baris ini langsung bekerja tanpa
+ * ada yang perlu ditulis ulang. Membuangnya sekarang berarti menulisnya lagi
+ * nanti, dan yang menulis ulang belum tentu tahu pertimbangan yang sudah
+ * dibuat di sini.
+ *
+ * <h2>"Data diperbarui", bukan "diperbarui"</h2>
+ *
+ * Kata "data" di situ menahan salah baca. `lastUpdatedAt` hanya bergeser saat
+ * ISI datasetnya berubah: diterbitkan, berkas ditambah, dibuang, atau diganti.
+ * Menyunting judul, deskripsi, topik, atau aturan akses TIDAK menggesernya.
+ *
+ * Pemisahan itu disengaja dan mengikuti cara portal data pada umumnya
+ * membedakan perubahan data dari perubahan metadata. Kalau memperbaiki satu
+ * salah ketik ikut menggeser angkanya, angka itu berhenti berarti apa-apa —
+ * dan lebih buruk, pembaca mengira datanya yang baru.
+ */
+function FreshnessLine({ dataset }: { dataset: Dataset }) {
+  /*
+    Disembunyikan kalau datasetnya belum pernah diperbarui sejak diunggah.
+
+    Keduanya disetel pada detik yang sama saat penerbitan, jadi tanpa
+    penjagaan ini dataset yang baru terbit menampilkan dua tanggal yang
+    menyatakan hal yang sama — dan pembaca berhenti mempercayai keduanya.
+    Ambang satu menit, bukan kesamaan persis, karena keduanya ditulis lewat
+    dua panggilan yang berbeda dan bisa terpaut beberapa milidetik.
+  */
+  const diperbarui = (() => {
+    if (dataset.realtime) return null
+    if (!dataset.lastUpdatedAt || !dataset.createdAt) return null
+    const selisih =
+      new Date(dataset.lastUpdatedAt).getTime() - new Date(dataset.createdAt).getTime()
+    return Number.isNaN(selisih) || selisih < 60_000 ? null : dataset.lastUpdatedAt
+  })()
+
+  // Tidak ada satu pun yang bisa dikatakan: barisnya tidak digambar sama
+  // sekali, alih-alih menyisakan baris kosong yang terlihat seperti data
+  // yang gagal dimuat.
+  if (!dataset.coverage && !diperbarui) {
+    return null
+  }
+
+  return (
+    <div className="text-ink-500 mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13.5px]">
+      {dataset.coverage ? (
+        <span>
+          Periode data{' '}
+          <span className="text-ink-700 font-semibold">{dataset.coverage}</span>
+        </span>
+      ) : null}
+
+      {dataset.coverage && diperbarui ? <span aria-hidden>·</span> : null}
+
+      {diperbarui ? (
+        /*
+          Yang tampil waktu relatif, yang tersimpan waktu persisnya di `title`.
+
+          "3 hari lalu" langsung terbaca tanpa menghitung, dan itu yang
+          dibutuhkan saat memindai. Tetapi orang yang mengutip dataset ini di
+          laporan butuh tanggal yang sesungguhnya, dan menahan kursor lebih
+          murah daripada memaksa semua pembaca membaca stempel waktu penuh.
+        */
+        <span title={formatDateTime(diperbarui)}>
+          Data diperbarui{' '}
+          <span className="text-ink-700 font-semibold">
+            {formatRelative(diperbarui)}
+          </span>
+        </span>
+      ) : null}
+    </div>
+  )
+}
+
 function ShareButton({ dataset }: { dataset: Dataset }) {
   const { copy, copiedKey } = useCopyToClipboard()
   const copied = copiedKey === 'share'

@@ -526,6 +526,29 @@
     color: var(--color-ink-600);
     font-size: 14.5px;
     line-height: 1.65;
+
+    /*
+     * Tiga baris di bawah ini menyamakan halaman baca dengan area ketiknya.
+     *
+     * Quill menggambar area ketik dengan white-space: pre-wrap dan tab-size: 4
+     * (lihat quill.core.css). Halaman baca dulu tidak punya keduanya, jadi
+     * spasi berjalan dan tab yang terlihat rapi saat diketik luruh jadi satu
+     * spasi begitu disimpan dan dibaca orang lain. Editor yang menjanjikan
+     * "yang Anda lihat itu yang jadi" lalu mengingkarinya di halaman tujuan.
+     *
+     * Tab memang tersimpan sungguhan: penekanan Tab menyisipkan karakter tab ke
+     * teksnya (lihat binding "tab" di quill/modules/keyboard.js), bukan sekadar
+     * memindahkan kursor. Jadi datanya sudah ada sejak dulu, cuma tidak pernah
+     * digambar.
+     *
+     * overflow-wrap menutup satu hal lain: kata tunggal yang lebih panjang dari
+     * kartunya, misalnya URL atau nama berkas panjang. Tanpa ini ia menerobos
+     * keluar, dan pre-wrap tidak menolongnya karena di dalam kata memang tidak
+     * ada tempat putus.
+     */
+    white-space: pre-wrap;
+    tab-size: 4;
+    overflow-wrap: break-word;
   }
 
   .satudata-prose > :first-child {
