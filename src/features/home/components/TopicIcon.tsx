@@ -3,7 +3,6 @@ import {
   Code,
   DollarSign,
   LayoutList,
-  MapPin,
   Package,
   Send,
   Settings,
@@ -36,7 +35,6 @@ const TOPIC_ICONS: Record<string, Topic> = {
   SDM: { Icon: Users, color: '#B45309' },
   Produk: { Icon: Package, color: '#0F766E' },
   Teknologi: { Icon: Code, color: '#7C3AED' },
-  Geospasial: { Icon: MapPin, color: '#0369A1' },
 }
 
 /** Dipakai untuk topik baru yang belum punya ikon khusus. */

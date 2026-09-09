@@ -8,7 +8,7 @@ import {
   YAxis,
 } from 'recharts'
 
-import { formatCompact, formatNumber } from '@/shared/lib/format'
+import { formatCompact, formatNumber, parseServerTime, TIME_ZONE } from '@/shared/lib/format'
 
 interface Point {
   date?: string
@@ -136,9 +136,22 @@ function dayLabel(iso: string | undefined): string {
 
 function fullDate(iso: unknown): string {
   if (typeof iso !== 'string' || !iso) return ''
-  const date = new Date(`${iso}T00:00:00`)
-  if (Number.isNaN(date.getTime())) return iso
+  /*
+    Label sumbu ini tanggal saja, tanpa jam, dan justru itu yang bikin
+    zonanya penting.
+
+    Dulu tanggalnya dirakit jadi tengah malam WAKTU MESIN PEMBACA. Bagi
+    pembaca yang zonanya lebih timur dari WIB, tengah malam di sana masih
+    hari sebelumnya menurut WIB, jadi label satu batang bisa menyebut
+    tanggal yang berbeda dari angka yang digambarnya.
+
+    `parseServerTime` membacanya sebagai tengah malam UTC, lalu digambar
+    dalam WIB. Hasilnya tanggal yang sama bagi siapa pun yang membukanya.
+  */
+  const date = parseServerTime(iso)
+  if (!date) return iso
   return new Intl.DateTimeFormat('id-ID', {
+    timeZone: TIME_ZONE,
     weekday: 'long',
     day: '2-digit',
     month: 'long',
