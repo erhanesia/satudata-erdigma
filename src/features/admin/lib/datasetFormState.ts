@@ -20,7 +20,19 @@ import { formatBytes } from "@/shared/lib/format";
 export const MAX_FILES = 10;
 
 /** Sejalan dengan MAX_BYTES di DatasetFileService. */
-export const MAX_BYTES = 10 * 1024 * 1024;
+export const MAX_BYTES = 15 * 1024 * 1024;
+
+/**
+ * Sejalan dengan MAX_TOTAL_BYTES di DatasetFileService.
+ *
+ * Batas ini SELALU ditegakkan server; salinan di sini semata-mata supaya
+ * penolakannya terbaca sebelum mengunggah, bukan sesudahnya. Bedanya nyata:
+ * batas totalnya 60 MB, dan menunggu server menolak berarti menunggu 60 MB
+ * benar-benar terkirim lebih dulu. Pada sambungan kantor yang biasa itu
+ * menit-menit yang terbuang untuk jawaban yang sudah bisa diketahui sejak
+ * berkasnya dipilih.
+ */
+export const MAX_TOTAL_BYTES = 60 * 1024 * 1024;
 
 export const KINDS = ["CSV", "XLSX", "PDF", "DOCX"] as const;
 
@@ -116,5 +128,20 @@ export function fileBlocker(files: FileRowState[]): string | null {
   if (files.some((b) => !b.label.trim())) return "Ada file yang belum diberi nama";
   if (files.some((b) => (b.file?.size ?? 0) > MAX_BYTES))
     return `Ada file melebihi ${formatBytes(MAX_BYTES)}`;
+  /*
+    Hanya berkas BARU yang terhitung di sini.
+
+    Server menghitung berkas lama yang dipertahankan juga, karena batasnya
+    milik dataset dan bukan milik satu permintaan. Formulir ini tidak selalu
+    tahu ukuran berkas lama, jadi ia sengaja menghitung lebih longgar:
+    menahan yang jelas-jelas melampaui, dan menyerahkan sisanya ke server.
+
+    Lebih longgar, bukan lebih ketat, dan itu disengaja. Penjagaan di klien
+    yang menolak lebih banyak daripada server akan memblokir unggahan yang
+    sebenarnya sah, dan orangnya tidak punya cara membuktikan sebaliknya.
+  */
+  const totalBaru = files.reduce((jumlah, b) => jumlah + (b.file?.size ?? 0), 0);
+  if (totalBaru > MAX_TOTAL_BYTES)
+    return `Total ukuran file melebihi ${formatBytes(MAX_TOTAL_BYTES)}`;
   return null;
 }
