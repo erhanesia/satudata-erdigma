@@ -3,6 +3,8 @@ import { useState } from 'react'
 
 import { ApiError } from '@/shared/api/errors'
 import { Reveal } from '@/shared/components/motion/Reveal'
+import { motion } from 'motion/react'
+
 import { SelectMenu } from '@/shared/components/ui/SelectMenu'
 import { pageFromUrl, useUrlState } from '@/shared/hooks/useUrlState'
 import { useToast } from '@/shared/components/ui/toastStore'
@@ -258,8 +260,15 @@ function AccessTab() {
         }
         fetching={query.isFetching && !query.isPending}
       >
-        {rows.map((l) => (
-          <tr key={l.id} className="transition-colors hover:bg-[#F8FAFC]">
+        {rows.map((l, i) => (
+          <motion.tr
+            key={l.id}
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true, margin: '0px 0px -8% 0px' }}
+            transition={{ duration: 0.24, delay: Math.min(i, 9) * 0.035 }}
+            className="transition-colors hover:bg-[#F8FAFC]"
+          >
             <Cell nowrap>{formatDateTime(l.downloadedAt)}</Cell>
             <Cell>
               <div className="font-semibold text-[#3C4A56]">{l.userName ?? '—'}</div>
@@ -293,7 +302,7 @@ function AccessTab() {
                 <span className="text-[#137A46]">Diunduh</span>
               )}
             </Cell>
-          </tr>
+          </motion.tr>
         ))}
       </DataTable>
 
@@ -326,8 +335,15 @@ function TabAudit() {
         emptyMessage="Belum ada aktivitas tercatat."
         fetching={query.isFetching && !query.isPending}
       >
-        {rows.map((a) => (
-          <tr key={a.id} className="transition-colors hover:bg-[#F8FAFC]">
+        {rows.map((a, i) => (
+          <motion.tr
+            key={a.id}
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true, margin: '0px 0px -8% 0px' }}
+            transition={{ duration: 0.24, delay: Math.min(i, 9) * 0.035 }}
+            className="transition-colors hover:bg-[#F8FAFC]"
+          >
             <Cell nowrap>{formatDateTime(a.recordedAt)}</Cell>
             <Cell>
               <span className="font-semibold text-[#3C4A56]">{a.actorName ?? 'Sistem'}</span>
@@ -351,7 +367,7 @@ function TabAudit() {
                 <div className="mt-0.5 text-[12.5px] text-[#9CA3AF]">{a.detail}</div>
               ) : null}
             </Cell>
-          </tr>
+          </motion.tr>
         ))}
       </DataTable>
 

@@ -12,6 +12,8 @@ import {
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
+import { motion } from "motion/react";
+
 import { paths } from "@/app/router/paths";
 import { useDatasets, useFormats } from "@/features/dataset/hooks/useDatasets";
 import { useDivisions } from "@/features/division/hooks/useDivisions";
@@ -35,6 +37,15 @@ import { useDatasetAdmin } from "../hooks/useDatasetAdmin";
 
 /** Sesuai desain: tabel penuh satu halaman, bukan gulungan tanpa ujung. */
 const PAGE_SIZE = 10;
+
+/**
+ * Jeda antar kartu, dalam milidetik.
+ *
+ * Angkanya disamakan dengan katalog dataset di portal, supaya kedua halaman
+ * bergerak dengan irama yang sama. Dua irama berbeda di satu aplikasi terbaca
+ * sebagai kelalaian, bukan sebagai keragaman.
+ */
+const CARD_DELAY = 70;
 
 /**
  * Daftar dataset di panel admin, mengikuti tabel pada `Panel Admin Satu Data`.
@@ -137,6 +148,7 @@ export default function AdminDatasetPage() {
   const hasFilter = Boolean(search || division || format || jobLevel);
   const rows = useMemo(() => datasets.data?.content ?? [], [datasets.data]);
   const totalPages = datasets.data?.totalPages ?? 0;
+
 
   // Mengganti filter mengembalikan ke halaman pertama; diurus useUrlState,
   // dan alasannya ada di sana.
@@ -433,12 +445,25 @@ export default function AdminDatasetPage() {
                   </span>
                 </label>
 
-                {rows.map((d) => {
+                {/*
+                  Tiap kartu muncul sendiri dengan jeda bertingkat, sama
+                  seperti katalog dataset di portal, dan memakai komponen yang
+                  sama pula supaya kedua halaman bergerak dengan bahasa yang
+                  sama.
+
+                  Reveal menunggu kartunya benar-benar masuk pandangan, jadi
+                  yang berada di bawah lipatan tidak menghabiskan animasinya
+                  sebelum sempat dilihat. Dan karena key-nya id dataset,
+                  berpindah halaman mengganti seluruh key sehingga animasinya
+                  berjalan lagi dengan sendirinya, tanpa perlu menandai
+                  pembungkusnya dengan nomor halaman.
+                */}
+                {rows.map((d, i) => {
                 const slug = d.slug ?? "";
                 const isChecked = selected.includes(slug);
                 return (
+                  <Reveal key={d.id} delay={Math.min(i, 9) * CARD_DELAY}>
                   <div
-                    key={d.id}
                     onClick={() => setOpenSlug(slug || null)}
                     className={[
                       "flex cursor-pointer gap-3 border-b border-[#F1F3F7] px-4 py-4 transition-colors",
@@ -491,6 +516,7 @@ export default function AdminDatasetPage() {
                       </dl>
                     </div>
                   </div>
+                  </Reveal>
                 );
                 })}
               </>
@@ -539,12 +565,33 @@ export default function AdminDatasetPage() {
                       : "Belum ada dataset. Tekan “Tambah dataset” untuk menerbitkan yang pertama."}
                   </Message>
                 ) : (
-                  rows.map((d) => {
+                  /*
+                    Tiap baris muncul sendiri dengan jeda bertingkat.
+
+                    Versi sebelumnya menandai `tbody` dengan nomor halaman lalu
+                    menganimasikannya sebagai satu blok, dan hasilnya
+                    patah-patah karena dua sebab: seluruh isi tabel dibangun
+                    ulang dalam satu frame, dan `transform` pada elemen bagian
+                    tabel memaksa tata letak tabelnya dihitung ulang setiap
+                    frame.
+
+                    Di sini yang digerakkan hanya opacity, yang bisa digambar
+                    kartu grafis tanpa menyentuh tata letak sama sekali.
+
+                    `whileInView` dengan `once` menyamai perilaku Reveal pada
+                    kartunya, dan key berupa id dataset membuat perpindahan
+                    halaman memulai animasinya lagi dengan sendirinya.
+                  */
+                  rows.map((d, i) => {
                     const slug = d.slug ?? "";
                     const isChecked = selected.includes(slug);
                     return (
-                      <tr
+                      <motion.tr
                         key={d.id}
+                        initial={{ opacity: 0 }}
+                        whileInView={{ opacity: 1 }}
+                        viewport={{ once: true, margin: '0px 0px -8% 0px' }}
+                        transition={{ duration: 0.24, delay: Math.min(i, 9) * 0.035 }}
                         onClick={() => setOpenSlug(slug || null)}
                         className={[
                           "cursor-pointer transition-colors",
@@ -607,7 +654,7 @@ export default function AdminDatasetPage() {
                         <td className="border-b border-[#F1F3F7] p-6 text-[14.5px] text-[#4B5563]">
                           {formatNumber(d.downloads ?? 0)}
                         </td>
-                      </tr>
+                      </motion.tr>
                     );
                   })
                 )}

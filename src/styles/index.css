@@ -157,6 +157,41 @@
     animation: tab-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
+  /*
+   * Bilah kemajuan tanpa angka, untuk pekerjaan yang lamanya tidak bisa
+   * diketahui sebelumnya.
+   *
+   * Mengecilkan berkas tidak punya kemajuan yang bisa dilaporkan: yang tahu
+   * sudah sampai mana hanya peramban, di dalam satu panggilan yang tidak
+   * mengabarkan apa-apa sampai selesai. Bilah yang menyapu itu jujur soal
+   * itu — ia mengatakan "sedang berjalan", bukan berpura-pura tahu tinggal
+   * berapa persen.
+   *
+   * Hanya `transform` yang digerakkan, bukan `left` maupun `width`. Bedanya
+   * bukan kerapian: keduanya memaksa tata letak dihitung ulang enam puluh
+   * kali sedetik, tepat ketika CPU sedang sibuk menyandikan ulang gambar,
+   * dan yang terlihat justru animasi tersendat yang membuat aplikasi
+   * terkesan menggantung.
+   *
+   * Kurvanya bukan cubic-bezier(.16,1,.3,1) seperti animasi lain di berkas
+   * ini. Kurva itu melambat di ujung, cocok untuk sesuatu yang datang lalu
+   * berhenti. Yang ini berulang tanpa henti, jadi ia perlu melambat di
+   * kedua ujungnya supaya sambungan tiap putarannya tidak terasa menyentak.
+   */
+  @keyframes sweep {
+    from {
+      transform: translateX(-110%);
+    }
+    to {
+      transform: translateX(420%);
+    }
+  }
+
+  .animate-sweep {
+    animation: sweep 1.15s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  }
+
+
   /* Modal — latar meredup, kotaknya naik sedikit sambil membesar. */
   @keyframes overlay-in {
     from {

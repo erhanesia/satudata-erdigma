@@ -71,6 +71,32 @@ export interface FileRowState {
   /** Nama dan ukuran berkas yang sudah tersimpan, untuk ditampilkan. */
   existingName?: string;
   existingSize?: number;
+  /**
+   * Sedang dikecilkan di peramban.
+   *
+   * Selama ini benar, tombol simpan ditahan. Bukan demi kerapian:
+   * `file` masih berisi berkas ASLI yang belum dikecilkan, jadi menekan
+   * simpan saat ini berarti mengirim yang besar dan kehilangan seluruh
+   * guna fiturnya.
+   */
+  compressing?: boolean;
+  /**
+   * Ukuran sebelum dikecilkan, hanya terisi bila benar-benar mengecil.
+   *
+   * Ada supaya penerbit MELIHAT bahwa berkasnya diubah. Yang tersimpan
+   * nanti versi kecilnya, bukan yang ia pilih, dan itu tidak boleh
+   * terjadi diam-diam.
+   */
+  originalSize?: number;
+  /**
+   * Pengecilan sudah dicoba dan tidak ada yang bisa dikurangi.
+   *
+   * Dibedakan dari "belum pernah dicoba", karena tanpa itu keduanya
+   * terlihat sama persis di layar: ukuran tidak berubah, tidak ada
+   * keterangan apa pun. Yang melihatnya menyimpulkan fiturnya rusak,
+   * padahal ia sudah berjalan dan memang tidak menemukan apa-apa.
+   */
+  compressionFutile?: boolean;
 }
 
 let order = 0;
@@ -126,6 +152,15 @@ export function fileBlocker(files: FileRowState[]): string | null {
   if (files.some((b) => (b.file || b.id) && !b.kind))
     return "Ada file dengan jenis yang tidak didukung";
   if (files.some((b) => !b.label.trim())) return "Ada file yang belum diberi nama";
+  /*
+    Ditahan SEBELUM pemeriksaan ukuran di bawah, dan urutannya penting.
+
+    Selama pengecilan berjalan, `file` masih berisi berkas aslinya yang
+    besar. Kalau pemeriksaan ukuran berjalan lebih dulu, berkas 40 MB yang
+    sedang dikecilkan akan ditolak sebagai kebesaran, padahal beberapa
+    detik lagi ia menjadi 4 MB.
+  */
+  if (files.some((b) => b.compressing)) return "Ada file yang sedang dikecilkan";
   if (files.some((b) => (b.file?.size ?? 0) > MAX_BYTES))
     return `Ada file melebihi ${formatBytes(MAX_BYTES)}`;
   /*

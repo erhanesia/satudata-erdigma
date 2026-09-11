@@ -1,5 +1,14 @@
-import { AlertTriangle, Upload, X } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  Loader2,
+  Trash2,
+  Upload,
+} from "lucide-react";
+import { motion } from "motion/react";
 import { useRef, type ReactNode } from "react";
+
+import { compressUpload, willCompress } from "@/features/admin/lib/compressUpload";
 
 import {
   KIND_LABELS,
@@ -147,7 +156,23 @@ export function FileRow({
   onRemove: () => void;
 }) {
   const input = useRef<HTMLInputElement>(null);
-  const tooLarge = (rows.file?.size ?? 0) > MAX_BYTES;
+
+  /*
+    Berkas terakhir yang dipilih di baris ini.
+
+    Pengecilan berjalan asinkron dan bisa memakan belasan detik. Kalau
+    penerbit mengganti pilihannya di tengah jalan, hasil yang datang
+    belakangan adalah milik berkas yang sudah DIBUANG, dan menerapkannya
+    akan menimpa pilihan barunya diam-diam. Penanda ini yang membuat hasil
+    kedaluwarsa bisa dikenali lalu diabaikan.
+  */
+  const terakhirDipilih = useRef<File | null>(null);
+
+
+  // Ukuran yang dinilai selalu ukuran SETELAH dikecilkan, karena itulah
+  // yang akan dikirim. Selama masih diproses, penolakannya ditahan
+  // fileBlocker supaya tidak muncul lalu hilang lagi.
+  const tooLarge = !rows.compressing && (rows.file?.size ?? 0) > MAX_BYTES;
 
   // Berkas yang baru dipilih selalu mengalahkan yang tersimpan, karena itulah
   // yang akan dikirim. Menampilkan nama lama setelah orang memilih pengganti
@@ -160,7 +185,38 @@ export function FileRow({
   const replaced = Boolean(rows.id && rows.file);
 
   return (
-    <div className="animate-tab-in border-b border-[#E9EBF0] py-5 first:pt-0 last:border-b-0">
+    /*
+      Masuk dan keluarnya diurus AnimatePresence di halaman induk.
+
+      Animasi KELUAR tidak bisa dikerjakan CSS sendirian: React melepas
+      elemennya seketika, dan animasi pada elemen yang sudah tidak ada tidak
+      pernah tergambar. AnimatePresence menahan elemennya tetap terpasang
+      sampai animasinya selesai, lalu melepasnya.
+
+      `height: auto` menuju nol juga bukan hal yang bisa ditulis di CSS,
+      karena tinggi tiap baris berbeda-beda tergantung ada tidaknya pesan
+      galat di dalamnya. Pustaka ini mengukurnya sendiri.
+
+      Menyusutkan tingginya penting, bukan sekadar memudarkan. Kalau barisnya
+      cuma memudar lalu dilepas, baris di bawahnya menyentak naik pada saat
+      terakhir, dan justru sentakan itu yang terlihat kasar.
+
+      Opacity sengaja lebih singkat daripada tingginya, supaya isinya sudah
+      hilang sebelum ruangnya habis. Terbalik, yang terlihat teks yang
+      terpotong-potong oleh tepi yang menutup.
+    */
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, height: 0, paddingTop: 0, paddingBottom: 0 }}
+      transition={{
+        duration: 0.28,
+        ease: [0.16, 1, 0.3, 1],
+        opacity: { duration: 0.16 },
+      }}
+      className="overflow-hidden border-b border-[#E9EBF0] py-5 first:pt-0 last:border-b-0"
+    >
       <div className="mb-3.5 flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-2.5 sm:items-center">
           <FormatBadge ext={rows.kind} />
@@ -170,19 +226,72 @@ export function FileRow({
             </span>
             {/* Ukuran turun ke baris kedua di ponsel supaya nama berkas
                 mendapat lebar penuh; di layar lebar ia kembali sebaris. */}
-            {shownSize !== undefined ? (
-              <span className="block text-[13px] text-[#9CA3AF] sm:inline sm:pl-2.5">
-                {formatBytes(shownSize)}
+            {rows.compressing ? (
+              /*
+                Lencana ditambah bilah, bukan sekadar teks berputar.
+
+                Mengecilkan berkas bisa memakan belasan detik, jauh lebih lama
+                daripada tunggu-sebentar biasa. Ikon berputar sendirian pada
+                rentang selama itu terbaca seperti aplikasi yang tersangkut,
+                sedangkan bilah yang bergerak menegaskan ada yang benar-benar
+                sedang dikerjakan.
+              */
+              <span className="mt-1 flex items-center gap-2 sm:mt-0 sm:inline-flex sm:pl-2.5 sm:align-middle">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#EEF1FE] px-2.5 py-1 text-[12.5px] font-semibold text-[#4F6BED]">
+                  <Loader2 className="size-3.5 animate-spin" />
+                  Mengecilkan berkas
+                </span>
+                <span className="h-[3px] w-20 overflow-hidden rounded-full bg-[#E9EBF0]">
+                  <span className="animate-sweep block h-full w-1/5 rounded-full bg-[#4F6BED]" />
+                </span>
+              </span>
+            ) : shownSize !== undefined ? (
+              <span className="flex items-center gap-1 text-[13px] text-[#9CA3AF] sm:inline-flex sm:pl-2.5">
+                {/*
+                  Ukuran asli tetap ditampilkan, dicoret.
+
+                  Yang tersimpan nanti versi yang dikecilkan, bukan berkas
+                  yang penerbit pilih. Menampilkan angka barunya saja akan
+                  terbaca seolah ia salah lihat waktu memilih.
+                */}
+                {rows.originalSize ? (
+                  <>
+                    <span className="line-through">{formatBytes(rows.originalSize)}</span>
+                    <ArrowRight className="size-3.5" />
+                    <span className="inline-flex items-center rounded-full bg-[#E7F8EF] px-2.5 py-1 text-[12.5px] font-semibold text-[#137A46]">
+                      {formatBytes(shownSize)}
+                    </span>
+                  </>
+                ) : (
+                  formatBytes(shownSize)
+                )}
+              </span>
+            ) : null}
+            {rows.compressionFutile ? (
+              <span className="mt-1 inline-flex items-center rounded-full bg-[#F1F3F7] px-2.5 py-1 text-[12px] font-medium text-[#9CA3AF] sm:mt-0 sm:ml-2 sm:align-middle">
+                sudah sekecil yang bisa
               </span>
             ) : null}
           </span>
         </div>
+        {/*
+          Kelabu saat diam, memerah saat disentuh.
+
+          Sebelumnya tombol ini merah terus-menerus. Pada formulir yang bisa
+          memuat sepuluh baris berkas, itu berarti sepuluh titik merah
+          berteriak bersamaan, dan warna merah kehilangan artinya justru di
+          tempat yang paling membutuhkannya: pesan galat di baris yang sama.
+
+          Warnanya muncul tepat saat kursor berada di atasnya, yaitu saat
+          peringatan itu benar-benar berguna.
+        */}
         <button
           type="button"
           onClick={onRemove}
-          className="flex shrink-0 items-center gap-1 text-[14px] font-semibold text-[#B4231B] transition-colors hover:underline"
+          aria-label={`Hapus ${shownName}`}
+          className="flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13.5px] font-semibold text-[#9CA3AF] transition-colors hover:bg-[#FEF3F2] hover:text-[#B4231B] focus-visible:bg-[#FEF3F2] focus-visible:text-[#B4231B] focus-visible:outline-none"
         >
-          <X className="size-4" />
+          <Trash2 className="size-4" />
           Hapus
         </button>
       </div>
@@ -242,14 +351,46 @@ export function FileRow({
             className="hidden"
             onChange={(e) => {
               const selected = e.target.files?.[0];
+              /*
+                Nilai kotaknya dikosongkan setelah dibaca.
+
+                Tanpa ini, memilih berkas yang SAMA dua kali berturut-turut
+                tidak memicu apa pun, karena peramban hanya mengirim change
+                ketika nilainya berubah. Yang terlihat penerbit: ia menekan
+                Pilih file, memilih berkasnya, dan layar diam saja seolah
+                klik-nya tidak masuk.
+
+                Terasa persis setelah percobaan yang gagal, yaitu justru saat
+                orang paling ingin mencoba berkas yang sama sekali lagi.
+              */
+              e.target.value = "";
               if (!selected) return;
               // Jenis SELALU ditulis ulang dari berkas yang baru, termasuk
               // ketika hasilnya kosong karena ekstensinya tidak didukung.
               // Dulu yang kosong dilewati sehingga jenis milik berkas
               // SEBELUMNYA tertinggal — berkas .zip bisa terkirim berlabel CSV.
+              const kind = kindFromFileName(selected.name);
+              terakhirDipilih.current = selected;
+
+              const akanDikecilkan = willCompress(selected, kind);
               onChangeRow({
                 file: selected,
-                kind: kindFromFileName(selected.name),
+                kind,
+                compressing: akanDikecilkan,
+                originalSize: undefined,
+                compressionFutile: false,
+              });
+              if (!akanDikecilkan) return;
+
+              void compressUpload(selected, kind).then((hasil) => {
+                // Hasil milik berkas yang sudah diganti penerbit dibuang.
+                if (terakhirDipilih.current !== selected) return;
+                onChangeRow({
+                  file: hasil.file,
+                  originalSize: hasil.originalSize,
+                  compressing: false,
+                  compressionFutile: hasil.originalSize === undefined,
+                });
               });
             }}
           />
@@ -296,9 +437,16 @@ export function FileRow({
       {tooLarge ? (
         <p className="mt-2.5 flex items-center gap-1.5 text-[13px] font-semibold text-[#B4231B]">
           <AlertTriangle className="size-4" />
-          Ukuran melebihi batas {formatBytes(MAX_BYTES)} per file.
+          {/*
+            Kalau sistem sudah berusaha mengecilkan dan tetap gagal, itu harus
+            disebut. Tanpa itu penerbit akan mencoba mengecilkannya sendiri
+            dengan alat lain, untuk pekerjaan yang sudah dilakukan di sini.
+          */}
+          {rows.originalSize
+            ? `Sudah dikecilkan menjadi ${formatBytes(rows.file?.size ?? 0)}, masih melebihi batas ${formatBytes(MAX_BYTES)} per file.`
+            : `Ukuran melebihi batas ${formatBytes(MAX_BYTES)} per file.`}
         </p>
       ) : null}
-    </div>
+    </motion.div>
   );
 }
