@@ -73,6 +73,16 @@ export function willCompress(file: File, kind: string): boolean {
 let berikutnya = 0
 
 /**
+ * Rantai giliran. Pekerjaan berikutnya menempel pada ujungnya.
+ *
+ * Sengaja berupa janji yang disambung, bukan kolam worker. Yang dibutuhkan
+ * cuma jaminan "satu pada satu waktu", dan itu dua baris; kolam menuntut
+ * pembukuan yang harus dijaga benar padahal tidak ada yang meminta
+ * kecepatannya.
+ */
+let antrean: Promise<unknown> = Promise.resolve()
+
+/**
  * Mengecilkan bila memungkinkan, atau mengembalikan berkas aslinya.
  *
  * <h2>Tidak pernah melempar</h2>
@@ -82,11 +92,37 @@ let berikutnya = 0
  * tetap besar, dan itu ditolak oleh pemeriksaan batas dengan pesan yang jelas.
  * Gagal ke arah mengirim yang asli.
  */
-export async function compressUpload(file: File, kind: string): Promise<CompressionOutcome> {
-  if (!willCompress(file, kind)) return { file }
+export function compressUpload(file: File, kind: string): Promise<CompressionOutcome> {
+  if (!willCompress(file, kind)) return Promise.resolve({ file })
 
   /*
-    Worker dibuat per pemanggilan lalu ditutup.
+    Hanya satu berkas dikecilkan pada satu waktu.
+
+    Tiap baris berkas punya kotak pilihnya sendiri, jadi memilih berkas kedua
+    sementara yang pertama masih dikerjakan bukan hal aneh sama sekali: dialog
+    berkasnya terbuka sementara worker sebelumnya masih bekerja, dan PDF 12 MB
+    memakan belasan detik.
+
+    Tanpa antrean, setiap pilihan melahirkan worker-nya sendiri. Masing-masing
+    bisa memegang gambar sebesar MAX_PIXELS, sekitar 160 juta byte sebagai
+    RGBA, di luar salinan berkasnya sendiri. Tiga yang berjalan bersamaan sudah
+    setengah gigabyte hanya untuk piksel, dan yang terjadi bukan terasa lambat
+    melainkan tab yang tertutup sendiri.
+
+    Menunggu giliran tidak membuat jawaban tertukar: hasil milik baris yang
+    sudah diganti penerbit tetap dibuang di pemanggilnya.
+  */
+  const giliran = antrean.then(() => jalankan(file, kind))
+  // Rantainya tidak boleh putus karena satu kegagalan. `jalankan` sendiri tidak
+  // pernah melempar, ini penjagaan untuk jalur yang kelak ditambahkan.
+  antrean = giliran.catch(() => undefined)
+  return giliran
+}
+
+/** Satu pekerjaan pengecilan yang sudah mendapat gilirannya. */
+async function jalankan(file: File, kind: string): Promise<CompressionOutcome> {
+  /*
+    Worker dibuat per pekerjaan lalu ditutup.
 
     Worker yang dipakai bersama memang menghemat waktu muat pustakanya, tetapi
     menuntut pembukuan agar jawaban satu berkas tidak tertukar dengan berkas
