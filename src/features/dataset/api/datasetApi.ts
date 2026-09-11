@@ -20,6 +20,16 @@ import type { AccessRule,
 
 const BASE = '/api/v1/datasets'
 
+/**
+ * Jalur panel admin, dibatasi divisi si admin oleh server.
+ *
+ * Sengaja alamat yang berbeda, bukan parameter tambahan pada BASE.
+ * Parameter yang mengubah arti otorisasi mudah lupa dikirim, dan yang lupa
+ * TIDAK mendapat galat melainkan diam-diam melihat seluruh katalog. Alamat
+ * yang berbeda tidak bisa lupa dikirim.
+ */
+const BASE_ADMIN = '/api/v1/admin/datasets'
+
 /** Parameter pencarian, cerminan `DatasetRequestGetDTO` di back-end. */
 export interface DatasetQuery {
   search?: string
@@ -44,6 +54,29 @@ export function fetchDatasets(query: DatasetQuery, signal?: AbortSignal): Promis
     params: query,
     // Spring mengharapkan parameter berulang (topics=A&topics=B), bukan
     // bentuk indeks (topics[0]=A) yang jadi bawaan axios untuk array.
+    paramsSerializer: { indexes: null },
+    signal,
+  })
+}
+
+/**
+ * Daftar dataset untuk PANEL ADMIN: hanya dataset divisi si admin.
+ *
+ * Bentuk parameter dan bentuk jawabannya sama persis dengan fetchDatasets,
+ * jadi halaman yang memakainya tidak perlu tahu bedanya. Yang berbeda cuma
+ * siapa yang boleh melihat isinya, dan itu diputuskan server dari identitas
+ * pemanggil — bukan dari sesuatu yang dikirim klien dan karenanya bisa
+ * dipalsukan.
+ *
+ * Mengisi `divisions` dengan divisi lain tidak membuka apa-apa: kedua syarat
+ * harus terpenuhi sekaligus, jadi hasilnya halaman kosong.
+ */
+export function fetchAdminDatasets(
+  query: DatasetQuery,
+  signal?: AbortSignal,
+): Promise<PageOfDatasets> {
+  return apiGet<PageOfDatasets>(BASE_ADMIN, {
+    params: query,
     paramsSerializer: { indexes: null },
     signal,
   })

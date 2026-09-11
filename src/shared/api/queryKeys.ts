@@ -16,6 +16,22 @@ export const queryKeys = {
     all: ['dataset'] as const,
     list: (params: DatasetQuery) => ['dataset', 'list', params] as const,
     /**
+     * Daftar panel admin, yang isinya dibatasi divisi si admin.
+     *
+     * Kuncinya WAJIB berbeda dari `list`, dan ini bukan soal kerapian.
+     * Parameternya kerap sama persis dengan yang dipakai katalog portal,
+     * dan dengan kunci yang sama react-query akan menyuguhkan hasil yang
+     * satu untuk permintaan yang lain: panel admin menampilkan seluruh
+     * katalog dari cache portal, atau sebaliknya beranda portal menyusut
+     * mengikuti cakupan seorang admin. Keduanya tanpa satu pun galat.
+     *
+     * Tetap BERSARANG di bawah 'dataset' supaya pembatalan yang sudah ada
+     * (`queryKeys.dataset.all`) ikut menyegarkannya. Kalau dipisah ke akar
+     * sendiri, menerbitkan dataset baru menyegarkan katalog portal tetapi
+     * meninggalkan panel admin memperlihatkan daftar yang ketinggalan.
+     */
+    adminList: (params: DatasetQuery) => ['dataset', 'admin', 'list', params] as const,
+    /**
      * `recordView` ikut jadi bagian kunci. Kalau tidak, hasil bacaan panel
      * admin yang sengaja tidak menghitung kunjungan akan dipakai ulang oleh
      * halaman detail portal — dan kunjungan yang seharusnya tercatat menguap
@@ -54,7 +70,19 @@ export const queryKeys = {
   },
 
   stats: ['stats'] as const,
-  statsDailyDownloads: (days: number) => ['stats', 'downloads', 'daily', days] as const,
+
+  /*
+    Angka dasbor panel admin. Alasan kunci terpisah sama dengan pada
+    `dataset.adminList`: keduanya tidak berparameter sama sekali, jadi dengan
+    kunci yang sama tidak ada apa pun yang membedakan angka seluruh katalog
+    dari angka satu divisi.
+
+    Bersarang di bawah 'stats' supaya `queryKeys.stats` tetap membatalkan
+    keduanya sekaligus.
+  */
+  adminStats: ['stats', 'admin'] as const,
+  adminStatsDailyDownloads: (days: number) =>
+    ['stats', 'admin', 'downloads', 'daily', days] as const,
   status: ['status'] as const,
 
   /**

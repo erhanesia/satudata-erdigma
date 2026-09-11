@@ -6,6 +6,7 @@ import { queryKeys } from '@/shared/api/queryKeys'
 import type { Dataset } from '@/shared/types/api'
 
 import {
+  fetchAdminDatasets,
   fetchDataset,
   fetchDatasets,
   fetchDatastore,
@@ -24,6 +25,21 @@ export function useDatasets(query: DatasetQuery) {
     // Saat pengguna berpindah halaman atau mengubah filter, hasil lama tetap
     // ditampilkan sampai yang baru tiba. Tanpa ini daftar berkedip menjadi
     // kosong lalu terisi lagi — terasa seperti aplikasi tersendat.
+    placeholderData: keepPreviousData,
+  })
+}
+
+/**
+ * Daftar dataset untuk panel admin: hanya dataset divisi si admin.
+ *
+ * Dipisah dari {@link useDatasets}, bukan diberi bendera `admin`. Bendera
+ * yang lupa diisi menghasilkan halaman yang tampak wajar dan terisi penuh,
+ * cuma isinya melampaui hak si pembaca — kegagalan yang tidak berbunyi.
+ */
+export function useAdminDatasets(query: DatasetQuery) {
+  return useQuery({
+    queryKey: queryKeys.dataset.adminList(query),
+    queryFn: ({ signal }) => fetchAdminDatasets(query, signal),
     placeholderData: keepPreviousData,
   })
 }
