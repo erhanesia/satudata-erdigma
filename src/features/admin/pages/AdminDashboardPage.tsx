@@ -1,3 +1,4 @@
+import { AlertTriangle } from 'lucide-react'
 import { useState } from 'react'
 
 import { useAdminDatasets } from '@/features/dataset/hooks/useDatasets'
@@ -10,6 +11,7 @@ import type { AuditAction } from '@/shared/types/api'
 import { DatasetDrawer } from '../components/DatasetDrawer'
 import { DownloadChart } from '../components/DownloadChart'
 import { useAuditLogs } from '../hooks/useAdminLogs'
+import { pesanGagalMuat } from '../lib/queryError'
 
 /**
  * Dashboard panel admin.
@@ -56,6 +58,35 @@ export default function AdminDashboardPage() {
   return (
     <div className="flex flex-col gap-3.5">
       <Reveal>
+        {/*
+          Satu panel menggantikan seluruh baris kartu, bukan tanda hubung di
+          masing-masing.
+
+          Lima kartu bertuliskan "—" terbaca seperti angka yang kebetulan
+          belum terisi, dan itu persis yang terjadi ketika back-end mati:
+          layarnya tidak mengatakan apa-apa, dan yang melihatnya harus
+          bertanya kepada orang lain untuk tahu sebabnya.
+
+          Kalimatnya pun tidak muat di dalam kartu selebar itu, sedangkan
+          justru kalimat itulah yang berguna: untuk 403, back-end menyebut
+          bahwa akunnya belum terhubung ke divisi di HRIS sekaligus jalan
+          keluarnya.
+        */}
+        {stats.isError ? (
+          <div className="rounded-lg border border-[#FECDCA] bg-[#FEF3F2] p-5 sm:p-[22px_20px]">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle className="mt-0.5 size-5 shrink-0 text-[#B4231B]" />
+              <div>
+                <div className="text-[16px] font-bold text-[#B4231B]">
+                  Angka dasbor gagal dimuat
+                </div>
+                <p className="mt-1 text-[14.5px] leading-[1.45] text-[#7A2E29]">
+                  {pesanGagalMuat(stats.error)}
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
         <div className="grid gap-3.5 sm:grid-cols-2 xl:grid-cols-5">
           {cards.map((k, i) => (
             <Reveal key={k.label} delay={Math.min(i, 4) * 60} className="min-w-0">
@@ -68,6 +99,7 @@ export default function AdminDashboardPage() {
             </Reveal>
           ))}
         </div>
+        )}
       </Reveal>
 
       {/*
@@ -105,6 +137,11 @@ export default function AdminDashboardPage() {
             <div className="min-h-0 flex-1 overflow-y-auto">
             {latest.isPending ? (
               <Message>Memuat…</Message>
+            ) : latest.isError ? (
+              // Diperiksa sebelum "kosong": permintaan yang gagal juga
+              // menghasilkan daftar kosong, dan tanpa cabang ini kegagalannya
+              // terbaca sebagai "Belum ada dataset".
+              <Message>{pesanGagalMuat(latest.error)}</Message>
             ) : (latest.data?.content ?? []).length === 0 ? (
               <Message>Belum ada dataset.</Message>
             ) : (

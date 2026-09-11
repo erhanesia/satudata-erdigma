@@ -32,6 +32,7 @@ import type { AccessRule, DatasetLite } from "@/shared/types/api";
 import { DatasetDrawer } from "../components/DatasetDrawer";
 import { FormatBadge } from "../components/FormatBadge";
 import { seesEveryDivision } from "../lib/adminScope";
+import { pesanGagalMuat } from "../lib/queryError";
 import { useJobLevels } from "../hooks/useAccessOptions";
 import { useDatasetAdmin } from "../hooks/useDatasetAdmin";
 
@@ -451,6 +452,17 @@ export default function AdminDatasetPage() {
           >
             {datasets.isPending ? (
               <CardNote>Memuat…</CardNote>
+            ) : datasets.isError ? (
+              /*
+                Galat DIPERIKSA sebelum "kosong", dan urutannya menentukan.
+
+                Permintaan yang gagal membuat `rows` kosong, jadi kalau
+                cabang kosong diperiksa lebih dulu, kegagalan apa pun akan
+                terbaca sebagai "Tidak ada dataset". Itu pernyataan tentang
+                isi sistem, bukan tentang koneksi, dan yang membacanya bisa
+                menyimpulkan datanya memang belum ada.
+              */
+              <CardNote>{pesanGagalMuat(datasets.error)}</CardNote>
             ) : rows.length === 0 ? (
               <CardNote>
                 {hasFilter
@@ -577,6 +589,9 @@ export default function AdminDatasetPage() {
               <tbody>
                 {datasets.isPending ? (
                   <Message>Memuat…</Message>
+                ) : datasets.isError ? (
+                  // Alasannya sama dengan pada tampilan kartu di atas.
+                  <Message>{pesanGagalMuat(datasets.error)}</Message>
                 ) : rows.length === 0 ? (
                   <Message>
                     {hasFilter
