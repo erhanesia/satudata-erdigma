@@ -1,3 +1,4 @@
+import { MotionConfig } from 'motion/react'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { RouterProvider } from 'react-router-dom'
@@ -59,7 +60,45 @@ if (lanjutkanRender) {
       <StrictMode>
         <AppErrorBoundary>
           <QueryProvider>
-            <RouterProvider router={router} />
+            {/*
+              Preferensi "kurangi animasi" dihormati untuk animasi Motion.
+
+              Blok @media prefers-reduced-motion di styles/index.css TIDAK
+              menjangkau animasi ini. Yang dimatikannya `animation-duration`
+              dan `transition-duration`, yaitu animasi dan transisi CSS,
+              sedangkan Motion menggerakkan gaya sebaris lewat JavaScript dan
+              Web Animations API. Keduanya bukan animasi CSS, jadi aturan itu
+              lewat begitu saja.
+
+              Bawaan Motion `reducedMotion: "never"`, artinya setelan
+              perangkat diabaikan sepenuhnya sampai ada yang menyuruhnya
+              sebaliknya. Bisa dibaca di context/MotionConfigContext.
+
+              Dipasang di akar, bukan pada komponen yang dilaporkan. Yang
+              keliru bukan tempat-tempat itu melainkan setelan bawaannya, dan
+              setelan itu berlaku untuk seluruh aplikasi. Memperbaikinya
+              setempat berarti setiap animasi baru harus mengingat hal yang
+              sama lagi, dan yang lupa tidak mendapat peringatan apa pun.
+
+              Hari ini yang benar-benar berubah cuma satu tempat, yaitu baris
+              berkas pada formulir dataset, yang menggeser y dan menyusutkan
+              tingginya. Baris tabel di panel admin hanya memudarkan opacity,
+              dan itu memang TIDAK ikut dimatikan.
+
+              "user" mematikan yang benar-benar memicu keluhan, yaitu yang
+              menggeser dan mengubah ukuran: motion-dom memakainya untuk
+              melangkahi positionalKeys, yaitu width, height, top, left,
+              right, bottom, dan seluruh properti transform, sekaligus
+              membuat animasi layout langsung ke keadaan akhirnya.
+
+              Opacity SENGAJA tidak ikut dimatikan. Memudar tidak menimbulkan
+              rasa pusing, dan panduan aksesibilitas justru menyarankannya
+              sebagai PENGGANTI gerak. Mematikannya membuat baris muncul dan
+              hilang begitu saja, dan justru itu yang sulit diikuti mata.
+            */}
+            <MotionConfig reducedMotion="user">
+              <RouterProvider router={router} />
+            </MotionConfig>
           </QueryProvider>
         </AppErrorBoundary>
       </StrictMode>,
