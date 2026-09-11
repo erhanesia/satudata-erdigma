@@ -271,6 +271,19 @@ export function FileRow({
               <span className="mt-1 inline-flex items-center rounded-full bg-[#F1F3F7] px-2.5 py-1 text-[12px] font-medium text-[#9CA3AF] sm:mt-0 sm:ml-2 sm:align-middle">
                 sudah sekecil yang bisa
               </span>
+            ) : rows.compressionFailed ? (
+              /*
+                Kegagalan disebut apa adanya, dan warnanya pun berbeda.
+
+                Berkasnya tetap terkirim, jadi ini bukan galat yang
+                menghalangi. Tetapi menyamarkannya sebagai "sudah sekecil yang
+                bisa" berarti berbohong tentang berkas yang bahkan belum sempat
+                diperiksa, dan penerbit yang membacanya tidak akan mencoba lagi
+                padahal percobaan kedua kerap berhasil.
+              */
+              <span className="mt-1 inline-flex items-center rounded-full bg-[#FEF6E7] px-2.5 py-1 text-[12px] font-medium text-[#B45309] sm:mt-0 sm:ml-2 sm:align-middle">
+                gagal dikecilkan, dikirim apa adanya
+              </span>
             ) : null}
           </span>
         </div>
@@ -379,6 +392,7 @@ export function FileRow({
                 compressing: akanDikecilkan,
                 originalSize: undefined,
                 compressionFutile: false,
+                compressionFailed: false,
               });
               if (!akanDikecilkan) return;
 
@@ -389,7 +403,19 @@ export function FileRow({
                   file: hasil.file,
                   originalSize: hasil.originalSize,
                   compressing: false,
-                  compressionFutile: hasil.originalSize === undefined,
+                  /*
+                    "Sudah sekecil yang bisa" hanya diucapkan kalau
+                    pemeriksaannya benar-benar selesai.
+
+                    Kegagalan worker dan hasil yang memang tidak bisa dikurangi
+                    sama-sama mengembalikan berkas asli tanpa `originalSize`.
+                    Menyamakan keduanya berarti berkas yang bahkan tidak pernah
+                    selesai diperiksa dinyatakan sudah padat, dan orang yang
+                    membacanya berhenti mencoba.
+                  */
+                  compressionFutile:
+                    hasil.originalSize === undefined && !hasil.failed,
+                  compressionFailed: hasil.failed ?? false,
                 });
               });
             }}

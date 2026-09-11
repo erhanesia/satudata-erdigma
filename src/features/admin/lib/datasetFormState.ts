@@ -97,6 +97,19 @@ export interface FileRowState {
    * padahal ia sudah berjalan dan memang tidak menemukan apa-apa.
    */
   compressionFutile?: boolean;
+  /**
+   * Pengecilan dicoba dan GAGAL di tengah jalan.
+   *
+   * Dipisahkan dari {@link compressionFutile} karena keduanya menghasilkan
+   * keadaan yang sama persis, yaitu berkas asli tanpa ukuran sebelumnya,
+   * padahal artinya berlawanan. Yang pertama berarti berkasnya memang sudah
+   * padat; yang ini berarti kita tidak tahu apa-apa tentang berkasnya.
+   *
+   * Menyamakan keduanya membuat layar mengucapkan kalimat yang salah pada saat
+   * yang paling menentukan, karena "sudah sekecil yang bisa" menghentikan
+   * orang dari mencoba lagi.
+   */
+  compressionFailed?: boolean;
 }
 
 let order = 0;

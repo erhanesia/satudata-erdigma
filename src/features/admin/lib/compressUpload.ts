@@ -57,6 +57,16 @@ export interface CompressionOutcome {
   file: File
   /** Ukuran sebelum dikecilkan, atau undefined bila tidak ada yang berubah. */
   originalSize?: number
+  /**
+   * Pengecilannya berhenti karena galat.
+   *
+   * Harus dibedakan dari berhasil tetapi tidak ada yang bisa dikurangi, walau
+   * keduanya sama-sama mengembalikan berkas asli tanpa `originalSize`. Tanpa
+   * pembedaan ini, layar mengucapkan "sudah sekecil yang bisa" untuk berkas
+   * yang bahkan tidak pernah selesai diperiksa, dan kalimat itu menghentikan
+   * orang dari mencoba lagi.
+   */
+  failed?: boolean
 }
 
 /**
@@ -139,18 +149,21 @@ async function jalankan(file: File, kind: string): Promise<CompressionOutcome> {
     const id = (berikutnya += 1)
     const bytes = await file.arrayBuffer()
 
-    const hasil = await new Promise<ArrayBuffer | null>((resolve, reject) => {
+    const jawaban = await new Promise<WorkerResponse>((resolve, reject) => {
       worker!.onmessage = (event: MessageEvent<WorkerResponse>) => {
         if (event.data.id !== id) return
-        resolve(event.data.bytes)
+        resolve(event.data)
       }
       worker!.onerror = () => reject(new Error('worker gagal'))
       worker!.postMessage({ id, kind, bytes } satisfies WorkerRequest, [bytes])
     })
 
-    if (!hasil) return { file }
+    // Seluruh jawabannya dibawa, bukan byte-nya saja, supaya sebab "tidak ada
+    // hasil" tidak hilang di perjalanan.
+    if (jawaban.failed) return { file, failed: true }
+    if (!jawaban.bytes) return { file }
 
-    const kecil = new File([hasil], file.name, {
+    const kecil = new File([jawaban.bytes], file.name, {
       type: file.type,
       lastModified: file.lastModified,
     })
@@ -162,7 +175,10 @@ async function jalankan(file: File, kind: string): Promise<CompressionOutcome> {
 
     return { file: kecil, originalSize: file.size }
   } catch {
-    return { file }
+    // Worker yang tidak bisa dibuat sama sekali, atau yang mati di tengah
+    // jalan. Berkas aslinya tetap dikirim, tetapi ini kegagalan dan bukan
+    // hasil pemeriksaan.
+    return { file, failed: true }
   } finally {
     worker?.terminate()
   }

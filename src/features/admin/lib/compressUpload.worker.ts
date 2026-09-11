@@ -141,6 +141,14 @@ export interface WorkerRequest {
 export interface WorkerResponse {
   id: number
   bytes: ArrayBuffer | null
+  /**
+   * Pengecilannya berhenti karena galat, bukan karena tidak ada yang bisa
+   * dikurangi.
+   *
+   * `bytes: null` saja tidak cukup membedakan keduanya, padahal keduanya
+   * berarti hal yang sangat berbeda bagi yang membacanya di layar.
+   */
+  failed?: boolean
 }
 
 self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
@@ -218,8 +226,14 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
     )
   } catch {
     // Gagal ke arah mengirim berkas ASLI. Berkas setengah jadi jauh lebih
-    // buruk daripada berkas yang tidak jadi dikecilkan.
-    ;(self as unknown as Worker).postMessage({ id, bytes: null } satisfies WorkerResponse)
+    // buruk daripada berkas yang tidak jadi dikecilkan. Tetapi sebabnya ikut
+    // dilaporkan, supaya layar tidak mengaku berkasnya sudah sekecil yang bisa
+    // padahal pengecilannya tidak pernah selesai.
+    ;(self as unknown as Worker).postMessage({
+      id,
+      bytes: null,
+      failed: true,
+    } satisfies WorkerResponse)
   }
 }
 
@@ -283,8 +297,13 @@ async function kecilkanCsv(id: number, bytes: ArrayBuffer) {
     )
   } catch {
     // Peramban tanpa CompressionStream, atau apa pun yang gagal: kirim
-    // berkas aslinya. Gagal ke arah mengirim yang asli.
-    ;(self as unknown as Worker).postMessage({ id, bytes: null } satisfies WorkerResponse)
+    // berkas aslinya. Gagal ke arah mengirim yang asli, dengan sebabnya ikut
+    // disebutkan.
+    ;(self as unknown as Worker).postMessage({
+      id,
+      bytes: null,
+      failed: true,
+    } satisfies WorkerResponse)
   }
 }
 
