@@ -1,4 +1,5 @@
 import {
+  PDFArray,
   PDFDict,
   PDFDocument,
   PDFName,
@@ -317,6 +318,31 @@ function sourceOf(
     return null
   }
 
+  /*
+    Gambar berprediktor dilewati, dan ini WAJIB diperiksa sendiri.
+
+    `decodePDFRawStream` cuma membuka Flate-nya. Isi pdf-lib bisa dibaca
+    langsung di core/streams/decode.js: untuk FlateDecode ia mengembalikan
+    `new FlateStream(stream)` dan parameter /DecodeParms tidak pernah dipakai
+    sama sekali. Tidak ada PredictorStream di dalam pustakanya.
+
+    Akibatnya senyap, dan itu yang membuatnya berbahaya. Prediktor PNG
+    menambahkan satu byte penanda di depan SETIAP baris, jadi hasilnya justru
+    LEBIH panjang daripada width * height * components. Pemeriksaan panjang di
+    bawah ikut lolos, penanda barisnya terbaca sebagai piksel, dan setiap baris
+    bergeser satu byte terhadap baris sebelumnya. Yang tersimpan gambar yang
+    warnanya berantakan, tanpa satu pun galat.
+
+    Prediktornya tidak diterapkan sendiri di sini, dan itu pilihan sadar:
+    menuliskannya berarti menambah penyandi yang salahnya juga senyap, demi
+    gambar yang belum tentu ada. Melewatinya cuma kehilangan penghematan, dan
+    itu jauh lebih murah daripada berkas yang rusak.
+  */
+  if (usesPredictor(dict)) {
+    if (stats) stats.unsupported++
+    return null
+  }
+
   const components = componentsOf(dict)
   if (components === null || numberOf(dict, 'BitsPerComponent') !== 8) {
     if (stats) stats.unsupported++
@@ -353,6 +379,33 @@ function sourceOf(
 
   if (stats) stats.flate++
   return { kind: 'raw', samples, width, height, components }
+}
+
+/**
+ * Apakah stream ini memakai prediktor.
+ *
+ * Tidak adanya /Predictor berarti 1, yaitu tanpa prediktor, dan itu bentuk
+ * yang paling umum. Nilai apa pun selain angka 1 dianggap memakai prediktor,
+ * termasuk nilai yang bentuknya tidak terduga: kamus yang aneh lebih baik
+ * dilewati daripada ditebak.
+ *
+ * /DecodeParms boleh berupa kamus tunggal atau larik yang sejajar dengan larik
+ * /Filter. Keduanya ditangani, walau yang sampai ke sini seharusnya hanya
+ * bentuk pertama karena penyaring berlarik sudah ditolak di atas.
+ */
+function usesPredictor(dict: PDFDict): boolean {
+  const parms = dict.lookup(PDFName.of('DecodeParms'))
+  const daftar: unknown[] =
+    parms instanceof PDFArray
+      ? Array.from({ length: parms.size() }, (_, i) => parms.lookup(i))
+      : [parms]
+
+  return daftar.some((p) => {
+    if (!(p instanceof PDFDict)) return false
+    const nilai = p.lookup(PDFName.of('Predictor'))
+    if (nilai === undefined || nilai === null) return false
+    return !(nilai instanceof PDFNumber) || nilai.asNumber() !== 1
+  })
 }
 
 /**
