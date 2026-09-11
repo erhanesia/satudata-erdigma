@@ -79,12 +79,27 @@ const MIN_PIXELS = 64 * 64
 const MIN_SAVING = 0.15
 
 /**
- * Gambar raksasa dilewati.
+ * Gambar raksasa dilewati, apa pun penyaringnya.
  *
- * Berbeda dengan jalur JPEG, gambar Flate harus dibentangkan pada ukuran
- * penuh lebih dulu karena tidak ada cara meminta pembacaan yang lebih jarang.
  * Satu gambar 40 megapiksel menempati sekitar 160 juta byte sebagai RGBA, dan
  * itu sudah cukup untuk menjatuhkan tab pada laptop yang sedang sibuk.
+ *
+ * <h2>Kenapa JPEG ikut dibatasi</h2>
+ *
+ * Semula batas ini hanya dipasang pada jalur Flate, dengan alasan JPEG bisa
+ * diminta dibaca lebih jarang. Alasan itu keliru: `createImageBitmap` tidak
+ * menjanjikan pembacaan bertingkat, dan opsi `resizeWidth` menyusutkan
+ * SETELAH gambarnya dibentangkan utuh.
+ *
+ * Justru JPEG yang lebih berbahaya, karena rasio kompresinya menyembunyikan
+ * ukuran sesungguhnya. Bidang warna rata 20000x20000 piksel muat dalam
+ * beberapa ratus kilobyte, sehingga ia lolos MIN_BYTES dengan mudah, lalu
+ * menuntut 1,6 gigabyte begitu dibentangkan. Gambar Flate setidaknya
+ * mengumumkan ukurannya dengan menjadi besar di dalam berkas.
+ *
+ * Karena itu batasnya dipasang di perulangan utama dan dibaca dari /Width
+ * dan /Height pada kamusnya, sehingga tidak ada satu byte gambar pun yang
+ * dibongkar sebelum ukurannya diketahui.
  */
 const MAX_PIXELS = 40_000_000
 
@@ -206,6 +221,18 @@ export async function compressPdfBytes(
     }
 
     /*
+      Batas atas dipasang di sini, bukan di dalam sourceOf, supaya ia berlaku
+      untuk jalur JPEG maupun Flate.
+
+      Yang dibaca keterangan /Width dan /Height, jadi keputusannya diambil
+      tanpa menyentuh satu byte pun isi gambarnya. Lihat MAX_PIXELS.
+    */
+    if (width * height > MAX_PIXELS) {
+      if (stats) stats.huge++
+      continue
+    }
+
+    /*
       Gerbangnya byte, bukan piksel.
 
       Gambar yang dimensinya sudah kecil TETAP diproses, karena penghematan
@@ -287,16 +314,6 @@ function sourceOf(
 
   if (filter !== '/FlateDecode') {
     if (stats) stats.unsupported++
-    return null
-  }
-
-  /*
-    Gambar Flate harus dibentangkan pada ukuran penuh, tidak seperti JPEG yang
-    bisa diminta dibaca lebih jarang. Yang terlalu besar dilewati sebelum
-    memori sempat dialokasikan, bukan sesudah.
-  */
-  if (width * height > MAX_PIXELS) {
-    if (stats) stats.huge++
     return null
   }
 
