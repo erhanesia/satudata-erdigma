@@ -81,6 +81,16 @@ function kindFromStatus(status: number): ApiErrorKind {
   if (status === 403) return 'forbidden'
   if (status === 404) return 'notFound'
   if (status === 400 || status === 422) return 'validation'
+  /*
+    413 digolongkan sebagai validasi, bukan galat tak dikenal.
+
+    Dari sudut pandang yang mengunggah, unggahan yang kebesaran memang
+    persoalan isian yang bisa ia perbaiki sendiri, sama seperti ruas yang
+    salah format. Tanpa baris ini golongannya jatuh ke 'unknown', dan pesan
+    bawaannya berbunyi "Terjadi kesalahan yang tidak diketahui" untuk
+    sesuatu yang justru sangat diketahui sebabnya.
+  */
+  if (status === 413) return 'validation'
   if (status >= 500) return 'server'
   return 'unknown'
 }
@@ -97,6 +107,19 @@ function kindFromStatus(status: number): ApiErrorKind {
 const MESSAGE_KEYS = ['error', 'message'] as const
 
 function readServerMessage(data: unknown): string | null {
+  /*
+    Halaman galat milik proxy DITOLAK, bukan ditampilkan.
+
+    Di produksi ada nginx di depan aplikasi, dan nginx menjawab permintaan
+    yang melampaui client_max_body_size dengan halaman HTML-nya sendiri,
+    bukan dengan JSON. Panjangnya kebetulan di bawah 300 karakter, jadi
+    tanpa penjagaan ini potongan HTML mentah bertuliskan
+    "<html><head><title>413 Request Entity Too Large</title>..." akan
+    dirender apa adanya sebagai pesan galat ke pengguna.
+
+    Berlaku untuk halaman galat proxy apa pun, bukan cuma yang 413.
+  */
+  if (typeof data === 'string' && data.trimStart().startsWith('<')) return null
   if (typeof data === 'string' && data.length > 0 && data.length <= 300) return data
   if (data && typeof data === 'object') {
     for (const key of MESSAGE_KEYS) {

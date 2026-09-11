@@ -1,3 +1,4 @@
+import { AnimatePresence } from "motion/react";
 import { Check, Loader2, Plus, Save, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -194,19 +195,30 @@ function EditForm({ dataset }: { dataset: Dataset }) {
             description="Berkas yang sudah tersimpan dimuat di bawah. Tambahkan, ganti namanya, ganti isinya, atau buang."
           />
 
-          {files.map((b, i) => (
-            <FileRow
-              key={b.rowKey}
-              rows={b}
-              rowNumber={i + 1}
-              onChangeRow={(u) => change(b.rowKey, u)}
-              onRemove={() =>
-                setFiles((previous) =>
-                  previous.filter((x) => x.rowKey !== b.rowKey),
-                )
-              }
-            />
-          ))}
+          {/*
+            initial={false} supaya baris yang SUDAH ada saat halaman dibuka
+            tidak ikut beranimasi masuk.
+
+            Terasa di formulir sunting, yang memuat berkas tersimpan sejak
+            awal: tanpa ini, membuka halaman sunting menampilkan lima baris
+            yang merayap masuk satu per satu, seolah baru saja ditambahkan
+            oleh orang yang membukanya.
+          */}
+          <AnimatePresence initial={false}>
+            {files.map((b, i) => (
+              <FileRow
+                key={b.rowKey}
+                rows={b}
+                rowNumber={i + 1}
+                onChangeRow={(u) => change(b.rowKey, u)}
+                onRemove={() =>
+                  setFiles((previous) =>
+                    previous.filter((x) => x.rowKey !== b.rowKey),
+                  )
+                }
+              />
+            ))}
+          </AnimatePresence>
 
           {files.length < MAX_FILES ? (
             <button
