@@ -177,19 +177,32 @@ export function fileBlocker(files: FileRowState[]): string | null {
   if (files.some((b) => (b.file?.size ?? 0) > MAX_BYTES))
     return `Ada file melebihi ${formatBytes(MAX_BYTES)}`;
   /*
-    Hanya berkas BARU yang terhitung di sini.
+    Berkas lama yang dipertahankan ikut dihitung.
 
-    Server menghitung berkas lama yang dipertahankan juga, karena batasnya
-    milik dataset dan bukan milik satu permintaan. Formulir ini tidak selalu
-    tahu ukuran berkas lama, jadi ia sengaja menghitung lebih longgar:
-    menahan yang jelas-jelas melampaui, dan menyerahkan sisanya ke server.
+    Batas totalnya milik DATASET, bukan milik satu permintaan, dan begitulah
+    server menghitungnya: ukuran berkas yang tetap dipertahankan dijumlahkan
+    bersama yang baru diunggah. Formulir yang cuma menjumlahkan berkas baru
+    meloloskan dataset 50 MB yang ditambahi berkas 15 MB, dan penolakannya baru
+    datang setelah 15 MB itu benar-benar terkirim.
 
-    Lebih longgar, bukan lebih ketat, dan itu disengaja. Penjagaan di klien
-    yang menolak lebih banyak daripada server akan memblokir unggahan yang
-    sebenarnya sah, dan orangnya tidak punya cara membuktikan sebaliknya.
+    Ukuran berkas lama memang ada di tangan: `existingSize` diisi dari
+    `sizeBytes` milik tiap berkas yang sudah tersimpan, dan angka itu sudah
+    dipakai menampilkan ukurannya di baris yang sama.
+
+    Baris yang berkasnya DIGANTI hanya menghitung berkas barunya. Yang lama
+    dilepas server dalam transaksi yang sama, jadi menjumlahkan keduanya akan
+    menolak penggantian yang sebenarnya tidak menambah apa-apa.
+
+    Kalau ukuran lamanya tidak diketahui, yang terpakai nol. Penjagaan di klien
+    boleh lebih longgar daripada server, tetapi tidak boleh lebih ketat: yang
+    menolak lebih banyak daripada server akan memblokir unggahan yang sah, dan
+    orangnya tidak punya cara membuktikan sebaliknya.
   */
-  const totalBaru = files.reduce((jumlah, b) => jumlah + (b.file?.size ?? 0), 0);
-  if (totalBaru > MAX_TOTAL_BYTES)
+  const total = files.reduce(
+    (jumlah, b) => jumlah + (b.file?.size ?? b.existingSize ?? 0),
+    0,
+  );
+  if (total > MAX_TOTAL_BYTES)
     return `Total ukuran file melebihi ${formatBytes(MAX_TOTAL_BYTES)}`;
   return null;
 }
