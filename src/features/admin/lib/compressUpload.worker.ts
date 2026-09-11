@@ -167,6 +167,7 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       small: 0,
       tiny: 0,
       huge: 0,
+      mask: 0,
       noGain: 0,
       imageBytes: 0,
     }
@@ -206,6 +207,7 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
         `byteKecil=${stats.small}`,
         `mungil=${stats.tiny}`,
         `raksasa=${stats.huge}`,
+        `topeng=${stats.mask}`,
         `takUntung=${stats.noGain}`,
       ].join(' '),
     )

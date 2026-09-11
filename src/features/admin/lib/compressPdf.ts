@@ -5,6 +5,7 @@ import {
   PDFName,
   PDFNumber,
   PDFRawStream,
+  PDFRef,
   decodePDFRawStream,
 } from 'pdf-lib'
 
@@ -164,6 +165,8 @@ export interface PdfScanStats {
   small: number
   tiny: number
   huge: number
+  /** Dipakai sebagai topeng kebeningan, jadi tidak boleh disentuh. */
+  mask: number
   /** Hasilnya tidak cukup lebih kecil, jadi yang asli dipertahankan. */
   noGain: number
   imageBytes: number
@@ -201,6 +204,8 @@ export async function compressPdfBytes(
     langsung sudah rata, jadi gambar yang sama ditemukan sekali di mana pun ia
     dipakai, dan mengganti isinya otomatis berlaku untuk seluruh rujukannya.
   */
+  const masks = maskRefs(doc)
+
   for (const [ref, obj] of doc.context.enumerateIndirectObjects()) {
     if (!(obj instanceof PDFRawStream)) continue
 
@@ -210,6 +215,34 @@ export async function compressPdfBytes(
     if (stats) {
       stats.images++
       stats.imageBytes += obj.contents.length
+    }
+
+    /*
+      Gambar yang dipakai sebagai topeng kebeningan TIDAK boleh disentuh.
+
+      Ia sebuah gambar biasa dilihat dari kamusnya, /Subtype /Image, jadi
+      perulangan ini menemukannya seperti gambar lain. Bedanya, isinya bukan
+      warna melainkan tingkat kebeningan tiap piksel gambar induknya.
+
+      Spesifikasi PDF mewajibkan topeng semacam itu berruang warna DeviceGray.
+      Menuliskannya ulang sebagai JPEG DeviceRGB, seperti yang dilakukan
+      jpegDict pada gambar biasa, menghasilkan topeng yang tidak sah. Yang
+      muncul di penampil bukan galat melainkan kotak gelap di tempat yang
+      seharusnya bening, dan ekspor Canva penuh lapisan bertransparansi
+      semacam itu.
+
+      Kenapa tidak disandikan ulang sebagai JPEG abu-abu saja: canvas peramban
+      selalu mengeluarkan JPEG tiga kanal. Menyebutnya DeviceGray sementara
+      isinya tiga kanal sama saja menukar satu berkas rusak dengan berkas rusak
+      yang lain.
+
+      Yang hilang cuma penghematan dari topengnya sendiri. Gambar induknya
+      tetap dikecilkan, dan ukuran keduanya memang tidak wajib sama: penampil
+      yang menskalakan topeng terhadap induknya.
+    */
+    if (masks.has(ref.toString())) {
+      if (stats) stats.mask++
+      continue
     }
 
     const width = numberOf(dict, 'Width')
@@ -382,6 +415,36 @@ function sourceOf(
 }
 
 /**
+ * Seluruh objek yang dirujuk sebagai topeng oleh objek mana pun.
+ *
+ * Dikumpulkan lebih dulu dalam satu lintasan, bukan diperiksa saat gambarnya
+ * ditemukan, karena arah rujukannya terbalik: yang menyebut sebuah objek
+ * sebagai topeng adalah gambar INDUKNYA, dan induk itu bisa saja ditemukan
+ * belakangan.
+ *
+ * /Mask ikut dikumpulkan walau topeng stensil umumnya sudah tertahan
+ * pemeriksaan /ImageMask. Ongkosnya satu baris, dan yang dijaga sama.
+ */
+function maskRefs(doc: PDFDocument): Set<string> {
+  const hasil = new Set<string>()
+
+  for (const [, obj] of doc.context.enumerateIndirectObjects()) {
+    const dict =
+      obj instanceof PDFRawStream ? obj.dict : obj instanceof PDFDict ? obj : null
+    if (!dict) continue
+
+    for (const kunci of ['SMask', 'Mask']) {
+      // Sengaja get, bukan lookup: yang dicari justru RUJUKANNYA, bukan objek
+      // yang ditunjuknya.
+      const nilai = dict.get(PDFName.of(kunci))
+      if (nilai instanceof PDFRef) hasil.add(nilai.toString())
+    }
+  }
+
+  return hasil
+}
+
+/**
  * Apakah stream ini memakai prediktor.
  *
  * Tidak adanya /Predictor berarti 1, yaitu tanpa prediktor, dan itu bentuk
@@ -454,6 +517,11 @@ function componentsOf(dict: PDFDict): 1 | 3 | null {
  * berisi tingkat kebeningan tiap piksel, dan menurut spesifikasi PDF ukurannya
  * tidak wajib sama dengan gambar induknya: penampil yang menskalakannya. Ini
  * penting untuk ekspor Canva, yang penuh lapisan bertransparansi.
+ *
+ * Perhatikan bahwa fungsi ini TIDAK pernah dipanggil untuk topeng itu sendiri.
+ * Objek yang dirujuk sebagai /SMask dilewati sejak di perulangan utama, karena
+ * ruang warnanya wajib abu-abu sementara tulisan ulang di sini selalu
+ * menghasilkan DeviceRGB.
  */
 function jpegDict(
   doc: PDFDocument,
